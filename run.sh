@@ -21,7 +21,7 @@ cmd_run() {
   local my_args="-m 4G -smp 4 -hda nbd://localhost"
 
   if [ "$1" == "--uefi" ]; then
-    my_args="$my_args -pflash tools/bios.bin"
+    my_args="$my_args -drive file=tools/bios.bin,if=pflash,readonly=true"
     shift
   fi
 
