@@ -2,32 +2,40 @@
 
 set -e -o pipefail
 
-cmd_mount() {
-  local disk_identifier=$1
-  if [ -z "$disk_identifier" ]; then
-    echo "Missing disk identifier"
-    exit 1
-  fi
-  echo "Mounting $disk_identifier as NBD..."
-  diskutil umountdisk force $disk_identifier && sudo qemu-nbd -t -f raw /dev/$disk_identifier
-}
-
 cmd_run() {
   if [ ! hash qemu-system-x86_64 2>/dev/null ]; then
     echo "Missing qemu-system-x86_64"
     exit 1
   fi
 
-  local my_args="-m 4G -smp 4 -hda nbd://localhost -hdb fat:rw:./tools"
+  local with_tools=y
+  local target=
+  local my_args="-m 4G -smp 4"
 
   while [ -n "$1" ]; do
     case "$1" in
+      --no-tools)
+        with_tools=
+        shift
+        ;;
+      --target)
+        if [ "$#" -lt 2 ]; then
+          echo "Missing argument for --target"
+          exit 1
+        fi
+        target=$2
+        shift 2
+        ;;
       --uefi)
         my_args="$my_args -drive file=tools/bios.bin,if=pflash,readonly=true"
         shift
         ;;
       --cdrom)
-        my_args="$my_args -cdrom $2 -boot menu=on"
+        if [ "$#" -lt 2 ]; then
+          echo "Missing argument for --cdrom"
+          exit 1
+        fi
+        my_args="$my_args -cdrom $2 -boot order=d"
         shift 2
         ;;
       *)
@@ -36,12 +44,25 @@ cmd_run() {
     esac
   done
 
-  if [ -n "$my_args" ]; then
-    echo "QEMU args: $my_args"
+  if [ -z "$target" ]; then
+    echo "Missing target"
+    exit 1
   fi
 
+  my_args="$my_args -hda /dev/$target"
+
+  if [ -n "$with_tools" ]; then
+    my_args="$my_args -hdb fat:rw:./tools"
+  fi
+
+  my_args="$my_args $@"
+
+  echo "Unmounting disks..."
+  diskutil umountDisk force "$target"
+
+  echo "QEMU args: $my_args"
   echo "Running qemu-system-x86_64..."
-  qemu-system-x86_64 $my_args $@
+  qemu-system-x86_64 $my_args
 }
 
 cmd_install() {
@@ -59,8 +80,7 @@ cmd_install() {
 
 print_usage() {
   echo "Usage:"
-  echo "  $0 run [options]"
-  echo "  $0 mount <disk_identifier>"
+  echo "  $0 run [--target <target> | --uefi | --cdrom <iso> | --no-tools] [...args]"
   echo "  $0 install <target>"
 }
 
