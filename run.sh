@@ -18,12 +18,23 @@ cmd_run() {
     exit 1
   fi
 
-  local my_args="-m 4G -smp 4 -hda nbd://localhost"
+  local my_args="-m 4G -smp 4 -hda nbd://localhost -hdb fat:rw:./tools"
 
-  if [ "$1" == "--uefi" ]; then
-    my_args="$my_args -drive file=tools/bios.bin,if=pflash,readonly=true"
-    shift
-  fi
+  while [ -n "$1" ]; do
+    case "$1" in
+      --uefi)
+        my_args="$my_args -drive file=tools/bios.bin,if=pflash,readonly=true"
+        shift
+        ;;
+      --cdrom)
+        my_args="$my_args -cdrom $2 -boot menu=on"
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
 
   if [ -n "$my_args" ]; then
     echo "QEMU args: $my_args"
