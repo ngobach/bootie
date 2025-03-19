@@ -10,7 +10,7 @@ cmd_run() {
 
   local with_tools=y
   local target=
-  local my_args="-m 4G -smp 4"
+  local my_args=""
 
   while [ -n "$1" ]; do
     case "$1" in
@@ -27,16 +27,8 @@ cmd_run() {
         shift 2
         ;;
       --uefi)
-        my_args="$my_args -drive file=tools/bios.bin,if=pflash,readonly=true"
+        my_args="$my_args -drive file=qemu-utils/bios.bin,if=pflash,format=raw,readonly=true"
         shift
-        ;;
-      --cdrom)
-        if [ "$#" -lt 2 ]; then
-          echo "Missing argument for --cdrom"
-          exit 1
-        fi
-        my_args="$my_args -cdrom $2 -boot order=d"
-        shift 2
         ;;
       *)
         break
@@ -44,25 +36,47 @@ cmd_run() {
     esac
   done
 
-  if [ -z "$target" ]; then
-    echo "Missing target"
-    exit 1
+  if [ -n "$target" ]; then
+    my_args="$my_args -drive file=/dev/$target,if=ide,format=raw"
   fi
 
-  my_args="$my_args -hda /dev/$target"
-
   if [ -n "$with_tools" ]; then
-    my_args="$my_args -hdb fat:rw:./tools"
+    my_args="$my_args -drive file=fat:rw:./tools,if=ide,format=raw"
   fi
 
   my_args="$my_args $@"
 
-  echo "Unmounting disks..."
-  diskutil umountDisk force "$target"
+  if [ -n "$target" ]; then
+    check_root
+    echo "Unmounting disks $target..."
+    diskutil umountDisk force "$target"
+  fi
 
-  echo "QEMU args: $my_args"
-  echo "Running qemu-system-x86_64..."
-  qemu-system-x86_64 $my_args
+  echo "Running qemu-system-x86_64 with args: $my_args"
+
+  qemu-system-x86_64 \
+    -M q35 \
+    -m 2G \
+    -smp 4 \
+    -monitor none \
+    -boot order=dc \
+    $my_args
+}
+
+cmd_run_arm64() {
+  local bios="/opt/homebrew/Cellar/qemu/9.2.2/share/qemu/edk2-aarch64-code.fd"
+
+  qemu-system-aarch64 \
+    -M virt,accel=hvf,highmem=off \
+    -cpu cortex-a76 \
+    -m 2G \
+    -smp 2 \
+    -nographic \
+    -monitor none \
+    -bios "$bios" \
+    -nic user,model=virtio-net-pci \
+    -boot order=dc,menu=off \
+    "$@"
 }
 
 cmd_install() {
@@ -80,15 +94,17 @@ cmd_install() {
 
 print_usage() {
   echo "Usage:"
-  echo "  $0 run [--target <target> | --uefi | --cdrom <iso> | --no-tools] [...args]"
+  echo "  $0 run [--target <target> | --uefi | --no-tools] [...args]"
+  echo "  $0 run-arm64 [...args]"
   echo "  $0 install <target>"
 }
 
-# Check root
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root"
-  exit 1
-fi
+check_root() {
+  if [ "$EUID" -ne 0 ]; then
+    echo "Please run as root"
+    exit 1
+  fi
+}
 
 CMD=$1
 
@@ -100,8 +116,8 @@ case "$CMD" in
   run)
     cmd_run $@
     ;;
-  mount)
-    cmd_mount $@
+  run-arm64)
+    cmd_run_arm64 $@
     ;;
   install)
     cmd_install $@
