@@ -57,6 +57,13 @@ cmd_install() {
   ./tools/bootlace.com --gpt "$target"
 }
 
+print_usage() {
+  echo "Usage:"
+  echo "  $0 run [options]"
+  echo "  $0 mount <disk_identifier>"
+  echo "  $0 install <target>"
+}
+
 # Check root
 if [ "$EUID" -ne 0 ]; then
   echo "Please run as root"
@@ -64,10 +71,6 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 CMD=$1
-
-if [ -z "$CMD" ]; then
-  CMD=run
-fi
 
 if [ "$#" -gt 0 ]; then
   shift
@@ -82,6 +85,9 @@ case "$CMD" in
     ;;
   install)
     cmd_install $@
+    ;;
+  help | "")
+    print_usage
     ;;
   *)
     echo "Unknown command: $CMD"
