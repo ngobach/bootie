@@ -4,7 +4,8 @@ Super rescue disk
 Prerequisites
 ----
 
-1. GPT formatted disk
+1. A Linux machine to run bootlace.exe
+1. GPT formatted rescue disk
 1. 64MB gap after partition table for grldr.mbr
 1. FAT32 formatted EFI partition
 1. exFat formatted data partition
