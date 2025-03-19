@@ -1,0 +1,2 @@
+find --set-root /menu.lst
+configfile /menu.lst
