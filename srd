@@ -27,7 +27,7 @@ cmd_run() {
         shift 2
         ;;
       --uefi)
-        my_args="$my_args -drive file=resources/bios.bin,if=pflash,format=raw,readonly=true"
+        my_args="$my_args -bios resources/bios.bin"
         shift
         ;;
       *)
