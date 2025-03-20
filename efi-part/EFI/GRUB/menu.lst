@@ -1,2 +1,2 @@
-find --set-root /menu.lst
+find --devices=h --set-root /menu.lst
 configfile /menu.lst

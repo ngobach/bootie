@@ -15,16 +15,19 @@ map /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
+# https://archive.org/details/windows-7-pesuper-lite-50-mb
 iftitle [if exist /Bootie/win7pe.iso] /Bootie/win7pe.iso
 map /Bootie/win7pe.iso (0xff)
 map --hook
 chainloader (0xff)
 
+# https://vn-z.vn/threads/bo-mini-windows-pe-gom-co-winxpe-7xpe-10xpe-tich-hop-vao-2conglc-boot-qua-trung-thu-cho-mem-vnz.27916/
 iftitle [if exist /Bootie/xpe.iso] /Bootie/xpe.iso
 map /Bootie/xpe.iso (0xff)
 map --hook
 chainloader (0xff)
 
+# https://github.com/a1ive/grub2-filemanager
 iftitle [if exist /Bootie/grubfm.iso] /Bootie/grubfm.iso
 map /Bootie/grubfm.iso (0xff)
 map --hook
