@@ -3,27 +3,34 @@
 timeout 60
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
+default 2
+
+title Bootie boot menu
+pause
+
+title ----
+pause
 
 # https://tpedutw-my.sharepoint.com/personal/hikaricalyx_tp_edu_tw/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fhikaricalyx%5Ftp%5Fedu%5Ftw%2FDocuments%2FHikari%5FPE%5FProject&ga=1
-iftitle [if exist /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso] /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso
+iftitle [if %@UEFI%==64 && if exist /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso] /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso
 map /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
-iftitle [if exist /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso] /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
+iftitle [if %@UEFI%==64 && if exist /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso] /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
 map /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
 # https://archive.org/details/windows-7-pesuper-lite-50-mb
-iftitle [if exist /Bootie/win7pe.iso] /Bootie/win7pe.iso
+iftitle [if not exist @UEFI && if exist /Bootie/win7pe.iso] /Bootie/win7pe.iso
 map /Bootie/win7pe.iso (0xff)
 map --hook
 chainloader (0xff)
 
 # https://vn-z.vn/threads/bo-mini-windows-pe-gom-co-winxpe-7xpe-10xpe-tich-hop-vao-2conglc-boot-qua-trung-thu-cho-mem-vnz.27916/
-iftitle [if exist /Bootie/xpe.iso] /Bootie/xpe.iso
-map /Bootie/xpe.iso (0xff)
+iftitle [if not exist @UEFI && if exist /Bootie/winxpe.iso] /Bootie/winxpe.iso
+map /Bootie/winxpe.iso (0xff)
 map --hook
 chainloader (0xff)
 
