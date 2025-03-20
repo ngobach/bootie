@@ -4,54 +4,43 @@ timeout 60
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
 
-title Hikari PE v9
-find --set-root /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso
+# https://tpedutw-my.sharepoint.com/personal/hikaricalyx_tp_edu_tw/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fhikaricalyx%5Ftp%5Fedu%5Ftw%2FDocuments%2FHikari%5FPE%5FProject&ga=1
+iftitle [if exist /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso] /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso
 map /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
-title Hikari PE v8
-find --set-root /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
+iftitle [if exist /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso] /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
 map /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
-title Windows 7 PE
-find --set-root /Bootie/Windows7PESuperLite50MB.iso
-map /Bootie/Windows7PESuperLite50MB.iso (0xff)
+iftitle [if exist /Bootie/win7pe.iso] /Bootie/win7pe.iso
+map /Bootie/win7pe.iso (0xff)
 map --hook
 chainloader (0xff)
 
-title Windows XP PE (LiveXP)
-find --set-root /Bootie/LiveXP.iso
-map --mem /Bootie/LiveXP.iso (0xff)
+iftitle [if exist /Bootie/xpe.iso] /Bootie/xpe.iso
+map /Bootie/xpe.iso (0xff)
 map --hook
 chainloader (0xff)
 
-title Grub File Manager
-find --set-root /Bootie/grubfm.iso
+iftitle [if exist /Bootie/grubfm.iso] /Bootie/grubfm.iso
 map /Bootie/grubfm.iso (0xff)
 map --hook
 chainloader (0xff)
 
-title ArchOTG
-find --set-root /archotg/vmlinuz-linux
-kernel /archotg/vmlinuz-linux root=LABEL=ARCHOTG rw
-initrd /archotg/initramfs-linux.img
-boot
-
-title Slax
-find --set-root /slax/boot/vmlinuz
+iftitle [if exist /slax/boot/vmlinuz] Slax
 kernel /slax/boot/vmlinuz vga=normal load_ramdisk=1 prompt_ramdisk=0 rw printk.time=0 consoleblank=0 perchdir=resume automount
 initrd /slax/boot/initrfs.img
 boot
 
-title Opencore
-find --set-root /EFI/OC/Opencore.efi
+iftitle [if %@UEFI%==64 && find --devices=h /EFI/OC/Opencore.efi] Opencore (EFI)
+find --devices=h --set-root /EFI/OC/Opencore.efi
 chainloader /EFI/OC/Opencore.efi
 
-title Modified GRUB shell
-find --set-root /EFI/Tools/modGRUBShell.efi
+iftitle [if %@UEFI%==64 && find --devices=h /EFI/Tools/modGRUBShell.efi] Modified GRUB shell (EFI)
+find --devices=h --set-root /EFI/Tools/modGRUBShell.efi
 chainloader /EFI/Tools/modGRUBShell.efi
 
 title Reboot
