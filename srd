@@ -98,8 +98,10 @@ cmd_install() {
   echo "Installing to $target..."
   # copy first 440 bytes of first sector
   dd if=$seed of=$target bs=440 count=1 conv=notrunc
-  # copy from sector 34 to 63
-  dd if=$seed of=$target bs=512 count=31 skip=33 seek=33 conv=notrunc
+  # copy last 2 bytes of the first sector
+  dd if=$seed of=$target bs=1 count=2 skip=510 seek=510 conv=notrunc
+  # copy from sector 35 to 63
+  dd if=$seed of=$target bs=512 count=29 skip=34 seek=34 conv=notrunc
   echo "Done"
 }
 
@@ -114,6 +116,7 @@ cmd_create() {
   echo "Creating $target..."
   if [ "$(uname -s)" == "Darwin" ]; then
     hdiutil create -size 200m -layout GPTSPUD -align 32 -fs FAT32 -volname "EFI" $target
+    mv "$target.dmg" "$target"
   else
     echo "Unsupported OS"
     exit 1

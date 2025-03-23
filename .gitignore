@@ -1,3 +1,5 @@
 .DS_Store
 BACKUP_*.bak
 NvVars
+.vscode/
+build/
