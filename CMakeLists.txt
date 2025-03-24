@@ -7,7 +7,7 @@ project(
 )
 
 set(
-  SRCS  src/srd.cpp
+  SRCS src/srd.cpp
 )
 
 add_executable(srd ${SRCS})
