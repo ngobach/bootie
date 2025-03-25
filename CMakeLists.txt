@@ -1,13 +1,39 @@
 cmake_minimum_required(VERSION 3.31.6)
 
+include(FetchContent)
+
+FetchContent_Declare(
+  battery-embed
+  GIT_REPOSITORY https://github.com/batterycenter/embed.git
+  GIT_TAG        v1.2.19
+)
+FetchContent_MakeAvailable(battery-embed)
+
+FetchContent_Declare(
+    argparse
+    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+)
+FetchContent_MakeAvailable(argparse)
+
+FetchContent_Declare(
+    pugixml
+    GIT_REPOSITORY https://github.com/zeux/pugixml.git
+)
+FetchContent_MakeAvailable(pugixml)
+
 project(
-  srd
-  VERSION 1.0.0
+  bootie
+  VERSION 0.1.0
   LANGUAGES CXX
 )
 
 set(
-  SRCS src/srd.cpp
+  SRCS src/bootie.cpp src/nativeio.cpp
 )
 
-add_executable(srd ${SRCS})
+set (CMAKE_CXX_STANDARD 20)
+
+add_executable(bootie ${SRCS})
+target_link_libraries(bootie PRIVATE argparse pugixml)
+
+b_embed(bootie resources/gptdisk-64-sectors.raw)
