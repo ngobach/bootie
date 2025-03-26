@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31.6)
-
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 include(FetchContent)
 
 FetchContent_Declare(
@@ -31,9 +31,9 @@ set(
   SRCS src/bootie.cpp src/nativeio.cpp
 )
 
-set (CMAKE_CXX_STANDARD 20)
+# set(CMAKE_CXX_LINKER_DEPFILE_SUPPORTED FALSE)
+set(CMAKE_CXX_STANDARD 20)
 
 add_executable(bootie ${SRCS})
 target_link_libraries(bootie PRIVATE argparse pugixml)
-
 b_embed(bootie resources/gptdisk-64-sectors.raw)
