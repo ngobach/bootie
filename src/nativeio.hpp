@@ -1,7 +1,6 @@
-#include <stdint.h>
 
+#include <string>
 #include <vector>
-
 namespace nativeio {
 struct UUID {
   uint8_t bytes[16];

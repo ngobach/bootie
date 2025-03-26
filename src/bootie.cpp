@@ -1,8 +1,7 @@
-#include <stdint.h>
 #include <unistd.h>
 
 #include <argparse/argparse.hpp>
-#include <battery/embed.hpp>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -12,6 +11,7 @@ using namespace std;
 
 void cmd_install(string target) {
   nativeio::install_to(target);
+  fprintf(stderr, "Installed to %s\n", target.c_str());
 }
 
 void cmd_list() {
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
   argparse::ArgumentParser install_command("install");
   install_command.add_description(
       "Install Bootie to the hard drive at the given path");
-      install_command.add_argument("dest", "Target disk");
+  install_command.add_argument("dest", "Target disk");
   program.add_subparser(install_command);
 
   try {

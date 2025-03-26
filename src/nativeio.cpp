@@ -1,5 +1,12 @@
 #include "nativeio.hpp"
 
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <format>
+#include <string>
+#include <vector>
+
 #include "battery/embed.hpp"
 #include "pugixml.hpp"
 
@@ -95,41 +102,37 @@ std::vector<GptPart> GptPart::read_parts(FILE* fd) {
 
   return result;
 }
-int32_t copy_sector(FILE* dst, const char* src, size_t offset, bool is_mbr) {
+
+void copy_sector(FILE* dst, const char* src, size_t offset, bool is_mbr) {
   char buffer[512];
   memset(buffer, 0, 512);
   memcpy(buffer, src + offset * 512, 512);
 
   if (is_mbr) {
     if (fseek(dst, offset * 512 + 446, SEEK_SET) != 0) {
-      fprintf(stderr, "Failed to seek\n");
-      return -1;
+      throw std::runtime_error("Failed to seek");
     }
 
     if (fread(buffer + 446, 64, 1, dst) != 1) {
-      fprintf(stderr, "Failed to read\n");
-      return -1;
+      throw std::runtime_error("Failed to read");
     }
   }
 
   if (fseek(dst, offset * 512, SEEK_SET) != 0) {
-    fprintf(stderr, "Failed to seek\n");
-    return -1;
+    throw std::runtime_error("Failed to seek");
   }
 
   if (fwrite(buffer, 512, 1, dst) != 1) {
-    fprintf(stderr, "Failed to write\n");
-    return -1;
+    throw std::runtime_error("Failed to write");
   }
-
-  return 0;
 }
 
 void install_to(std::string target) {
-  FILE* target_fd = fopen(target.c_str(), "r+");
+  FILE* target_fd = fopen(target.c_str(), "rb+");
 
   if (target_fd == NULL) {
-    throw std::runtime_error("Failed to open target disk");
+    throw std::runtime_error(
+        std::format("Failed to open target disk: {}", strerror(errno)));
   }
 
   fprintf(stderr, "Parsing GPT disk at %s\n", target.c_str());
@@ -139,17 +142,13 @@ void install_to(std::string target) {
     throw std::runtime_error("No partitions found");
   }
 
-  fprintf(stderr, "Found %d partitions\n", parts.size());
-
   for (auto& part : parts) {
     uint32_t part_offset = part.startLBA * 512;
 
     if (part_offset < 64 * 512) {
-      char* msg = new char[1024];
-      sprintf(msg,
-              "Error: Parition \"%s\" starts before 64 sectors (LBA: %llu)\n",
-              part.label, part.startLBA);
-      throw std::runtime_error(msg);
+      throw std::runtime_error(std::format(
+          "Error: Parition \"{}\" starts before 64 sectors (LBA: {})",
+          part.label, part.startLBA));
     }
   }
 
@@ -212,9 +211,9 @@ std::vector<DiskInfo> get_disks() {
     bool is_gpt =
         strcmp(contentNode.text().as_string(), CONTENT_TYPE_GPT_DISK) == 0;
 
-    if (!is_gpt) {
-      continue;
-    }
+    // if (!is_gpt) {
+    //   continue;
+    // }
 
     DiskInfo di = {};
     di.is_gpt = is_gpt;
@@ -225,7 +224,7 @@ std::vector<DiskInfo> get_disks() {
             .text()
             .as_string();
 
-    di.identifier = "/dev/r" + label;
+    di.identifier = "/dev/" + label;
     di.label = label;
 
     di.size = item.select_node("key[. = 'Size']/following-sibling::*")

@@ -5,7 +5,7 @@ clean:
 
 build/release:
 	mkdir -p build/release
-	cd build/release && cmake -DCMAKE_BUILD_TYPE=Release -DB_PRODUCTION_MODE=ON ../.. 
+	cd build/release && cmake -DCMAKE_BUILD_TYPE=MinSizeRel -DB_PRODUCTION_MODE=ON ../.. 
 
 build/release/bootie: build/release
 	mkdir -p build/release
