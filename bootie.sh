@@ -88,6 +88,13 @@ cmd_install() {
     exit 1
   fi
 
+  if ! hash dd 2>/dev/null; then
+    echo "Missing dd command"
+    exit 1
+  fi
+
+  echo "WARNING: You should be using bootie command instead of this script"
+
   read -p "I PROMISE FIRST PARTITION STARTS AT 64 SECTORS. Press enter to continue"
 
   local backup_file="BACKUP_$(date +%Y%m%d%H%M%S).bak"

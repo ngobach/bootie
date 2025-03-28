@@ -1,6 +1,8 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
+
 namespace nativeio {
 struct UUID {
   uint8_t bytes[16];
@@ -24,7 +26,6 @@ struct DiskInfo {
   uint64_t size;
   std::string identifier;
   std::string label;
-  bool is_gpt;
   bool is_removable;
 };
 

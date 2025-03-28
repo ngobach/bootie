@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.31.6)
-set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
+set(CMAKE_OSX_ARCHITECTURES arm64 x86_64)
+
+if(NOT APPLE)
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-static -s")
+endif()
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -31,7 +36,10 @@ set(
   SRCS src/bootie.cpp src/nativeio.cpp
 )
 
-# set(CMAKE_CXX_LINKER_DEPFILE_SUPPORTED FALSE)
+if(NOT APPLE)
+set(CMAKE_CXX_LINKER_DEPFILE_SUPPORTED FALSE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(bootie ${SRCS})

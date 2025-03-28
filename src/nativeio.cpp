@@ -164,11 +164,20 @@ void install_to(std::string target) {
 
   fclose(target_fd);
 }
+}  // namespace nativeio
 
+namespace nativeio {
 #if defined(_WIN32)
+std::vector<DiskInfo> get_disks() {
+  std::vector<DiskInfo> disks;
+  // disks.emplace_back(DiskInfo{
+  //     .size = 0,
+      
+  // });
+  return disks;
+}
 #elif defined(__linux__)
 #elif defined(__APPLE__)
-
 const size_t BUFFER_SIZE = 1024 * 1024;
 int8_t buffer[BUFFER_SIZE];
 const char* CONTENT_TYPE_GPT_DISK = "GUID_partition_scheme";
@@ -176,6 +185,7 @@ const char* CONTENT_TYPE_GPT_DISK = "GUID_partition_scheme";
 std::vector<DiskInfo> get_disks() {
   std::vector<DiskInfo> disks;
   memset(buffer, 0, sizeof(buffer));
+
   FILE* fp = popen("diskutil list -plist", "r");
 
   if (fp == NULL) {
@@ -191,7 +201,10 @@ std::vector<DiskInfo> get_disks() {
   if (nread >= BUFFER_SIZE) {
     throw std::runtime_error("Diskutil output too large");
   }
-  fclose(fp);
+
+  if (fclose(fp) != 0) {
+    throw std::runtime_error("Failed to close file");
+  }
 
   pugi::xml_document doc;
 
@@ -200,6 +213,7 @@ std::vector<DiskInfo> get_disks() {
   }
 
   auto plist = doc.child("plist");
+
   auto disk_and_partitions =
       doc.select_node("//key[. = 'AllDisksAndPartitions']/following-sibling::*")
           .node();
@@ -211,12 +225,7 @@ std::vector<DiskInfo> get_disks() {
     bool is_gpt =
         strcmp(contentNode.text().as_string(), CONTENT_TYPE_GPT_DISK) == 0;
 
-    // if (!is_gpt) {
-    //   continue;
-    // }
-
     DiskInfo di = {};
-    di.is_gpt = is_gpt;
 
     std::string label =
         item.select_node("key[. = 'DeviceIdentifier']/following-sibling::*")
