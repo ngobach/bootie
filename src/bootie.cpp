@@ -1,5 +1,3 @@
-#include <unistd.h>
-
 #include <argparse/argparse.hpp>
 #include <cstdint>
 #include <cstdio>

@@ -7,8 +7,12 @@
 #include <string>
 #include <vector>
 
-#include "battery/embed.hpp"
+// #include "battery/embed.hpp"
 #include "pugixml.hpp"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace nativeio {
 
@@ -128,6 +132,7 @@ void copy_sector(FILE* dst, const char* src, size_t offset, bool is_mbr) {
 }
 
 void install_to(std::string target) {
+#ifdef BATTERY
   FILE* target_fd = fopen(target.c_str(), "rb+");
 
   if (target_fd == NULL) {
@@ -163,17 +168,49 @@ void install_to(std::string target) {
   }
 
   fclose(target_fd);
+#endif
 }
 }  // namespace nativeio
 
 namespace nativeio {
 #if defined(_WIN32)
+
 std::vector<DiskInfo> get_disks() {
   std::vector<DiskInfo> disks;
-  // disks.emplace_back(DiskInfo{
-  //     .size = 0,
-      
-  // });
+
+  for (int i = 0; i < 16; i++) {
+    std::string path = "\\\\.\\PhysicalDrive" + std::to_string(i);
+    HANDLE hDevice = CreateFile(path.c_str(), GENERIC_READ,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                                OPEN_EXISTING, 0, NULL);
+
+    if (hDevice == INVALID_HANDLE_VALUE) {
+      // printf("Failed to open drive. Error: %lu\n", GetLastError());
+      continue;
+    }
+
+    DISK_GEOMETRY diskGeometry = {0};
+    DWORD bytesReturned = 0;
+
+    BOOL success = DeviceIoControl(hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL,
+                                   0, &diskGeometry, sizeof(diskGeometry),
+                                   &bytesReturned, NULL);
+
+    if (success) {
+      DiskInfo entry;
+      entry.identifier = path;
+      entry.label = path;
+      entry.is_removable = true;
+      entry.size = diskGeometry.Cylinders.QuadPart *
+                   diskGeometry.TracksPerCylinder *
+                   diskGeometry.SectorsPerTrack * diskGeometry.BytesPerSector;
+      disks.push_back(entry);
+    } else {
+      fprintf(stderr, "Failed to get disk geometry. Error: %lu\n",
+              GetLastError());
+    }
+  }
+
   return disks;
 }
 #elif defined(__linux__)
