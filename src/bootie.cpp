@@ -13,6 +13,7 @@ void cmd_install(string target) {
 }
 
 void cmd_list() {
+  fprintf(stderr, "Scanning for disks...\n");
   auto disks = nativeio::get_disks();
   fprintf(stderr, "Available disks:\n");
 

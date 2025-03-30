@@ -8,13 +8,16 @@
 #include <vector>
 
 // #include "battery/embed.hpp"
-#include "pugixml.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 namespace nativeio {
+
+static const uint8_t seed_sectors[] = {
+#include "gptdisk-64-sectors.raw.h"
+};
 
 std::string friendly_size_name(uint64_t size) {
   if (size < 1024) {
@@ -107,8 +110,8 @@ std::vector<GptPart> GptPart::read_parts(FILE* fd) {
   return result;
 }
 
-void copy_sector(FILE* dst, const char* src, size_t offset, bool is_mbr) {
-  char buffer[512];
+void copy_sector(FILE* dst, const uint8_t* src, size_t offset, bool is_mbr) {
+  uint8_t buffer[512];
   memset(buffer, 0, 512);
   memcpy(buffer, src + offset * 512, 512);
 
@@ -132,7 +135,6 @@ void copy_sector(FILE* dst, const char* src, size_t offset, bool is_mbr) {
 }
 
 void install_to(std::string target) {
-#ifdef BATTERY
   FILE* target_fd = fopen(target.c_str(), "rb+");
 
   if (target_fd == NULL) {
@@ -159,132 +161,12 @@ void install_to(std::string target) {
 
   fprintf(stderr, "Installing to %s\n", target.c_str());
 
-  auto src = b::embed<"resources/gptdisk-64-sectors.raw">();
-  auto src_data = src.data();
-  copy_sector(target_fd, src_data, 0, true);
+  copy_sector(target_fd, seed_sectors, 0, true);
 
   for (int32_t i = 34; i < 64; i++) {
-    copy_sector(target_fd, src_data, i, false);
+    copy_sector(target_fd, seed_sectors, i, false);
   }
 
   fclose(target_fd);
-#endif
 }
-}  // namespace nativeio
-
-namespace nativeio {
-#if defined(_WIN32)
-
-std::vector<DiskInfo> get_disks() {
-  std::vector<DiskInfo> disks;
-
-  for (int i = 0; i < 16; i++) {
-    std::string path = "\\\\.\\PhysicalDrive" + std::to_string(i);
-    HANDLE hDevice = CreateFile(path.c_str(), GENERIC_READ,
-                                FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
-                                OPEN_EXISTING, 0, NULL);
-
-    if (hDevice == INVALID_HANDLE_VALUE) {
-      // printf("Failed to open drive. Error: %lu\n", GetLastError());
-      continue;
-    }
-
-    DISK_GEOMETRY diskGeometry = {0};
-    DWORD bytesReturned = 0;
-
-    BOOL success = DeviceIoControl(hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL,
-                                   0, &diskGeometry, sizeof(diskGeometry),
-                                   &bytesReturned, NULL);
-
-    if (success) {
-      DiskInfo entry;
-      entry.identifier = path;
-      entry.label = path;
-      entry.is_removable = true;
-      entry.size = diskGeometry.Cylinders.QuadPart *
-                   diskGeometry.TracksPerCylinder *
-                   diskGeometry.SectorsPerTrack * diskGeometry.BytesPerSector;
-      disks.push_back(entry);
-    } else {
-      fprintf(stderr, "Failed to get disk geometry. Error: %lu\n",
-              GetLastError());
-    }
-  }
-
-  return disks;
-}
-#elif defined(__linux__)
-#elif defined(__APPLE__)
-const size_t BUFFER_SIZE = 1024 * 1024;
-int8_t buffer[BUFFER_SIZE];
-const char* CONTENT_TYPE_GPT_DISK = "GUID_partition_scheme";
-
-std::vector<DiskInfo> get_disks() {
-  std::vector<DiskInfo> disks;
-  memset(buffer, 0, sizeof(buffer));
-
-  FILE* fp = popen("diskutil list -plist", "r");
-
-  if (fp == NULL) {
-    throw std::runtime_error("Failed to run diskutil");
-  }
-
-  int32_t nread = fread(buffer, 1, BUFFER_SIZE, fp);
-
-  if (nread < 0) {
-    throw std::runtime_error("Failed to read diskutil output");
-  }
-
-  if (nread >= BUFFER_SIZE) {
-    throw std::runtime_error("Diskutil output too large");
-  }
-
-  if (fclose(fp) != 0) {
-    throw std::runtime_error("Failed to close file");
-  }
-
-  pugi::xml_document doc;
-
-  if (!doc.load_buffer_inplace(buffer, nread)) {
-    throw std::runtime_error("Failed to parse diskutil output");
-  }
-
-  auto plist = doc.child("plist");
-
-  auto disk_and_partitions =
-      doc.select_node("//key[. = 'AllDisksAndPartitions']/following-sibling::*")
-          .node();
-
-  for (auto item = disk_and_partitions.first_child(); item;
-       item = item.next_sibling()) {
-    auto contentNode =
-        item.select_node("key[. = 'Content']/following-sibling::*").node();
-    bool is_gpt =
-        strcmp(contentNode.text().as_string(), CONTENT_TYPE_GPT_DISK) == 0;
-
-    DiskInfo di = {};
-
-    std::string label =
-        item.select_node("key[. = 'DeviceIdentifier']/following-sibling::*")
-            .node()
-            .text()
-            .as_string();
-
-    di.identifier = "/dev/" + label;
-    di.label = label;
-
-    di.size = item.select_node("key[. = 'Size']/following-sibling::*")
-                  .node()
-                  .text()
-                  .as_llong();
-
-    disks.emplace_back(di);
-  }
-
-  return disks;
-}
-#else
-#throw "Unsupported platform"
-#endif
-
 }  // namespace nativeio

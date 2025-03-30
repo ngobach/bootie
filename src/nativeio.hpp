@@ -22,7 +22,7 @@ struct GptPart {
 };
 
 struct DiskInfo {
-  uint64_t size;
+  int64_t size;
   std::string identifier;
   std::string label;
   bool is_removable;

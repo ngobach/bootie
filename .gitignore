@@ -5,5 +5,5 @@ NvVars
 .vscode/
 build/
 zig-cross/
-/bootie
 /bootie.exe
+/bootie.macosx

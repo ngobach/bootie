@@ -1,12 +1,18 @@
-default: bootie
+default: all
 
-configure:
-	xmake f -p mingw -a x64 -m release -y # --toolchain=zig
+bootie.exe:
+	xmake f -p mingw -a x86_64 -m release -y
+	xmake -rv bootie
+	cp build/mingw/x86_64/release/bootie.exe bootie.exe
 
-bootie: configure
-	xmake -v bootie
+bootie.macosx:
+	xmake f -p macosx -m release -y
+	xmake -rv bootie
+	cp build/macosx/*/release/bootie bootie.macosx
 
-deploy: bootie
-	scp build/mingw/x64/release/bootie.exe windows7:~/bootie.exe
+deploy: bootie.exe
+	scp bootie.exe windows7:~/bootie.exe
 
-.PHONY: configure make test
+all: bootie.exe bootie.macosx
+
+.PHONY: bootie.exe bootie.linux bootie.macosx
