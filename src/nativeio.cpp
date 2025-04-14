@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-// #include "battery/embed.hpp"
-
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -77,22 +75,22 @@ std::vector<GptPart> GptPart::read_parts(FILE* fd) {
   char buffer[512];
 
   if (fseek(fd, 512, SEEK_SET) != 0) {
-    throw std::runtime_error("Failed to seek");
+    throw std::runtime_error("read_parts - Failed to seek");
   }
 
   if (fread(buffer, 512, 1, fd) != 1) {
-    throw std::runtime_error("Failed to read");
+    throw std::runtime_error("read_parts - Failed to read");
   }
 
   if (memcmp(buffer, "EFI PART", 8) != 0) {
-    throw std::runtime_error("Invalid GPT signature");
+    throw std::runtime_error("read_parts - Not a GPT disk");
   }
 
   GptPart entry;
 
   for (int i = 0; i < 128; i++) {
     if (fread(buffer, 128, 1, fd) != 1) {
-      throw std::runtime_error("Failed to read");
+      throw std::runtime_error("read_parts - Failed to read");
     }
 
     entry.partGUID = UUID::parse(buffer);
@@ -135,7 +133,7 @@ void copy_sector(FILE* dst, const uint8_t* src, size_t offset, bool is_mbr) {
 }
 
 void install_to(std::string target) {
-  FILE* target_fd = fopen(target.c_str(), "rb+");
+  FILE* target_fd = fopen(target.c_str(), "r+");
 
   if (target_fd == NULL) {
     throw std::runtime_error(
