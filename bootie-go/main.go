@@ -40,7 +40,7 @@ func cmd_list() error {
 	fmt.Printf("Found %d disk(s):\n", len(result))
 
 	for _, disk := range result {
-		fmt.Printf("%s: %s (%s)\n", disk.identifier, disk.label, sizeToFriendly(disk.size))
+		fmt.Printf("- %s: %s (%s)\n", disk.identifier, disk.label, sizeToFriendly(disk.size))
 	}
 
 	return nil
