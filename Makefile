@@ -20,6 +20,6 @@ bootie.macosx:
 deploy: bootie.exe
 	scp bootie.exe windows7:~/bootie.exe
 
-all: bootie.exe bootie.macosx build/bootie-go
+all: bootie.exe bootie.macosx
 
 .PHONY: clean bootie.exe bootie.linux bootie.macosx bootie-go

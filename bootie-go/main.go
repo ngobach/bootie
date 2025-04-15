@@ -1,9 +1,13 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"fmt"
+	"log"
+	"os"
 	"runtime"
+
+	"github.com/urfave/cli/v3"
 )
 
 type diskEntry struct {
@@ -47,25 +51,36 @@ func cmd_list() error {
 }
 
 func main() {
-	flag.Parse()
-
-	if flag.NArg() == 0 {
-		fmt.Printf("Usage:\n  bootie install <target>\n  bootie list\n")
-		return
+	cmd := &cli.Command{
+		Name:  "bootie",
+		Usage: "Bootie commandline tool",
+		Commands: []*cli.Command{
+			{
+				Name:  "install",
+				Usage: "Install bootie to given target",
+				Arguments: []cli.Argument{
+					&cli.StringArg{
+						Name: "target",
+						Min:  1,
+						Max:  1,
+					},
+				},
+				Action: func(c context.Context, cmd *cli.Command) error {
+					target := cmd.Args().Get(1)
+					return cmd_install(target)
+				},
+			},
+			{
+				Name:  "list",
+				Usage: "List available targets in current system",
+				Action: func(c context.Context, cmd *cli.Command) error {
+					return cmd_list()
+				},
+			},
+		},
 	}
 
-	var err error
-
-	switch flag.Arg(0) {
-	case "install":
-		err = cmd_install(flag.Arg(1))
-	case "list":
-		err = cmd_list()
-	default:
-		err = fmt.Errorf("unknown command: %s", flag.Arg(0))
-	}
-
-	if err != nil {
-		panic(err)
+	if err := cmd.Run(context.Background(), os.Args); err != nil {
+		log.Fatal(err)
 	}
 }
