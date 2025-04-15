@@ -1,4 +1,4 @@
-module ngobach.com/bootie
+module ngobach.com/bootie-go
 
 go 1.24.2
 

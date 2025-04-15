@@ -1,5 +1,12 @@
 default: all
 
+clean:
+	rm -rf bootie.exe bootie.macosx build
+
+build/bootie-go:
+	mkdir -p build
+	cd bootie-go && go build -o ../build .
+
 bootie.exe:
 	xmake f -p mingw -a x86_64 -m release -y
 	xmake -rv bootie
@@ -13,6 +20,6 @@ bootie.macosx:
 deploy: bootie.exe
 	scp bootie.exe windows7:~/bootie.exe
 
-all: bootie.exe bootie.macosx
+all: bootie.exe bootie.macosx build/bootie-go
 
-.PHONY: bootie.exe bootie.linux bootie.macosx
+.PHONY: clean bootie.exe bootie.linux bootie.macosx bootie-go
