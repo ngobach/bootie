@@ -8,9 +8,25 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"ngobach.com/bootie/utils"
 )
+
+func readFileAsString(path string) string {
+	file, err := os.Open(path)
+
+	if err != nil {
+		return ""
+	}
+
+	defer file.Close()
+
+	bytes, err := os.ReadFile(path)
+
+	if err != nil {
+		return ""
+	}
+
+	return string(bytes)
+}
 
 func scanDisk() ([]diskEntry, error) {
 	result := []diskEntry{}
@@ -26,9 +42,8 @@ func scanDisk() ([]diskEntry, error) {
 
 	for _, file := range entries {
 		if matcher.MatchString(file.Name()) {
-			vendor := strings.TrimSpace(utils.ReadFileAsString(fmt.Sprintf("%s/%s/device/vendor", basePath, file.Name())))
-			model := strings.TrimSpace(utils.ReadFileAsString(fmt.Sprintf("%s/%s/device/model", basePath, file.Name())))
-			sizeAsString := strings.TrimSpace(utils.ReadFileAsString(fmt.Sprintf("%s/%s/size", basePath, file.Name())))
+			model := strings.TrimSpace(readFileAsString(fmt.Sprintf("%s/%s/device/model", basePath, file.Name())))
+			sizeAsString := strings.TrimSpace(readFileAsString(fmt.Sprintf("%s/%s/size", basePath, file.Name())))
 			size := int64(0)
 
 			if sizeAsString != "" {
@@ -39,17 +54,13 @@ func scanDisk() ([]diskEntry, error) {
 				}
 			}
 
-			if vendor == "" {
-				vendor = "Unknown"
-			}
-
 			if model == "" {
 				model = "Unknown"
 			}
 
 			entry := diskEntry{
-				identifier: fmt.Sprintf("%s/%s", basePath, file.Name()),
-				label:      fmt.Sprintf("%s %s", vendor, model),
+				identifier: fmt.Sprintf("%s", file.Name()),
+				label:      fmt.Sprintf("%s", model),
 				size:       size,
 			}
 
