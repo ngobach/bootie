@@ -28,10 +28,6 @@ func sizeToFriendly(size int64) string {
 	}
 }
 
-func cmd_install(target string) error {
-	return fmt.Errorf("not implemented")
-}
-
 func cmd_list() error {
 	fmt.Printf("Host OS: %s\n", runtime.GOOS)
 
@@ -58,15 +54,14 @@ func main() {
 			{
 				Name:  "install",
 				Usage: "Install bootie to given target",
-				Arguments: []cli.Argument{
-					&cli.StringArg{
-						Name: "target",
-						Min:  1,
-						Max:  1,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "target",
+						Required: true,
 					},
 				},
-				Action: func(c context.Context, cmd *cli.Command) error {
-					target := cmd.Args().Get(1)
+				Action: func(_ context.Context, c *cli.Command) error {
+					target := c.String("target")
 					return cmd_install(target)
 				},
 			},
