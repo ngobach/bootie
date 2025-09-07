@@ -20,7 +20,7 @@ func entryFromDisk(disk string) diskEntry {
 	raw, _ := cmd.Output()
 	lines := string(raw)
 	entry := diskEntry{}
-	entry.identifier = disk
+	entry.identifier = "/dev/" + disk
 
 	// iterate over each line
 	for line := range strings.SplitSeq(lines, "\n") {
@@ -29,9 +29,10 @@ func entryFromDisk(disk string) diskEntry {
 			k = strings.TrimSpace(line[:strings.Index(line, ":")])
 			v = strings.TrimSpace(line[strings.Index(line, ":")+1:])
 
-			if k == "Device / Media Name" {
+			switch k {
+			case "Device / Media Name":
 				entry.label = v
-			} else if k == "Disk Size" {
+			case "Disk Size":
 				pattern := regexp.MustCompile(`\((\d+) Bytes\)`)
 				matches := pattern.FindStringSubmatch(v)
 				entry.size, _ = strconv.ParseInt(matches[1], 10, 64)
@@ -44,11 +45,14 @@ func entryFromDisk(disk string) diskEntry {
 
 func scanDisk() ([]diskEntry, error) {
 	result := []diskEntry{}
-
 	cmd := exec.Command("diskutil", "list", "-plist")
 	raw, _ := cmd.Output()
 	output := Output{}
-	plist.Unmarshal(raw, &output)
+	_, err := plist.Unmarshal(raw, &output)
+
+	if err != nil {
+		return nil, err
+	}
 
 	for _, disk := range output.WholeDisks {
 		result = append(result, entryFromDisk(disk))
