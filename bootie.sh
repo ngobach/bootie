@@ -8,16 +8,11 @@ cmd_run() {
     exit 1
   fi
 
-  local with_tools=y
   local target=
   local my_args=""
 
   while [ -n "$1" ]; do
     case "$1" in
-      --no-tools)
-        with_tools=
-        shift
-        ;;
       --target)
         if [ "$#" -lt 2 ]; then
           echo "Missing argument for --target"
@@ -38,10 +33,6 @@ cmd_run() {
 
   if [ -n "$target" ]; then
     my_args="$my_args -drive file=/dev/$target,if=ide,format=raw"
-  fi
-
-  if [ -n "$with_tools" ]; then
-    my_args="$my_args -drive file=fat:rw:./tools,if=ide,index=4,format=raw"
   fi
 
   my_args="$my_args $@"
@@ -79,39 +70,6 @@ cmd_run_arm64() {
     "$@"
 }
 
-cmd_install() {
-  local target=$1
-  local seed="resources/gptdisk-64-sectors.raw"
-
-  if [ -z "$target" ]; then
-    echo "Missing target"
-    exit 1
-  fi
-
-  if ! hash dd 2>/dev/null; then
-    echo "Missing dd command"
-    exit 1
-  fi
-
-  echo "WARNING: You should be using bootie command instead of this script"
-
-  read -p "I PROMISE FIRST PARTITION STARTS AT 64 SECTORS. Press enter to continue"
-
-  local backup_file="BACKUP_$(date +%Y%m%d%H%M%S).bak"
-  echo "Backing up $target to $backup_file..."
-  dd if=$target of="$backup_file" bs=512 count=64
-
-  read -p "Begin installation?"
-  echo "Installing to $target..."
-  # copy first 440 bytes of first sector
-  dd if=$seed of=$target bs=440 count=1 conv=notrunc
-  # copy last 2 bytes of the first sector
-  dd if=$seed of=$target bs=1 count=2 skip=510 seek=510 conv=notrunc
-  # copy from sector 35 to 63
-  dd if=$seed of=$target bs=512 count=29 skip=34 seek=34 conv=notrunc
-  echo "Done"
-}
-
 cmd_create() {
   local target=$1
 
@@ -132,10 +90,9 @@ cmd_create() {
 
 print_usage() {
   echo "Usage:"
-  echo "  $0 run [--target <target> | --uefi | --no-tools] [...args]"
+  echo "  $0 run [--target <target> | --uefi] [...args]"
   echo "  $0 run-arm64 [...args]"
   echo "  $0 create [...args]"
-  echo "  $0 install <target>"
 }
 
 check_root() {
@@ -157,9 +114,6 @@ case "$CMD" in
     ;;
   run-arm64)
     cmd_run_arm64 $@
-    ;;
-  install)
-    cmd_install $@
     ;;
   create)
     cmd_create $@
