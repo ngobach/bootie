@@ -1,25 +1,17 @@
 default: all
 
 clean:
-	rm -rf bootie.exe bootie.macosx build
+	rm -rf build
 
-build/bootie-go:
+build:
 	mkdir -p build
-	cd bootie-go && go build -o ../build .
 
-bootie.exe:
-	xmake f -p mingw -a x86_64 -m release -y
-	xmake -rv bootie
-	cp build/mingw/x86_64/release/bootie.exe bootie.exe
+build/bootie-darwin:
+	cd bootie-go && GOOS=darwin go build -o ../build/bootie-darwin .
 
-bootie.macosx:
-	xmake f -p macosx -m release -y
-	xmake -rv bootie
-	cp build/macosx/*/release/bootie bootie.macosx
+build/bootie-windows.exe:
+	cd bootie-go && GOOS=windows go build -o ../build/bootie-windows.exe .
 
-deploy: bootie.exe
-	scp bootie.exe windows7:~/bootie.exe
+all: build/bootie-darwin build/bootie-windows.exe
 
-all: bootie.exe bootie.macosx
-
-.PHONY: clean bootie.exe bootie.linux bootie.macosx bootie-go
+.PHONY: default clean build build/bootie-darwin build/bootie-windows.exe
