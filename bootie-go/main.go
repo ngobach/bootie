@@ -21,7 +21,6 @@ func installTo(target string) error {
 	fmt.Printf("Host OS: %s\n", runtime.GOOS)
 	fmt.Printf("Target to be installed: %s\n", target)
 	fmt.Printf("WARNING: Make sure the first partition starts after the first %d bytes\n", seedSizeInBytes)
-	fmt.Println("---")
 
 	rawIo, err := OpenRawIo(target)
 	if err != nil {
@@ -35,7 +34,7 @@ func installTo(target string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read original MBR: %w", err)
 	}
-	copy(buffer[0:446], originalMBR[0:446])
+	copy(buffer[446:512], originalMBR[446:512])
 	for i := 1; i <= 33; i++ {
 		originalSector, err := rawIo.ReadSector(int64(i))
 		if err != nil {
