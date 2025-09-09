@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/urfave/cli/v3"
 	"ngobach.com/bootie-go/resources"
 )
@@ -93,7 +94,7 @@ func main() {
 					fmt.Printf("Found %d disk(s):\n", len(result))
 
 					for _, disk := range result {
-						fmt.Printf("- Path: %s, label: %s, size: %s\n", disk.identifier, disk.label, sizeToFriendly(disk.size))
+						fmt.Printf("- Path: %s, label: %s, size: %s\n", disk.identifier, disk.label, humanize.IBytes(uint64(disk.size)))
 					}
 
 					return nil

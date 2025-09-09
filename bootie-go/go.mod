@@ -5,6 +5,7 @@ go 1.24.5
 require (
 	github.com/0xrawsec/golang-win32 v1.0.14
 	github.com/drtimf/wmi v1.0.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/urfave/cli/v3 v3.4.1
 	howett.net/plist v1.0.1
 )
