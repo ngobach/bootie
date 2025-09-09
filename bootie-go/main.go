@@ -90,6 +90,42 @@ func main() {
 					return nil
 				},
 			},
+			{
+				Name:  "copy-efi",
+				Usage: "Copy EFI files to EFI partition",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "target",
+						Required: true,
+					},
+				},
+				Action: func(c context.Context, cmd *cli.Command) error {
+					target := cmd.String("target")
+					return extractFiles(
+						&resources.EfiFiles,
+						"efi-part",
+						target,
+					)
+				},
+			},
+			{
+				Name:  "copy-data",
+				Usage: "Copy data files to data partition",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "target",
+						Required: true,
+					},
+				},
+				Action: func(c context.Context, cmd *cli.Command) error {
+					target := cmd.String("target")
+					return extractFiles(
+						&resources.DataFiles,
+						"data-part",
+						target,
+					)
+				},
+			},
 		},
 	}
 
