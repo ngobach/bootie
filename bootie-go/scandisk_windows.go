@@ -3,40 +3,53 @@
 package main
 
 import (
-	"fmt"
-	"os/exec"
+	"strings"
 
-	"github.com/gocarina/gocsv"
+	"github.com/0xrawsec/golang-win32/win32/kernel32"
+	"github.com/drtimf/wmi"
 )
 
-type csvEntry struct {
-	Caption    string
-	Node       string
-	DeviceID   string
-	Model      string
-	Partitions int32
-	Size       int64
-}
-
-func scanDisk() ([]diskEntry, error) {
-	csvEntries := []csvEntry{}
+func scanDisk2() ([]diskEntry, error) {
+	dosDevices, err := kernel32.QueryDosDevice("")
 	result := []diskEntry{}
-	cmd := exec.Command("wmic", "diskdrive", "list", "/format:csv")
-	raw, err := cmd.Output()
 
 	if err != nil {
 		return nil, err
 	}
 
-	gocsv.UnmarshalBytes(raw, &csvEntries)
+	for _, device := range dosDevices {
+		if strings.HasPrefix(device, "PhysicalDrive") {
 
-	for _, entry := range csvEntries {
+		}
+	}
+
+	return result, nil
+}
+
+func scanDisk() ([]diskEntry, error) {
+	var svc *wmi.Service
+	var err error
+	var result []diskEntry
+
+	if svc, err = wmi.NewLocalService(wmi.RootCIMV2); err != nil {
+		return nil, err
+	}
+
+	defer svc.Close()
+
+	var w32Disk []wmi.Win32_DiskDrive
+
+	if err = svc.Query("SELECT * FROM Win32_DiskDrive", &w32Disk); err != nil {
+		panic(err)
+	}
+
+	for _, disk := range w32Disk {
 		result = append(result, diskEntry{
-			identifier: entry.DeviceID,
-			label:      entry.Caption,
-			size:       entry.Size,
+			identifier: disk.DeviceID,
+			label:      disk.Model,
+			size:       int64(disk.Size),
 		})
 	}
 
-	return nil, fmt.Errorf("not implemented")
+	return result, nil
 }

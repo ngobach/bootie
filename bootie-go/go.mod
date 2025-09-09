@@ -1,13 +1,16 @@
 module ngobach.com/bootie-go
 
-go 1.24.2
+go 1.24.5
 
 require (
-	golang.org/x/sys v0.32.0
+	github.com/0xrawsec/golang-win32 v1.0.14
+	github.com/drtimf/wmi v1.0.0
+	github.com/urfave/cli/v3 v3.4.1
 	howett.net/plist v1.0.1
 )
 
 require (
-	github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1 // indirect
-	github.com/urfave/cli/v3 v3.1.1 // indirect
+	github.com/0xrawsec/golang-utils v1.3.0 // indirect
+	github.com/go-ole/go-ole v1.2.5 // indirect
+	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 // indirect
 )

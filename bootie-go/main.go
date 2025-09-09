@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 
@@ -11,24 +10,15 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
-func cmd_list() error {
-	fmt.Printf("Host OS: %s\n", runtime.GOOS)
-	result, err := scanDisk()
-
+func debugWriteBuffer(buffer []byte) {
+	fmt.Println("Writing buffer to disk…")
+	err := os.WriteFile("debug.raw", buffer, 0o777)
 	if err != nil {
-		return fmt.Errorf("failed to scan disk: %w", err)
+		panic(err)
 	}
-
-	fmt.Printf("Found %d disk(s):\n", len(result))
-
-	for _, disk := range result {
-		fmt.Printf("- Path: %s, label: %s, size: %s\n", disk.identifier, disk.label, sizeToFriendly(disk.size))
-	}
-
-	return nil
 }
 
-func cmd_install(target string) error {
+func installTo(target string) error {
 	seedSizeInBytes := len(resources.SeedSectors)
 	if seedSizeInBytes%512 != 0 {
 		return fmt.Errorf("seedSectors is not a multiple of 512")
@@ -66,6 +56,7 @@ func cmd_install(target string) error {
 		}
 	}
 	fmt.Printf("Successfully installed to %s\n", target)
+	debugWriteBuffer(buffer)
 	return nil
 }
 
@@ -85,20 +76,33 @@ func main() {
 				},
 				Action: func(_ context.Context, c *cli.Command) error {
 					target := c.String("target")
-					return cmd_install(target)
+					return installTo(target)
 				},
 			},
 			{
 				Name:  "list",
 				Usage: "List available targets in current system",
 				Action: func(c context.Context, cmd *cli.Command) error {
-					return cmd_list()
+					fmt.Printf("Host OS: %s\n", runtime.GOOS)
+					result, err := scanDisk()
+
+					if err != nil {
+						return fmt.Errorf("failed to scan disk: %w", err)
+					}
+
+					fmt.Printf("Found %d disk(s):\n", len(result))
+
+					for _, disk := range result {
+						fmt.Printf("- Path: %s, label: %s, size: %s\n", disk.identifier, disk.label, sizeToFriendly(disk.size))
+					}
+
+					return nil
 				},
 			},
 		},
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
