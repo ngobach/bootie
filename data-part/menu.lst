@@ -17,7 +17,7 @@ map /Bootie/Hikari_PE_X64_V9.0_R2_EN.iso (0xff)
 map --hook
 chainloader (0xff)
 
-iftitle [if %@UEFI%==64 && if exist /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso] /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
+iftitle [if exist /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso] /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso
 map /Bootie/Hikari_PE_X64_V8.53_R3_EN.iso (0xff)
 map --hook
 chainloader (0xff)
