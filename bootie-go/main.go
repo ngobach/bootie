@@ -11,14 +11,6 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
-func debugWriteBuffer(buffer []byte) {
-	fmt.Println("Writing buffer to disk…")
-	err := os.WriteFile("debug.raw", buffer, 0o777)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func installTo(target string) error {
 	seedSizeInBytes := len(resources.SeedSectors)
 	if seedSizeInBytes%512 != 0 {
@@ -57,7 +49,6 @@ func installTo(target string) error {
 		}
 	}
 	fmt.Printf("Successfully installed to %s\n", target)
-	debugWriteBuffer(buffer)
 	return nil
 }
 
