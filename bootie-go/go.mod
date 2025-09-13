@@ -13,5 +13,6 @@ require (
 require (
 	github.com/0xrawsec/golang-utils v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 // indirect
 )
