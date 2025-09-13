@@ -37,17 +37,19 @@ func parseGptPart(buffer []byte) (*gptPart, error) {
 
 func (part *gptPart) isEmpty() bool {
 	uuidBytes := part.partitionGUID[:]
-	for i := 0; i < 16; i++ {
+
+	for i := range 16 {
 		if uuidBytes[i] != 0 {
 			return false
 		}
 	}
+
 	return true
 }
 
 func printGptPart(part *gptPart) {
 	fmt.Printf("Partition GUID: %s\n", part.partitionGUID.String())
+	fmt.Printf("Partition Name: %s\n", part.partitionName)
 	fmt.Printf("First LBA: %d\n", part.firstLBA)
 	fmt.Printf("Last LBA: %d\n", part.lastLBA)
-	fmt.Printf("Partition Name: %s\n", part.partitionName)
 }

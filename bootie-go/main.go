@@ -54,7 +54,7 @@ func verifyGptPartitionPosition(rawIo *RawIo) error {
 			return fmt.Errorf("failed to read sector: %w", err)
 		}
 
-		for offset := 0; offset < 512; offset += 256 {
+		for offset := 0; offset < 512; offset += 128 {
 			partitionRawData := buffer[offset : offset+128]
 			part, err := parseGptPart(partitionRawData)
 
@@ -67,6 +67,8 @@ func verifyGptPartitionPosition(rawIo *RawIo) error {
 			}
 
 			printGptPart(part)
+			fmt.Println("---")
+
 			if part.firstLBA < 64 {
 				return fmt.Errorf("partition starts before 64 sectors (LBA: %d)", part.firstLBA)
 			}
@@ -105,7 +107,6 @@ func installTo(target string) error {
 		return fmt.Errorf("failed to verify GPT partition position: %w", err)
 	}
 
-	fmt.Println("----")
 	fmt.Println("Installing...")
 
 	buffer := make([]byte, seedSizeInBytes)
