@@ -1,9 +1,4 @@
 .DS_Store
-BACKUP_*.bak
-NvVars
 .xmake/
 .vscode/
 build/
-zig-cross/
-/bootie.exe
-/bootie.macosx
