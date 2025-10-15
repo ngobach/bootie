@@ -6,6 +6,11 @@ import (
 	"os"
 	"runtime"
 
+	diskfs "github.com/diskfs/go-diskfs"
+	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
+	diskfsDisk "github.com/diskfs/go-diskfs/disk"
+	"github.com/diskfs/go-diskfs/filesystem"
+	"github.com/diskfs/go-diskfs/partition/gpt"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/urfave/cli/v3"
 	"ngobach.com/bootie-go/resources"
@@ -132,11 +137,103 @@ func installTo(target string) error {
 	return nil
 }
 
+func initializeDisk(target string) error {
+	fmt.Printf("Host OS: %s\n", runtime.GOOS)
+	fmt.Printf("Target to be initialized: %s\n", target)
+
+	rawDisk, err := diskfsFile.OpenFromPath(target, false)
+
+	if err != nil {
+		return fmt.Errorf("failed to open disk: %w", err)
+	}
+
+	defer rawDisk.Close()
+
+	disk, err := diskfs.OpenBackend(rawDisk)
+
+	if err != nil {
+		return fmt.Errorf("failed to open disk: %w", err)
+	}
+
+	fmt.Println("Disk size:", humanize.IBytes(uint64(disk.Size)))
+
+	err = disk.Partition(&gpt.Table{
+		LogicalSectorSize:  512,
+		PhysicalSectorSize: 512,
+		ProtectiveMBR:      true,
+		Partitions: []*gpt.Partition{
+			{
+				Start: 1 * 1024 * 1024 / 512,
+				Size:  200 * 1024 * 1024,
+				Type:  gpt.EFISystemPartition,
+				Name:  "EFI",
+			},
+			{
+				Start: 201 * 1024 * 1024 / 512,
+				End:   uint64(disk.Size)/512 - 1*1024*1024/512,
+				Type:  gpt.MicrosoftBasicData,
+				Name:  "Bootie",
+			},
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to partition disk: %w", err)
+	}
+
+	{
+		fmt.Println("Creating EFI partition")
+		fsSpec := diskfsDisk.FilesystemSpec{
+			Partition:   1,
+			FSType:      filesystem.TypeFat32,
+			VolumeLabel: "EFI",
+		}
+
+		_, err := disk.CreateFilesystem(fsSpec)
+
+		if err != nil {
+			return fmt.Errorf("failed to create EFI partition: %w", err)
+		}
+	}
+
+	{
+		fmt.Println("Creating Bootie partition")
+		fsSpec := diskfsDisk.FilesystemSpec{
+			Partition:   2,
+			FSType:      filesystem.TypeFat32,
+			VolumeLabel: "Bootie",
+		}
+
+		_, err := disk.CreateFilesystem(fsSpec)
+
+		if err != nil {
+			return fmt.Errorf("failed to create Bootie partition: %w", err)
+		}
+	}
+
+	fmt.Printf("Successfully initialized to %s\n", target)
+	return nil
+}
+
 func main() {
 	cmd := &cli.Command{
 		Name:  "bootie",
 		Usage: "Bootie commandline tool",
 		Commands: []*cli.Command{
+			{
+				Name:  "init",
+				Usage: "Initialize the disk",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "target",
+						Required: true,
+					},
+				},
+				Action: func(_ context.Context, c *cli.Command) error {
+					target := c.String("target")
+					return initializeDisk(target)
+				},
+			},
 			{
 				Name:  "install",
 				Usage: "Install bootie to given target",

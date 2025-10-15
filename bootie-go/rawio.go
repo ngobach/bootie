@@ -60,15 +60,11 @@ func tryUnmountIfNeeded(path string) error {
 }
 
 func OpenRawIo(path string) (*RawIo, error) {
-	err := tryUnmountIfNeeded(path)
+	var f *os.File
+	var err error
 
-	if err != nil {
+	if f, err = OpenRawDisk(path); err != nil {
 		return nil, err
-	}
-
-	f, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 
 	rawIo := RawIo{
@@ -77,4 +73,21 @@ func OpenRawIo(path string) (*RawIo, error) {
 	}
 
 	return &rawIo, nil
+}
+
+func OpenRawDisk(path string) (*os.File, error) {
+
+	err := tryUnmountIfNeeded(path)
+
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+
+	return f, nil
 }
