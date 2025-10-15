@@ -76,7 +76,6 @@ func OpenRawIo(path string) (*RawIo, error) {
 }
 
 func OpenRawDisk(path string) (*os.File, error) {
-
 	err := tryUnmountIfNeeded(path)
 
 	if err != nil {

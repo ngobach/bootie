@@ -157,7 +157,7 @@ func initializeDisk(target string) error {
 
 	fmt.Println("Disk size:", humanize.IBytes(uint64(disk.Size)))
 
-	err = disk.Partition(&gpt.Table{
+	if err = disk.Partition(&gpt.Table{
 		LogicalSectorSize:  512,
 		PhysicalSectorSize: 512,
 		ProtectiveMBR:      true,
@@ -175,9 +175,7 @@ func initializeDisk(target string) error {
 				Name:  "Bootie",
 			},
 		},
-	})
-
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("failed to partition disk: %w", err)
 	}
 
