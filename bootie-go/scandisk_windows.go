@@ -3,28 +3,8 @@
 package main
 
 import (
-	"strings"
-
-	"github.com/0xrawsec/golang-win32/win32/kernel32"
 	"github.com/drtimf/wmi"
 )
-
-func scanDisk2() ([]diskEntry, error) {
-	dosDevices, err := kernel32.QueryDosDevice("")
-	result := []diskEntry{}
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, device := range dosDevices {
-		if strings.HasPrefix(device, "PhysicalDrive") {
-
-		}
-	}
-
-	return result, nil
-}
 
 func scanDisk() ([]diskEntry, error) {
 	var svc *wmi.Service

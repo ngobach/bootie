@@ -3,7 +3,7 @@ module ngobach.com/bootie-go
 go 1.24.5
 
 require (
-	github.com/0xrawsec/golang-win32 v1.0.14
+	github.com/diskfs/go-diskfs v1.7.0
 	github.com/drtimf/wmi v1.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
@@ -12,9 +12,7 @@ require (
 )
 
 require (
-	github.com/0xrawsec/golang-utils v1.3.0 // indirect
 	github.com/anchore/go-lzo v0.1.0 // indirect
-	github.com/diskfs/go-diskfs v1.7.0 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20230602022725-51bbb787efab // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
