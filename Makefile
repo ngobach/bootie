@@ -1,20 +1,33 @@
+GOOS_DARWIN  := darwin
+GOOS_LINUX   := linux
+GOOS_WINDOWS := windows
+
+GOARCH       := amd64
+
+BUILD_DIR    := build
+BOOTIE_GO_DIR := bootie-go
+
+EXECUTABLE_DARWIN  := $(BUILD_DIR)/bootie-darwin
+EXECUTABLE_LINUX   := $(BUILD_DIR)/bootie-linux
+EXECUTABLE_WINDOWS := $(BUILD_DIR)/bootie-windows.exe
+
 default: all
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR)
 
 build:
-	mkdir -p build
+	mkdir -p $(BUILD_DIR)
 
-build/bootie-darwin:
-	cd bootie-go && GOOS=darwin go build -o ../build/bootie-darwin .
+$(EXECUTABLE_DARWIN): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) go build -o ../$(EXECUTABLE_DARWIN) .
 
-build/bootie-linux:
-	cd bootie-go && GOOS=linux GOARCH=amd64 go build -o ../build/bootie-linux .
+$(EXECUTABLE_LINUX): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -o ../$(EXECUTABLE_LINUX) .
 
-build/bootie-windows.exe:
-	cd bootie-go && GOOS=windows GOARCH=amd64 go build -o ../build/bootie-windows.exe .
+$(EXECUTABLE_WINDOWS): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -o ../$(EXECUTABLE_WINDOWS) .
 
-all: build/bootie-darwin build/bootie-linux build/bootie-windows.exe
+all: $(EXECUTABLE_DARWIN) $(EXECUTABLE_LINUX) $(EXECUTABLE_WINDOWS)
 
-.PHONY: default clean build build/bootie-darwin build/bootie-linux build/bootie-windows.exe
+.PHONY: default clean build all
