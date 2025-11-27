@@ -9,33 +9,40 @@ cmd_run() {
   fi
 
   local target=
-  local my_args=""
+  local uefi=false
+  local my_args=()
 
-  while [ -n "$1" ]; do
-    case "$1" in
-      --target)
-        if [ "$#" -lt 2 ]; then
-          echo "Missing argument for --target"
-          exit 1
-        fi
-        target=$2
-        shift 2
+  while getopts ":t:u" opt; do
+    case $opt in
+      t)
+        target="$OPTARG"
         ;;
-      --uefi)
-        my_args="$my_args -bios resources/bios.bin"
-        shift
+      u)
+        uefi=true
         ;;
-      *)
-        break
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        print_usage
+        exit 1
+        ;;
+      :)
+        echo "Option -$OPTARG requires an argument." >&2
+        print_usage
+        exit 1
         ;;
     esac
   done
+  shift $((OPTIND -1))
 
   if [ -n "$target" ]; then
-    my_args="$my_args -drive file=/dev/$target,if=ide,format=raw"
+    my_args+=("-drive" "file=/dev/$target,if=ide,format=raw")
   fi
 
-  my_args="$my_args $@"
+  if $uefi; then
+    my_args+=("-bios" "resources/bios.bin")
+  fi
+
+  my_args+=("$@")
 
   if [ -n "$target" ]; then
     check_root
@@ -43,7 +50,7 @@ cmd_run() {
     diskutil umountDisk force "$target"
   fi
 
-  echo "Running qemu-system-x86_64 with args: $my_args"
+  echo "Running qemu-system-x86_64 with args: ${my_args[*]}"
 
   qemu-system-x86_64 \
     -M q35 \
@@ -51,11 +58,30 @@ cmd_run() {
     -smp 4 \
     -monitor none \
     -boot order=dc \
-    $my_args
+    "${my_args[@]}"
 }
 
 cmd_run_arm64() {
   local bios="/opt/homebrew/Cellar/qemu/9.2.2/share/qemu/edk2-aarch64-code.fd"
+  local my_args=()
+
+  while getopts "" opt; do
+    case $opt in
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        print_usage
+        exit 1
+        ;;
+      :)
+        echo "Option -$OPTARG requires an argument." >&2
+        print_usage
+        exit 1
+        ;;
+    esac
+  done
+  shift $((OPTIND -1))
+
+  my_args+=("$@")
 
   qemu-system-aarch64 \
     -M virt,accel=hvf,highmem=off \
@@ -67,11 +93,29 @@ cmd_run_arm64() {
     -bios "$bios" \
     -nic user,model=virtio-net-pci \
     -boot order=dc,menu=off \
-    "$@"
+    "${my_args[@]}"
 }
 
 cmd_create() {
-  local target=$1
+  local target=
+  while getopts ":t:" opt; do
+    case $opt in
+      t)
+        target="$OPTARG"
+        ;;
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        print_usage
+        exit 1
+        ;;
+      :)
+        echo "Option -$OPTARG requires an argument." >&2
+        print_usage
+        exit 1
+        ;;
+    esac
+  done
+  shift $((OPTIND -1))
 
   if [ -z "$target" ]; then
     echo "Missing target"
@@ -80,7 +124,7 @@ cmd_create() {
 
   echo "Creating $target..."
   if [ "$(uname -s)" == "Darwin" ]; then
-    hdiutil create -size 200m -layout GPTSPUD -align 32 -fs FAT32 -volname "EFI" $target
+    hdiutil create -size 200m -layout GPTSPUD -align 32 -fs FAT32 -volname "EFI" "$target"
     mv "$target.dmg" "$target"
   else
     echo "Unsupported OS"
@@ -92,7 +136,7 @@ print_usage() {
   echo "Usage:"
   echo "  $0 run [--target <target> | --uefi] [...args]"
   echo "  $0 run-arm64 [...args]"
-  echo "  $0 create [...args]"
+  echo "  $0 create -t <target>"
 }
 
 check_root() {
