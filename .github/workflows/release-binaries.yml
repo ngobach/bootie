@@ -19,3 +19,9 @@ jobs:
           # Use the repository Makefile to cross-compile all targets
           make clean || true
           make all
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build/*
