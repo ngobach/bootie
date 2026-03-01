@@ -302,6 +302,7 @@ func main() {
 					)
 				},
 			},
+			createQemuCommand(),
 		},
 	}
 

@@ -128,6 +128,34 @@ Commands:
   ./build/bootie-linux copy-data --target /mnt/bootie
   ```
 
+- `qemu` - QEMU testing and development commands
+  - `qemu run [options]` - Run QEMU with a disk image or device
+    - `--target, -t` - Target disk device or image file
+    - `--uefi, -u` - Enable UEFI boot mode (uses embedded bios.bin)
+    - `--memory, -m` - Memory size (default: 2G)
+    - `--cpus, -c` - Number of CPUs (default: 4)
+    Example:
+    ```bash
+    ./build/bootie-linux qemu run --target /dev/sdX --uefi
+    ```
+
+  - `qemu run-arm64 [options]` - Run QEMU for ARM64 architecture
+    - `--target, -t` - Target disk device or image file
+    - `--memory, -m` - Memory size (default: 2G)
+    - `--cpus, -c` - Number of CPUs (default: 2)
+    Example:
+    ```bash
+    ./build/bootie-linux qemu run-arm64 --target /dev/sdX
+    ```
+
+  - `qemu create [options]` - Create a test disk image for QEMU
+    - `--target` - Target image file path (required)
+    - `--size, -s` - Image size (default: 200M)
+    Example:
+    ```bash
+    ./build/bootie-linux qemu create --target test-disk.img --size 100M
+    ```
+
 Note: `copy-efi` and `copy-data` assume you supply a filesystem mount point. On macOS, mounting/unmounting is managed via `diskutil` (or done in Finder).
 
 ---
