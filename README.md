@@ -40,6 +40,12 @@ Minimum / recommended:
 - Go 1.24 (module uses `go 1.24.5`).
 - qemu (`qemu-system-x86_64`) if you want to run booted images in QEMU.
 - On macOS: `diskutil` and `hdiutil` are used by helper scripts.
+- UEFI firmware binaries if using `qemu run --firmware` or `qemu run-arm64`:
+  - **x86_64**: Install OVMF via your package manager (`ovmf` on Debian/Ubuntu,
+    `edk2-ovmf` on Fedora, `edk2-ovmf` on Arch) or download from
+    https://github.com/tianocore/edk2/releases
+  - **ARM64**: Install edk2-aarch64 (`qemu-efi-aarch64` on Debian/Ubuntu,
+    `edk2-aarch64` on Fedora/Arch) or download from the same EDK2 releases
 - Root / administrator privileges are required for raw disk operations (`init`, `install`).
 - Always back up important data—these operations are destructive for the target device.
 
@@ -131,21 +137,24 @@ Commands:
 - `qemu` - QEMU testing and development commands
   - `qemu run [options]` - Run QEMU with a disk image or device
     - `--target, -t` - Target disk device or image file
-    - `--uefi, -u` - Enable UEFI boot mode (uses embedded bios.bin)
+    - `--firmware, -f` - Path to UEFI firmware file (e.g. `/usr/share/ovmf/OVMF.fd`).
+      Omit for legacy BIOS boot.
     - `--memory, -m` - Memory size (default: 2G)
     - `--cpus, -c` - Number of CPUs (default: 4)
     Example:
     ```bash
-    ./build/bootie-linux qemu run --target /dev/sdX --uefi
+    ./build/bootie-linux qemu run --target /dev/sdX --firmware /usr/share/ovmf/OVMF.fd
     ```
 
   - `qemu run-arm64 [options]` - Run QEMU for ARM64 architecture
     - `--target, -t` - Target disk device or image file
+    - `--firmware, -f` - Path to ARM64 firmware file (required, e.g.
+      `/usr/share/qemu-efi-aarch64/QEMU_EFI.fd`)
     - `--memory, -m` - Memory size (default: 2G)
     - `--cpus, -c` - Number of CPUs (default: 2)
     Example:
     ```bash
-    ./build/bootie-linux qemu run-arm64 --target /dev/sdX
+    ./build/bootie-linux qemu run-arm64 --target /dev/sdX --firmware /usr/share/qemu-efi-aarch64/QEMU_EFI.fd
     ```
 
   - `qemu create [options]` - Create a test disk image for QEMU
@@ -216,7 +225,7 @@ The repository contains `bootie.sh` which provides utilities to run a disk image
 
 - `Makefile` — cross-build targets (darwin/linux/windows).
 - `bootie.sh` — convenience script for qemu-based testing and image creation.
-- `resources/` — top-level resources (e.g. `bios.bin` used by QEMU UEFI boot).
+- `resources/` — top-level resources (e.g. firmware binaries for QEMU UEFI boot).
 - `bootie-go/` — main Go implementation:
   - `main.go` — CLI and command implementations (`list`, `init`, `install`, `copy-efi`, `copy-data`).
   - `rawio.go` — raw disk read/write helpers and macOS unmount helpers.
@@ -239,6 +248,11 @@ The repository contains `bootie.sh` which provides utilities to run a disk image
   Contains menu/GRUB config files (e.g. `menu.lst`) and helper payloads that live in the data partition.
 
 These are embedded into the Go binary using `embed.FS` and extracted using `copy-efi` / `copy-data`.
+
+> **Note:** The `bios.bin` and `edk2-aarch64-code.fd` firmware files under `resources/` are no longer
+> embedded in the Go binary, but are kept in the repository as a convenience for local testing.
+> When using `qemu run --firmware` or `qemu run-arm64`, provide the path to your own firmware file.
+> See [Quick start & prerequisites](#quick-start--prerequisites) for download options.
 
 ---
 

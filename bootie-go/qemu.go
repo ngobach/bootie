@@ -5,54 +5,29 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 
 	"github.com/urfave/cli/v3"
-	"ngobach.com/bootie-go/resources"
-)
-
-type FirmwareType int
-
-const (
-	FirmwareTypeBIOS FirmwareType = iota
-	FirmwareTypeUEFI
-	FirmwareTypeARM64
 )
 
 type QemuCommand struct {
 	target   string
-	uefi     bool
+	firmware string
 	memory   string
 	cpus     int
 	qemuArgs []string
-	cleanup  func()
 }
 
 func (cmd *QemuCommand) execute() error {
-	// Determine firmware type
-	var firmwareType FirmwareType
-	if cmd.uefi {
-		firmwareType = FirmwareTypeUEFI
-	} else {
-		firmwareType = FirmwareTypeBIOS
+	if err := validateFirmware(cmd.firmware); err != nil {
+		return err
 	}
 
-	// Get firmware path and cleanup function
-	firmwarePath, cleanup, err := getFirmwarePath(firmwareType)
-	if err != nil {
-		return fmt.Errorf("failed to get firmware path: %w", err)
-	}
-	cmd.cleanup = cleanup
-	defer cmd.cleanup()
-
-	// Build QEMU command
-	qemuCmd, err := cmd.buildQemuCommand(firmwarePath)
+	qemuCmd, err := cmd.buildQemuCommand(cmd.firmware)
 	if err != nil {
 		return fmt.Errorf("failed to build QEMU command: %w", err)
 	}
 
-	// Execute QEMU
 	fmt.Printf("Running QEMU with args: %v\n", qemuCmd.Args)
 	return qemuCmd.Run()
 }
@@ -95,28 +70,22 @@ func (cmd *QemuCommand) buildQemuCommand(firmwarePath string) (*exec.Cmd, error)
 
 type QemuArm64Command struct {
 	target   string
+	firmware string
 	memory   string
 	cpus     int
 	qemuArgs []string
-	cleanup  func()
 }
 
 func (cmd *QemuArm64Command) execute() error {
-	// Get ARM64 firmware path and cleanup function
-	firmwarePath, cleanup, err := getFirmwarePath(FirmwareTypeARM64)
-	if err != nil {
-		return fmt.Errorf("failed to get ARM64 firmware path: %w", err)
+	if err := validateFirmware(cmd.firmware); err != nil {
+		return err
 	}
-	cmd.cleanup = cleanup
-	defer cmd.cleanup()
 
-	// Build QEMU command
-	qemuCmd, err := cmd.buildQemuCommand(firmwarePath)
+	qemuCmd, err := cmd.buildQemuCommand(cmd.firmware)
 	if err != nil {
 		return fmt.Errorf("failed to build QEMU ARM64 command: %w", err)
 	}
 
-	// Execute QEMU
 	fmt.Printf("Running QEMU ARM64 with args: %v\n", qemuCmd.Args)
 	return qemuCmd.Run()
 }
@@ -245,40 +214,18 @@ func (cmd *QemuCreateCommand) createLinuxImage() error {
 
 // Helper functions
 
-func getFirmwarePath(firmwareType FirmwareType) (string, func(), error) {
-	var firmwareData []byte
-	var filename string
-
-	switch firmwareType {
-	case FirmwareTypeUEFI:
-		firmwareData = resources.BiosBin
-		filename = "bios.bin"
-	case FirmwareTypeARM64:
-		firmwareData = resources.Edk2Aarch64Code
-		filename = "edk2-aarch64-code.fd"
-	default:
-		return "", func() {}, nil
+func validateFirmware(firmware string) error {
+	if firmware == "" {
+		return nil
 	}
-
-	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "bootie-qemu-*")
+	info, err := os.Stat(firmware)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temp directory: %w", err)
+		return fmt.Errorf("firmware file %s: %w", firmware, err)
 	}
-
-	// Create firmware file
-	firmwarePath := filepath.Join(tempDir, filename)
-	err = os.WriteFile(firmwarePath, firmwareData, 0644)
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to write firmware file: %w", err)
+	if info.IsDir() {
+		return fmt.Errorf("firmware path %s is a directory, not a file", firmware)
 	}
-
-	// Return cleanup function
-	cleanup := func() {
-		os.RemoveAll(tempDir)
-	}
-
-	return firmwarePath, cleanup, nil
+	return nil
 }
 
 // CLI Commands
@@ -297,10 +244,10 @@ func createQemuCommand() *cli.Command {
 						Aliases: []string{"t"},
 						Usage:   "Target disk device or image file",
 					},
-					&cli.BoolFlag{
-						Name:    "uefi",
-						Aliases: []string{"u"},
-						Usage:   "Enable UEFI boot mode",
+					&cli.StringFlag{
+						Name:    "firmware",
+						Aliases: []string{"f"},
+						Usage:   "Path to UEFI firmware file (e.g. /usr/share/ovmf/OVMF.fd)",
 					},
 					&cli.StringFlag{
 						Name:    "memory",
@@ -318,7 +265,7 @@ func createQemuCommand() *cli.Command {
 				Action: func(c context.Context, cmd *cli.Command) error {
 					qemuCmd := &QemuCommand{
 						target:   cmd.String("target"),
-						uefi:     cmd.Bool("uefi"),
+						firmware: cmd.String("firmware"),
 						memory:   cmd.String("memory"),
 						cpus:     cmd.Int("cpus"),
 						qemuArgs: cmd.Args().Slice(),
@@ -336,6 +283,12 @@ func createQemuCommand() *cli.Command {
 						Usage:   "Target disk device or image file",
 					},
 					&cli.StringFlag{
+						Name:     "firmware",
+						Aliases:  []string{"f"},
+						Required: true,
+						Usage:    "Path to ARM64 firmware file (e.g. /usr/share/qemu-efi-aarch64/QEMU_EFI.fd)",
+					},
+					&cli.StringFlag{
 						Name:    "memory",
 						Aliases: []string{"m"},
 						Value:   "2G",
@@ -351,6 +304,7 @@ func createQemuCommand() *cli.Command {
 				Action: func(c context.Context, cmd *cli.Command) error {
 					qemuCmd := &QemuArm64Command{
 						target:   cmd.String("target"),
+						firmware: cmd.String("firmware"),
 						memory:   cmd.String("memory"),
 						cpus:     cmd.Int("cpus"),
 						qemuArgs: cmd.Args().Slice(),
