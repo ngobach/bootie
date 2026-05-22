@@ -1,0 +1,28 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	humanize "github.com/dustin/go-humanize"
+)
+
+func createImg(target, sizeStr string) error {
+	sizeBytes, err := parseSize(sizeStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse size: %w", err)
+	}
+
+	file, err := os.Create(target)
+	if err != nil {
+		return fmt.Errorf("failed to create image file: %w", err)
+	}
+	defer file.Close()
+
+	if err := file.Truncate(sizeBytes); err != nil {
+		return fmt.Errorf("failed to set image size: %w", err)
+	}
+
+	fmt.Printf("Created raw disk image: %s (%s)\n", target, humanize.IBytes(uint64(sizeBytes)))
+	return nil
+}
