@@ -10,28 +10,77 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem"
 )
 
-type Exfat struct{}
-
-func (e *Exfat) Type() filesystem.Type          { return filesystem.TypeFat32 }
-func (e *Exfat) Mkdir(string) error             { return filesystem.ErrNotSupported }
-func (e *Exfat) Mknod(string, uint32, int) error { return filesystem.ErrNotSupported }
-func (e *Exfat) Link(string, string) error       { return filesystem.ErrNotSupported }
-func (e *Exfat) Symlink(string, string) error     { return filesystem.ErrNotSupported }
-func (e *Exfat) Chmod(string, os.FileMode) error  { return filesystem.ErrNotSupported }
-func (e *Exfat) Chown(string, int, int) error     { return filesystem.ErrNotSupported }
-func (e *Exfat) ReadDir(string) ([]os.FileInfo, error) {
-	return nil, filesystem.ErrNotSupported
+type Exfat struct {
+	dev            io.ReadWriteSeeker
+	sb             exfatSuperBlock
+	upcase         []uint16
+	root           *exfatNode
+	cmapStart      uint32
+	cmapSize       uint32
+	cmapChunk      []uint64
+	cmapDirty      bool
+	label          string
+	mounted        bool
 }
-func (e *Exfat) OpenFile(string, int) (filesystem.File, error) {
-	return nil, filesystem.ErrNotSupported
-}
-func (e *Exfat) Rename(string, string) error  { return filesystem.ErrNotSupported }
-func (e *Exfat) Remove(string) error          { return filesystem.ErrNotSupported }
-func (e *Exfat) Label() string                { return "" }
-func (e *Exfat) SetLabel(string) error        { return filesystem.ErrNotSupported }
-func (e *Exfat) Close() error                 { return nil }
 
-func (e *Exfat) Create(w io.WriterAt, start int64, size int64, label string) error {
+func (e *Exfat) Type() filesystem.Type { return filesystem.TypeFat32 }
+
+func (e *Exfat) Mkdir(path string) error {
+	return e.mkdir(path)
+}
+
+func (e *Exfat) Mknod(path string, mode uint32, dev int) error {
+	return e.mknod(path)
+}
+
+func (e *Exfat) Link(string, string) error    { return filesystem.ErrNotSupported }
+func (e *Exfat) Symlink(string, string) error  { return filesystem.ErrNotSupported }
+
+func (e *Exfat) Chmod(name string, mode os.FileMode) error {
+	return e.chmod(name, mode)
+}
+
+func (e *Exfat) Chown(name string, uid, gid int) error {
+	return e.chown(name, uid, gid)
+}
+
+func (e *Exfat) ReadDir(path string) ([]os.FileInfo, error) {
+	return e.readDir(path)
+}
+
+func (e *Exfat) OpenFile(path string, flag int) (filesystem.File, error) {
+	return e.openFile(path, flag)
+}
+
+func (e *Exfat) Rename(oldPath, newPath string) error {
+	return e.rename(oldPath, newPath)
+}
+
+func (e *Exfat) Remove(path string) error {
+	return e.remove(path)
+}
+
+func (e *Exfat) Label() string {
+	return e.label
+}
+
+func (e *Exfat) SetLabel(label string) error {
+	return e.setLabel(label)
+}
+
+func (e *Exfat) Close() error {
+	return e.close()
+}
+
+func NewExfat(rw io.ReadWriteSeeker) (*Exfat, error) {
+	e := &Exfat{dev: rw}
+	if err := e.mount(); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+func CreateExfat(w io.WriterAt, start int64, size int64, label string) error {
 	if size < 1024*1024 {
 		return fmt.Errorf("partition too small for exFAT: %d bytes (minimum 1 MiB)", size)
 	}

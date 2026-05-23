@@ -208,8 +208,7 @@ func initializeDisk(target, fsType string) error {
 			if err != nil {
 				return fmt.Errorf("failed to get writable backend: %w", err)
 			}
-			exfat := &Exfat{}
-			if err := exfat.Create(w, start, size, "Bootie"); err != nil {
+			if err := CreateExfat(w, start, size, "Bootie"); err != nil {
 				return fmt.Errorf("failed to create Bootie exFAT: %w", err)
 			}
 		default:
