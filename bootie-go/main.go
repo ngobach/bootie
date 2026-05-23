@@ -14,6 +14,7 @@ import (
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/urfave/cli/v3"
+	"ngobach.com/bootie-go/exfat"
 	"ngobach.com/bootie-go/resources"
 )
 
@@ -208,7 +209,7 @@ func initializeDisk(target, fsType string) error {
 			if err != nil {
 				return fmt.Errorf("failed to get writable backend: %w", err)
 			}
-			if err := CreateExfat(w, start, size, "Bootie"); err != nil {
+			if err := exfat.CreateExfat(w, start, size, "Bootie"); err != nil {
 				return fmt.Errorf("failed to create Bootie exFAT: %w", err)
 			}
 		default:

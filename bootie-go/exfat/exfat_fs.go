@@ -1,4 +1,4 @@
-package main
+package exfat
 
 import (
 	"encoding/binary"
@@ -1888,5 +1888,4 @@ var _ filesystem.File = (*exfatFile)(nil)
 // Ensure Exfat implements filesystem.FileSystem
 var _ filesystem.FileSystem = (*Exfat)(nil)
 
-// Ensure Exfat implements our local FileSystem
-var _ FileSystem = (*Exfat)(nil)
+

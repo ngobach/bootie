@@ -1,4 +1,4 @@
-package main
+package exfat_test
 
 import (
 	"io"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"ngobach.com/bootie-go/exfat"
 )
 
 func TestCreateAndMountExfat(t *testing.T) {
@@ -31,11 +33,11 @@ func TestCreateAndMountExfat(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := CreateExfat(f, 0, imgSize, "Bootie"); err != nil {
+	if err := exfat.CreateExfat(f, 0, imgSize, "Bootie"); err != nil {
 		t.Fatal("CreateExfat:", err)
 	}
 
-	ef, err := NewExfat(f)
+	ef, err := exfat.NewExfat(f)
 	if err != nil {
 		t.Fatal("NewExfat:", err)
 	}
@@ -68,11 +70,11 @@ func TestExfatFileOps(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := CreateExfat(f, 0, imgSize, "Test"); err != nil {
+	if err := exfat.CreateExfat(f, 0, imgSize, "Test"); err != nil {
 		t.Fatal("CreateExfat:", err)
 	}
 
-	ef, err := NewExfat(f)
+	ef, err := exfat.NewExfat(f)
 	if err != nil {
 		t.Fatal("NewExfat:", err)
 	}
@@ -295,7 +297,7 @@ func TestExfatNewExfatErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewExfat(f); err == nil {
+	if _, err := exfat.NewExfat(f); err == nil {
 		t.Fatal("expected error on empty file")
 	}
 	f.Close()
@@ -306,11 +308,11 @@ func TestExfatNewExfatErrors(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := CreateExfat(f, 0, 64*1024*1024, "Test"); err != nil {
+	if err := exfat.CreateExfat(f, 0, 64*1024*1024, "Test"); err != nil {
 		t.Fatal(err)
 	}
 
-	ef, err := NewExfat(f)
+	ef, err := exfat.NewExfat(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -342,11 +344,11 @@ func TestExfatClose(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := CreateExfat(f, 0, 64*1024*1024, "Test"); err != nil {
+	if err := exfat.CreateExfat(f, 0, 64*1024*1024, "Test"); err != nil {
 		t.Fatal(err)
 	}
 
-	ef, err := NewExfat(f)
+	ef, err := exfat.NewExfat(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,11 +385,11 @@ func TestExfatWriteAfterSeek(t *testing.T) {
 	}
 	defer f.Close()
 
-	if err := CreateExfat(f, 0, imgSize, "Test"); err != nil {
+	if err := exfat.CreateExfat(f, 0, imgSize, "Test"); err != nil {
 		t.Fatal(err)
 	}
 
-	ef, err := NewExfat(f)
+	ef, err := exfat.NewExfat(f)
 	if err != nil {
 		t.Fatal(err)
 	}

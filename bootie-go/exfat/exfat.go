@@ -1,4 +1,4 @@
-package main
+package exfat
 
 import (
 	"encoding/binary"
