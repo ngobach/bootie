@@ -144,7 +144,7 @@ func initializeDisk(target, fsType string) error {
 func initCommand() *cli.Command {
 	return &cli.Command{
 		Name:  "init",
-		Usage: "Initialize the disk",
+		Usage: "Partition disk and create filesystems with embedded data",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:     "target",
