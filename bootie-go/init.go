@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
@@ -105,24 +104,12 @@ func initializeDisk(target, fsType string) error {
 			if err != nil {
 				return fmt.Errorf("failed to mount exFAT: %w", err)
 			}
-			if err := ef.Mknod("/Hello.txt", 0, 0); err != nil {
+
+			if err := copyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
 				ef.Close()
-				return fmt.Errorf("failed to create Hello.txt: %w", err)
+				return fmt.Errorf("failed to copy data files: %w", err)
 			}
-			fh, err := ef.OpenFile("/Hello.txt", os.O_RDWR)
-			if err != nil {
-				ef.Close()
-				return fmt.Errorf("failed to open Hello.txt: %w", err)
-			}
-			if _, err := fh.Write([]byte("Hello world!")); err != nil {
-				fh.Close()
-				ef.Close()
-				return fmt.Errorf("failed to write Hello.txt: %w", err)
-			}
-			if err := fh.Close(); err != nil {
-				ef.Close()
-				return fmt.Errorf("failed to close Hello.txt: %w", err)
-			}
+
 			if err := ef.Close(); err != nil {
 				return fmt.Errorf("failed to close exFAT: %w", err)
 			}
@@ -133,10 +120,19 @@ func initializeDisk(target, fsType string) error {
 				VolumeLabel: "Bootie",
 			}
 
-			_, err := disk.CreateFilesystem(fsSpec)
+			dataFs, err := disk.CreateFilesystem(fsSpec)
 
 			if err != nil {
 				return fmt.Errorf("failed to create Bootie partition: %w", err)
+			}
+
+			if err := copyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
+				dataFs.Close()
+				return fmt.Errorf("failed to copy data files: %w", err)
+			}
+
+			if err := dataFs.Close(); err != nil {
+				return fmt.Errorf("failed to close FAT32: %w", err)
 			}
 		}
 	}
