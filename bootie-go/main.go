@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	diskfs "github.com/diskfs/go-diskfs"
 	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
@@ -137,7 +138,7 @@ func installTo(target string) error {
 	return nil
 }
 
-func initializeDisk(target string) error {
+func initializeDisk(target, fsType string) error {
 	fmt.Printf("Host OS: %s\n", runtime.GOOS)
 	fmt.Printf("Target to be initialized: %s\n", target)
 
@@ -195,17 +196,34 @@ func initializeDisk(target string) error {
 	}
 
 	{
-		fmt.Println("Creating Bootie partition")
-		fsSpec := diskfsDisk.FilesystemSpec{
-			Partition:   2,
-			FSType:      filesystem.TypeFat32,
-			VolumeLabel: "Bootie",
-		}
+		fmt.Printf("Creating Bootie partition (%s)\n", strings.ToUpper(fsType))
+		partitions := disk.Table.GetPartitions()
+		part := partitions[1]
+		start := part.GetStart()
+		size := part.GetSize()
 
-		_, err := disk.CreateFilesystem(fsSpec)
+		switch fsType {
+		case "exfat":
+			w, err := disk.Backend.Writable()
+			if err != nil {
+				return fmt.Errorf("failed to get writable backend: %w", err)
+			}
+			exfat := &Exfat{}
+			if err := exfat.Create(w, start, size, "Bootie"); err != nil {
+				return fmt.Errorf("failed to create Bootie exFAT: %w", err)
+			}
+		default:
+			fsSpec := diskfsDisk.FilesystemSpec{
+				Partition:   2,
+				FSType:      filesystem.TypeFat32,
+				VolumeLabel: "Bootie",
+			}
 
-		if err != nil {
-			return fmt.Errorf("failed to create Bootie partition: %w", err)
+			_, err := disk.CreateFilesystem(fsSpec)
+
+			if err != nil {
+				return fmt.Errorf("failed to create Bootie partition: %w", err)
+			}
 		}
 	}
 
@@ -226,10 +244,20 @@ func main() {
 						Name:     "target",
 						Required: true,
 					},
+					&cli.StringFlag{
+						Name:    "fs",
+						Aliases: []string{"f"},
+						Value:   "fat32",
+						Usage:   "Filesystem for data partition: fat32 (default) or exfat",
+					},
 				},
 				Action: func(_ context.Context, c *cli.Command) error {
 					target := c.String("target")
-					return initializeDisk(target)
+					fsType := c.String("fs")
+					if fsType != "fat32" && fsType != "exfat" {
+						return fmt.Errorf("unsupported filesystem %q (must be fat32 or exfat)", fsType)
+					}
+					return initializeDisk(target, fsType)
 				},
 			},
 			{
