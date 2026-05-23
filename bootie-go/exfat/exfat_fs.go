@@ -1640,6 +1640,26 @@ func findSlot(ef *Exfat, dir *exfatNode, n int) (int64, error) {
 		}
 	}
 
+	// Mark metadata entries (label, bitmap, upcase) as occupied
+	var scanOffset int64
+	scanEntries := make([]exfatEntry, 1)
+	for uint64(scanOffset) < dirSize {
+		if err := readEntries(ef, dir, scanEntries, scanOffset); err != nil {
+			break
+		}
+		if scanEntries[0].Type == exfatEntryFile {
+			break
+		}
+		if scanEntries[0].Type&exfatEntryValid == 0 {
+			break
+		}
+		idx := scanOffset / 32
+		if idx < int64(len(dmap)) {
+			dmap[idx] = true
+		}
+		scanOffset += 32
+	}
+
 	contiguous := 0
 	var offset int64 = -1
 	for i := int64(0); i < int64(len(dmap)); i++ {

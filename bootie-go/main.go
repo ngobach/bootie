@@ -212,6 +212,32 @@ func initializeDisk(target, fsType string) error {
 			if err := exfat.CreateExfat(w, start, size, "Bootie"); err != nil {
 				return fmt.Errorf("failed to create Bootie exFAT: %w", err)
 			}
+
+			ef, err := exfat.NewExfatFromBackend(disk.Backend, start)
+			if err != nil {
+				return fmt.Errorf("failed to mount exFAT: %w", err)
+			}
+			if err := ef.Mknod("/Hello.txt", 0, 0); err != nil {
+				ef.Close()
+				return fmt.Errorf("failed to create Hello.txt: %w", err)
+			}
+			fh, err := ef.OpenFile("/Hello.txt", os.O_RDWR)
+			if err != nil {
+				ef.Close()
+				return fmt.Errorf("failed to open Hello.txt: %w", err)
+			}
+			if _, err := fh.Write([]byte("Hello world!")); err != nil {
+				fh.Close()
+				ef.Close()
+				return fmt.Errorf("failed to write Hello.txt: %w", err)
+			}
+			if err := fh.Close(); err != nil {
+				ef.Close()
+				return fmt.Errorf("failed to close Hello.txt: %w", err)
+			}
+			if err := ef.Close(); err != nil {
+				return fmt.Errorf("failed to close exFAT: %w", err)
+			}
 		default:
 			fsSpec := diskfsDisk.FilesystemSpec{
 				Partition:   2,

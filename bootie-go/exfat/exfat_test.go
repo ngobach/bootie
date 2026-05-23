@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/diskfs/go-diskfs/backend/file"
 	"ngobach.com/bootie-go/exfat"
 )
 
@@ -426,5 +427,115 @@ func TestExfatWriteAfterSeek(t *testing.T) {
 	}
 	if string(data) != "Hello Go" && !strings.HasPrefix(string(data), "Hello Go") {
 		t.Fatalf("got %q, expected to start with %q", string(data), "Hello Go")
+	}
+}
+
+func TestNewExfatFromBackend(t *testing.T) {
+	dir := t.TempDir()
+	imgPath := filepath.Join(dir, "test.exfat")
+
+	f, err := os.Create(imgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const imgSize = 64 * 1024 * 1024
+	if err := f.Truncate(imgSize); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = os.OpenFile(imgPath, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	if err := exfat.CreateExfat(f, 0, imgSize, "Bootie"); err != nil {
+		t.Fatal("CreateExfat:", err)
+	}
+	f.Close()
+
+	f, err = os.OpenFile(imgPath, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	b := file.New(f, false)
+	ef, err := exfat.NewExfatFromBackend(b, 0)
+	if err != nil {
+		t.Fatal("NewExfatFromBackend:", err)
+	}
+	defer ef.Close()
+
+	if ef.Label() != "Bootie" {
+		t.Errorf("label = %q, want %q", ef.Label(), "Bootie")
+	}
+
+	if err := ef.Mkdir("/mydir"); err != nil {
+		t.Fatal("Mkdir:", err)
+	}
+
+	if err := ef.Mknod("/hello.txt", 0, 0); err != nil {
+		t.Fatal("Mknod:", err)
+	}
+
+	fh, err := ef.OpenFile("/hello.txt", os.O_RDWR)
+	if err != nil {
+		t.Fatal("OpenFile:", err)
+	}
+	msg := "Hello from backend!"
+	if _, err := fh.Write([]byte(msg)); err != nil {
+		t.Fatal("Write:", err)
+	}
+	if _, err := fh.Seek(0, io.SeekStart); err != nil {
+		t.Fatal("Seek:", err)
+	}
+	buf := make([]byte, len(msg))
+	if _, err := io.ReadFull(fh, buf); err != nil {
+		t.Fatal("ReadFull:", err)
+	}
+	if string(buf) != msg {
+		t.Fatalf("got %q, want %q", string(buf), msg)
+	}
+	if err := fh.Close(); err != nil {
+		t.Fatal("fh.Close:", err)
+	}
+
+	entries, err := ef.ReadDir("/")
+	if err != nil {
+		t.Fatal("ReadDir:", err)
+	}
+	foundDir, foundFile := false, false
+	for _, e := range entries {
+		switch e.Name() {
+		case "mydir":
+			foundDir = true
+		case "hello.txt":
+			foundFile = true
+		}
+	}
+	if !foundDir {
+		t.Error("mydir not found")
+	}
+	if !foundFile {
+		t.Error("hello.txt not found")
+	}
+
+	if err := ef.Remove("/hello.txt"); err != nil {
+		t.Fatal("Remove:", err)
+	}
+	if err := ef.Remove("/mydir"); err != nil {
+		t.Fatal("Remove /mydir:", err)
+	}
+
+	if err := ef.Close(); err != nil {
+		t.Fatal("Close:", err)
+	}
+
+	if err := b.Close(); err != nil {
+		t.Fatal("backend.Close:", err)
 	}
 }
