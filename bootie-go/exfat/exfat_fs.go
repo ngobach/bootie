@@ -1338,7 +1338,15 @@ func (e *Exfat) readDir(path string) ([]os.FileInfo, error) {
 func (e *Exfat) openFile(path string, flag int) (filesystem.File, error) {
 	node, err := exfatLookup(e, path)
 	if err != nil {
-		return nil, err
+		if flag&os.O_CREATE != 0 {
+			if err := create(e, path, exfatAttribArch); err != nil {
+				return nil, err
+			}
+			node, err = exfatLookup(e, path)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	if node.attrib&exfatAttribDir != 0 {
 		return nil, errors.New("is a directory")
