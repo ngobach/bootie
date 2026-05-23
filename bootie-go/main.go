@@ -268,13 +268,14 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "target",
+						Aliases:  []string{"t"},
 						Required: true,
 					},
 					&cli.StringFlag{
 						Name:    "fs",
 						Aliases: []string{"f"},
-						Value:   "fat32",
-						Usage:   "Filesystem for data partition: fat32 (default) or exfat",
+						Value:   "exfat",
+						Usage:   "Filesystem for data partition: exfat (default) or fat32",
 					},
 				},
 				Action: func(_ context.Context, c *cli.Command) error {
@@ -292,6 +293,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "target",
+						Aliases:  []string{"t"},
 						Required: true,
 					},
 				},
@@ -326,6 +328,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "target",
+						Aliases:  []string{"t"},
 						Required: true,
 					},
 				},
@@ -344,6 +347,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "target",
+						Aliases:  []string{"t"},
 						Required: true,
 					},
 				},
@@ -362,6 +366,7 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     "target",
+						Aliases:  []string{"t"},
 						Required: true,
 						Usage:    "Path to the output image file",
 					},
