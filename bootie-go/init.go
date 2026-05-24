@@ -75,6 +75,11 @@ func initializeDisk(target, fsType string) error {
 		return fmt.Errorf("failed to write MBR CHS end: %w", err)
 	}
 
+	log.Info("Installing boot sectors...")
+	if err := installTo(target); err != nil {
+		return fmt.Errorf("failed to install boot sectors: %w", err)
+	}
+
 	{
 		log.Info("Creating EFI partition")
 		fsSpec := diskfsDisk.FilesystemSpec{
