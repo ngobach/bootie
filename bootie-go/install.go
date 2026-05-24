@@ -60,30 +60,40 @@ func installTo(target string) error {
 		return fmt.Errorf("disk verification failed: %w", err)
 	}
 
-	rawIo, err := OpenRawIo(target)
+	tryUnmountIfNeeded(target)
+
+	back, err := diskfsFile.OpenFromPath(target, false)
 	if err != nil {
-		return fmt.Errorf("failed to open raw io: %w", err)
+		return fmt.Errorf("failed to open disk: %w", err)
 	}
-	defer rawIo.Close()
+	defer back.Close()
+
+	w, err := back.Writable()
+	if err != nil {
+		return fmt.Errorf("failed to get writable backend: %w", err)
+	}
 
 	log.Info("Installing...")
 
 	buffer := make([]byte, seedSizeInBytes)
 	copy(buffer, resources.SeedSectors)
-	originalMBR, err := rawIo.ReadSector(0)
-	if err != nil {
+
+	originalMBR := make([]byte, 512)
+	if _, err := back.ReadAt(originalMBR, 0); err != nil {
 		return fmt.Errorf("failed to read original MBR: %w", err)
 	}
 	copy(buffer[446:512], originalMBR[446:512])
+
 	for i := 1; i <= 33; i++ {
-		originalSector, err := rawIo.ReadSector(int64(i))
-		if err != nil {
+		sector := make([]byte, 512)
+		if _, err := back.ReadAt(sector, int64(i*512)); err != nil {
 			return fmt.Errorf("failed to read original sector number %d: %w", i, err)
 		}
-		copy(buffer[i*512:], originalSector)
+		copy(buffer[i*512:], sector)
 	}
+
 	for i := range numSectors {
-		if err := rawIo.WriteSector(int64(i), buffer[i*512:(i+1)*512]); err != nil {
+		if _, err := w.WriteAt(buffer[i*512:(i+1)*512], int64(i*512)); err != nil {
 			return fmt.Errorf("failed to write sector %d: %w", i, err)
 		}
 	}

@@ -18,7 +18,7 @@ func main() {
 			copyEfiCommand(),
 			copyDataCommand(),
 			createImgCommand(),
-			createQemuCommand(),
+			qemuCommand(),
 		},
 	}
 
