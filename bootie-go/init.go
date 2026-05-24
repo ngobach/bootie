@@ -61,6 +61,20 @@ func initializeDisk(target, fsType string) error {
 		return fmt.Errorf("failed to partition disk: %w", err)
 	}
 
+	// Fix protective MBR CHS values (go-diskfs leaves them zeroed)
+	w, err := disk.Backend.Writable()
+	if err != nil {
+		return fmt.Errorf("failed to get writable backend: %w", err)
+	}
+	// CHS start: 0x000200 (head=0, sector=2, cylinder=0)
+	if _, err := w.WriteAt([]byte{0x00, 0x02, 0x00}, 447); err != nil {
+		return fmt.Errorf("failed to write MBR CHS start: %w", err)
+	}
+	// CHS end: 0xFEFFFF (max values)
+	if _, err := w.WriteAt([]byte{0xFE, 0xFF, 0xFF}, 452); err != nil {
+		return fmt.Errorf("failed to write MBR CHS end: %w", err)
+	}
+
 	{
 		log.Info("Creating EFI partition")
 		fsSpec := diskfsDisk.FilesystemSpec{
