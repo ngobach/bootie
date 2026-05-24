@@ -124,56 +124,50 @@ func validateFirmware(firmware string) error {
 
 // CLI Commands
 
-func qemuCommand() *cli.Command {
+func runQemuCommand() *cli.Command {
 	return &cli.Command{
-		Name:  "qemu",
-		Usage: "QEMU testing and development commands",
-		Commands: []*cli.Command{
-			{
-				Name:  "run",
-				Usage: "Run QEMU with a disk image or device",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:    "target",
-						Aliases: []string{"t"},
-						Usage:   "Target disk device or image file",
-					},
-					&cli.StringFlag{
-						Name:    "firmware",
-						Aliases: []string{"f"},
-						Usage:   "Path to UEFI firmware file",
-					},
-					&cli.StringFlag{
-						Name:    "memory",
-						Aliases: []string{"m"},
-						Value:   "2G",
-						Usage:   "Memory size (e.g., 2G, 1024M)",
-					},
-					&cli.IntFlag{
-						Name:    "cpus",
-						Aliases: []string{"c"},
-						Value:   4,
-						Usage:   "Number of CPUs",
-					},
-					&cli.StringFlag{
-						Name:    "arch",
-						Aliases: []string{"a"},
-						Value:   "x86_64",
-						Usage:   "Target architecture (x86_64 or arm64)",
-					},
-				},
-				Action: func(c context.Context, cmd *cli.Command) error {
-					runCmd := &QemuRunCommand{
-						target:   cmd.String("target"),
-						firmware: cmd.String("firmware"),
-						memory:   cmd.String("memory"),
-						cpus:     cmd.Int("cpus"),
-						arch:     cmd.String("arch"),
-						qemuArgs: cmd.Args().Slice(),
-					}
-					return runCmd.execute()
-				},
+		Name:  "run-qemu",
+		Usage: "Run QEMU with a disk image or device",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "target",
+				Aliases: []string{"t"},
+				Usage:   "Target disk device or image file",
 			},
+			&cli.StringFlag{
+				Name:    "firmware",
+				Aliases: []string{"f"},
+				Usage:   "Path to UEFI firmware file",
+			},
+			&cli.StringFlag{
+				Name:    "memory",
+				Aliases: []string{"m"},
+				Value:   "2G",
+				Usage:   "Memory size (e.g., 2G, 1024M)",
+			},
+			&cli.IntFlag{
+				Name:    "cpus",
+				Aliases: []string{"c"},
+				Value:   4,
+				Usage:   "Number of CPUs",
+			},
+			&cli.StringFlag{
+				Name:    "arch",
+				Aliases: []string{"a"},
+				Value:   "x86_64",
+				Usage:   "Target architecture (x86_64 or arm64)",
+			},
+		},
+		Action: func(c context.Context, cmd *cli.Command) error {
+			runCmd := &QemuRunCommand{
+				target:   cmd.String("target"),
+				firmware: cmd.String("firmware"),
+				memory:   cmd.String("memory"),
+				cpus:     cmd.Int("cpus"),
+				arch:     cmd.String("arch"),
+				qemuArgs: cmd.Args().Slice(),
+			}
+			return runCmd.execute()
 		},
 	}
 }
