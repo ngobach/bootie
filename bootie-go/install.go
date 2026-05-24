@@ -5,72 +5,40 @@ import (
 	"fmt"
 	"runtime"
 
+	diskfs "github.com/diskfs/go-diskfs"
+	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
+	"github.com/diskfs/go-diskfs/partition/gpt"
 	"github.com/urfave/cli/v3"
 	"ngobach.com/bootie-go/resources"
 
 	log "github.com/charmbracelet/log"
 )
 
-func verifyProtectiveMbr(rawIo *RawIo) error {
-	originalMBR, err := rawIo.ReadSector(0)
-
+func verifyDisk(target string) error {
+	rawDisk, err := diskfsFile.OpenFromPath(target, false)
 	if err != nil {
-		return fmt.Errorf("failed to read original MBR: %w", err)
+		return fmt.Errorf("failed to open disk: %w", err)
 	}
+	defer rawDisk.Close()
 
-	if originalMBR[0x1fe] != 0x55 || originalMBR[0x1ff] != 0xAA {
-		return fmt.Errorf("original MBR is not valid")
-	}
-
-	if originalMBR[0x1be+0x4] != 0xEE {
-		return fmt.Errorf("first partition is not protective MBR partition")
-	}
-
-	return nil
-}
-
-func verifyGptHeader(rawIo *RawIo) error {
-	buffer, err := rawIo.ReadSector(1)
-
+	disk, err := diskfs.OpenBackend(rawDisk)
 	if err != nil {
-		return fmt.Errorf("failed to read original MBR: %w", err)
+		return fmt.Errorf("failed to read disk: %w", err)
 	}
 
-	signature := buffer[:0x8]
-
-	if string(signature) != "EFI PART" {
-		return fmt.Errorf("signature is not EFI PART")
+	if disk.Table == nil {
+		return fmt.Errorf("no partition table found on disk")
 	}
 
-	return nil
-}
+	gptTable, ok := disk.Table.(*gpt.Table)
+	if !ok {
+		return fmt.Errorf("disk does not have a GPT partition table")
+	}
 
-func verifyGptPartitionPosition(rawIo *RawIo) error {
-	for i := 2; i < 34; i++ {
-		buffer, err := rawIo.ReadSector(int64(i))
-
-		if err != nil {
-			return fmt.Errorf("failed to read sector: %w", err)
-		}
-
-		for offset := 0; offset < 512; offset += 128 {
-			partitionRawData := buffer[offset : offset+128]
-			part, err := parseGptPart(partitionRawData)
-
-			if err != nil {
-				return fmt.Errorf("failed to parse partition: %w", err)
-			}
-
-			if part.isEmpty() {
-				continue
-			}
-
-			printGptPart(part)
-			log.Debug("---")
-
-			if part.firstLBA < 64 {
-				return fmt.Errorf("partition starts before 64 sectors (LBA: %d)", part.firstLBA)
-			}
+	for _, part := range gptTable.Partitions {
+		log.Debugf("Partition: %s (LBA %d, size %d)", part.Name, part.Start, part.GetSize())
+		if part.Start < 64 {
+			return fmt.Errorf("partition %q starts before 64 sectors (LBA: %d)", part.Name, part.Start)
 		}
 	}
 
@@ -88,23 +56,15 @@ func installTo(target string) error {
 	log.Infof("Target to be installed: %s", target)
 	log.Info("Verifying disk before installing...")
 
+	if err := verifyDisk(target); err != nil {
+		return fmt.Errorf("disk verification failed: %w", err)
+	}
+
 	rawIo, err := OpenRawIo(target)
 	if err != nil {
 		return fmt.Errorf("failed to open raw io: %w", err)
 	}
 	defer rawIo.Close()
-
-	if err := verifyProtectiveMbr(rawIo); err != nil {
-		return fmt.Errorf("failed to verify protective MBR: %w", err)
-	}
-
-	if err := verifyGptHeader(rawIo); err != nil {
-		return fmt.Errorf("failed to verify GPT header: %w", err)
-	}
-
-	if err := verifyGptPartitionPosition(rawIo); err != nil {
-		return fmt.Errorf("failed to verify GPT partition position: %w", err)
-	}
 
 	log.Info("Installing...")
 
