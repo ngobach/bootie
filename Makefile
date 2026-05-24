@@ -4,6 +4,7 @@ GOOS_WINDOWS := windows
 
 GOARCH       := amd64
 
+LDFLAGS      := -ldflags="-s -w"
 BUILD_DIR    := build
 BOOTIE_GO_DIR := bootie-go
 
@@ -24,15 +25,15 @@ build:
 
 # Build macOS (Darwin) executable
 $(EXECUTABLE_DARWIN): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) go build -o ../$(EXECUTABLE_DARWIN) .
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_DARWIN) .
 
 # Build Linux executable
 $(EXECUTABLE_LINUX): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -o ../$(EXECUTABLE_LINUX) .
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_LINUX) .
 
 # Build Windows executable
 $(EXECUTABLE_WINDOWS): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -o ../$(EXECUTABLE_WINDOWS) .
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_WINDOWS) .
 
 # Aggregate target — build all platform executables
 all: $(EXECUTABLE_DARWIN) $(EXECUTABLE_LINUX) $(EXECUTABLE_WINDOWS)
