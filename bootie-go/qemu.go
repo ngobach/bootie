@@ -8,6 +8,8 @@ import (
 	"runtime"
 
 	"github.com/urfave/cli/v3"
+
+	log "github.com/charmbracelet/log"
 )
 
 type QemuCommand struct {
@@ -28,7 +30,7 @@ func (cmd *QemuCommand) execute() error {
 		return fmt.Errorf("failed to build QEMU command: %w", err)
 	}
 
-	fmt.Printf("Running QEMU with args: %v\n", qemuCmd.Args)
+	log.Infof("Running QEMU with args: %v", qemuCmd.Args)
 	return qemuCmd.Run()
 }
 
@@ -86,7 +88,7 @@ func (cmd *QemuArm64Command) execute() error {
 		return fmt.Errorf("failed to build QEMU ARM64 command: %w", err)
 	}
 
-	fmt.Printf("Running QEMU ARM64 with args: %v\n", qemuCmd.Args)
+	log.Infof("Running QEMU ARM64 with args: %v", qemuCmd.Args)
 	return qemuCmd.Run()
 }
 
@@ -131,7 +133,7 @@ type QemuCreateCommand struct {
 }
 
 func (cmd *QemuCreateCommand) execute() error {
-	fmt.Printf("Creating QEMU test image: %s\n", cmd.target)
+	log.Infof("Creating QEMU test image: %s", cmd.target)
 
 	switch runtime.GOOS {
 	case "darwin":
@@ -169,7 +171,7 @@ func (cmd *QemuCreateCommand) createDarwinImage() error {
 		}
 	}
 
-	fmt.Printf("Successfully created disk image: %s\n", cmd.target)
+	log.Default().Logf(SuccessLevel, "Successfully created disk image: %s", cmd.target)
 	return nil
 }
 
@@ -208,7 +210,7 @@ func (cmd *QemuCreateCommand) createLinuxImage() error {
 		return fmt.Errorf("failed to create data partition: %w\nOutput: %s", err, string(output))
 	}
 
-	fmt.Printf("Successfully created disk image: %s\n", cmd.target)
+	log.Default().Logf(SuccessLevel, "Successfully created disk image: %s", cmd.target)
 	return nil
 }
 

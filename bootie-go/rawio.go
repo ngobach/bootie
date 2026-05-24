@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	log "github.com/charmbracelet/log"
 )
 
 type RawIo struct {
@@ -47,7 +49,7 @@ func tryUnmountIfNeeded(path string) error {
 		isDisk := strings.HasPrefix(path, "/dev/disk")
 		if isDisk {
 			diskId := strings.TrimPrefix(path, "/dev/")
-			fmt.Printf("Attempting to unmount %s\n", path)
+			log.Infof("Attempting to unmount %s", path)
 			cmd := exec.Command("diskutil", "umountDisk", "force", diskId)
 			_, err := cmd.Output()
 			if err != nil {

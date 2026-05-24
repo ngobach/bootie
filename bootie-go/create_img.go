@@ -5,6 +5,8 @@ import (
 	"os"
 
 	humanize "github.com/dustin/go-humanize"
+
+	log "github.com/charmbracelet/log"
 )
 
 func createImg(target, sizeStr string) error {
@@ -23,6 +25,6 @@ func createImg(target, sizeStr string) error {
 		return fmt.Errorf("failed to set image size: %w", err)
 	}
 
-	fmt.Printf("Created raw disk image: %s (%s)\n", target, humanize.IBytes(uint64(sizeBytes)))
+	log.Default().Logf(SuccessLevel, "Created raw disk image: %s (%s)", target, humanize.IBytes(uint64(sizeBytes)))
 	return nil
 }

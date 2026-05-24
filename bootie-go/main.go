@@ -9,6 +9,8 @@ import (
 	humanize "github.com/dustin/go-humanize"
 	"github.com/urfave/cli/v3"
 	"ngobach.com/bootie-go/resources"
+
+	log "github.com/charmbracelet/log"
 )
 
 func verifyProtectiveMbr(rawIo *RawIo) error {
@@ -67,7 +69,7 @@ func verifyGptPartitionPosition(rawIo *RawIo) error {
 			}
 
 			printGptPart(part)
-			fmt.Println("---")
+			log.Debug("---")
 
 			if part.firstLBA < 64 {
 				return fmt.Errorf("partition starts before 64 sectors (LBA: %d)", part.firstLBA)
@@ -85,9 +87,9 @@ func installTo(target string) error {
 	}
 	numSectors := seedSizeInBytes / 512
 
-	fmt.Printf("Host OS: %s\n", runtime.GOOS)
-	fmt.Printf("Target to be installed: %s\n", target)
-	fmt.Printf("Verifying disk before installing...\n")
+	log.Infof("Host OS: %s", runtime.GOOS)
+	log.Infof("Target to be installed: %s", target)
+	log.Info("Verifying disk before installing...")
 
 	rawIo, err := OpenRawIo(target)
 	if err != nil {
@@ -107,7 +109,7 @@ func installTo(target string) error {
 		return fmt.Errorf("failed to verify GPT partition position: %w", err)
 	}
 
-	fmt.Println("Installing...")
+	log.Info("Installing...")
 
 	buffer := make([]byte, seedSizeInBytes)
 	copy(buffer, resources.SeedSectors)
@@ -128,7 +130,7 @@ func installTo(target string) error {
 			return fmt.Errorf("failed to write sector %d: %w", i, err)
 		}
 	}
-	fmt.Printf("Successfully installed to %s\n", target)
+	log.Default().Logf(SuccessLevel, "Successfully installed to %s", target)
 	return nil
 }
 
@@ -157,17 +159,17 @@ func main() {
 				Name:  "list",
 				Usage: "List available targets in current system",
 				Action: func(c context.Context, cmd *cli.Command) error {
-					fmt.Printf("Host OS: %s\n", runtime.GOOS)
+					log.Infof("Host OS: %s", runtime.GOOS)
 					result, err := scanDisk()
 
 					if err != nil {
 						return fmt.Errorf("failed to scan disk: %w", err)
 					}
 
-					fmt.Printf("Found %d disk(s):\n", len(result))
+					log.Infof("Found %d disk(s):", len(result))
 
 					for _, disk := range result {
-						fmt.Printf("- Path: %s, label: %s, size: %s\n", disk.identifier, disk.label, humanize.IBytes(uint64(disk.size)))
+						log.Infof("- Path: %s, label: %s, size: %s", disk.identifier, disk.label, humanize.IBytes(uint64(disk.size)))
 					}
 
 					return nil

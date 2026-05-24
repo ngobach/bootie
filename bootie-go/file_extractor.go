@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/diskfs/go-diskfs/filesystem"
+	log "github.com/charmbracelet/log"
 )
 
 func extractFiles(root fs.FS, source, dest string) error {
@@ -22,7 +22,7 @@ func extractFiles(root fs.FS, source, dest string) error {
 		}
 
 		destFilePath := filepath.Join(dest, strings.TrimPrefix(path, source))
-		fmt.Println("Creating", destFilePath)
+		log.Debugf("Creating %s", destFilePath)
 
 		if d.IsDir() {
 			return os.MkdirAll(destFilePath, os.ModePerm)
@@ -57,7 +57,7 @@ func copyToFilesystem(root fs.FS, source string, dest filesystem.FileSystem) err
 		}
 
 		relPath := strings.TrimPrefix(path, source)
-		fmt.Println("Creating", relPath)
+		log.Debugf("Creating %s", relPath)
 
 		if d.IsDir() {
 			return dest.Mkdir(relPath)

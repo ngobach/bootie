@@ -13,13 +13,15 @@ import (
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/urfave/cli/v3"
+
+	log "github.com/charmbracelet/log"
 	"ngobach.com/bootie-go/exfat"
 	"ngobach.com/bootie-go/resources"
 )
 
 func initializeDisk(target, fsType string) error {
-	fmt.Printf("Host OS: %s\n", runtime.GOOS)
-	fmt.Printf("Target to be initialized: %s\n", target)
+	log.Infof("Host OS: %s", runtime.GOOS)
+	log.Infof("Target to be initialized: %s", target)
 
 	rawDisk, err := diskfsFile.OpenFromPath(target, false)
 
@@ -35,7 +37,7 @@ func initializeDisk(target, fsType string) error {
 		return fmt.Errorf("failed to open disk: %w", err)
 	}
 
-	fmt.Println("Disk size:", humanize.IBytes(uint64(disk.Size)))
+	log.Infof("Disk size: %s", humanize.IBytes(uint64(disk.Size)))
 
 	if err = disk.Partition(&gpt.Table{
 		LogicalSectorSize:  512,
@@ -60,7 +62,7 @@ func initializeDisk(target, fsType string) error {
 	}
 
 	{
-		fmt.Println("Creating EFI partition")
+		log.Info("Creating EFI partition")
 		fsSpec := diskfsDisk.FilesystemSpec{
 			Partition:   1,
 			FSType:      filesystem.TypeFat32,
@@ -84,7 +86,7 @@ func initializeDisk(target, fsType string) error {
 	}
 
 	{
-		fmt.Printf("Creating Bootie partition (%s)\n", strings.ToUpper(fsType))
+		log.Infof("Creating Bootie partition (%s)", strings.ToUpper(fsType))
 		partitions := disk.Table.GetPartitions()
 		part := partitions[1]
 		start := part.GetStart()
@@ -137,7 +139,7 @@ func initializeDisk(target, fsType string) error {
 		}
 	}
 
-	fmt.Printf("Successfully initialized to %s\n", target)
+	log.Default().Logf(SuccessLevel, "Successfully initialized to %s", target)
 	return nil
 }
 

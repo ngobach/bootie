@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	log "github.com/charmbracelet/log"
 )
 
 type diskEntry struct {
@@ -86,8 +87,8 @@ func (part *gptPart) isEmpty() bool {
 }
 
 func printGptPart(part *gptPart) {
-	fmt.Printf("Partition GUID: %s\n", part.partitionGUID.String())
-	fmt.Printf("Partition Name: %s\n", part.partitionName)
-	fmt.Printf("First LBA: %d\n", part.firstLBA)
-	fmt.Printf("Last LBA: %d\n", part.lastLBA)
+	log.Debugf("Partition GUID: %s", part.partitionGUID.String())
+	log.Debugf("Partition Name: %s", part.partitionName)
+	log.Debugf("First LBA: %d", part.firstLBA)
+	log.Debugf("Last LBA: %d", part.lastLBA)
 }
