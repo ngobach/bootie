@@ -17,7 +17,7 @@ func listCommand() *cli.Command {
 		Usage: "List available targets in current system",
 		Action: func(c context.Context, cmd *cli.Command) error {
 			log.Infof("Host OS: %s", runtime.GOOS)
-			result, err := scanDisk()
+			result, err := DefaultDiskManager.ScanDisks()
 
 			if err != nil {
 				return fmt.Errorf("failed to scan disk: %w", err)

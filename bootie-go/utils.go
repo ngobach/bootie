@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-type diskEntry struct {
-	identifier string
-	label      string
-	size       int64
-}
-
 func parseSize(sizeStr string) (int64, error) {
 	sizeStr = strings.TrimSpace(sizeStr)
 

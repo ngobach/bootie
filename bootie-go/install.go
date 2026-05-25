@@ -60,7 +60,7 @@ func installTo(target string) error {
 		return fmt.Errorf("disk verification failed: %w", err)
 	}
 
-	tryUnmountIfNeeded(target)
+	DefaultDiskManager.LockDisk(target)
 
 	back, err := diskfsFile.OpenFromPath(target, false)
 	if err != nil {

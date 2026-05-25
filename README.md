@@ -225,12 +225,11 @@ The repository contains `bootie.sh` which provides utilities to run a disk image
 
 - `Makefile` — cross-build targets (darwin/linux/windows).
 - `bootie.sh` — convenience script for qemu-based testing and image creation.
-- `resources/` — top-level resources (e.g. firmware binaries for QEMU UEFI boot).
+- `resources/` — firmware binaries for QEMU testing (`bios.bin`, `edk2-aarch64-code.fd`).
 - `bootie-go/` — main Go implementation:
   - `main.go` — CLI and command implementations (`list`, `init`, `install`, `copy-efi`, `copy-data`).
-  - `rawio.go` — raw disk read/write helpers and macOS unmount helpers.
   - `file_extractor.go` — utilities to extract embedded `fs` files to a target directory.
-  - `scandisk_*.go` — platform-specific disk scanning (linux/darwin/windows).
+  - `diskmanager_*.go` — platform-specific disk scanning and locking (linux/darwin/windows).
   - `resources/` — embedded assets (`gptdisk-64-sectors.raw`, `efi-part/`, `data-part/`) via `go:embed`.
 - `build/` — output directory for built binaries (created by `make`).
 
@@ -249,8 +248,8 @@ The repository contains `bootie.sh` which provides utilities to run a disk image
 
 These are embedded into the Go binary using `embed.FS` and extracted using `copy-efi` / `copy-data`.
 
-> **Note:** The `bios.bin` and `edk2-aarch64-code.fd` firmware files under `resources/` are no longer
-> embedded in the Go binary, but are kept in the repository as a convenience for local testing.
+> **Note:** The `bios.bin` and `edk2-aarch64-code.fd` firmware files under `resources/` (at the project root)
+> are kept in the repository as a convenience for local testing.
 > When using `qemu run --firmware` or `qemu run-arm64`, provide the path to your own firmware file.
 > See [Quick start & prerequisites](#quick-start--prerequisites) for download options.
 

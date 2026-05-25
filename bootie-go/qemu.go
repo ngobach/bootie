@@ -58,7 +58,7 @@ func (cmd *QemuRunCommand) buildX86_64() (*exec.Cmd, error) {
 	}
 
 	if cmd.target != "" {
-		if err := tryUnmountIfNeeded(cmd.target); err != nil {
+		if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
 			return nil, fmt.Errorf("failed to unmount disk: %w", err)
 		}
 
@@ -89,7 +89,7 @@ func (cmd *QemuRunCommand) buildArm64() (*exec.Cmd, error) {
 	}
 
 	if cmd.target != "" {
-		if err := tryUnmountIfNeeded(cmd.target); err != nil {
+		if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
 			return nil, fmt.Errorf("failed to unmount disk: %w", err)
 		}
 

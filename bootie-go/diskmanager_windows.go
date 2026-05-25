@@ -6,7 +6,13 @@ import (
 	"github.com/drtimf/wmi"
 )
 
-func scanDisk() ([]diskEntry, error) {
+type windowsDiskManager struct{}
+
+func init() {
+	DefaultDiskManager = &windowsDiskManager{}
+}
+
+func (w *windowsDiskManager) ScanDisks() ([]diskEntry, error) {
 	var svc *wmi.Service
 	var err error
 	var result []diskEntry
@@ -20,7 +26,7 @@ func scanDisk() ([]diskEntry, error) {
 	var w32Disk []wmi.Win32_DiskDrive
 
 	if err = svc.Query("SELECT * FROM Win32_DiskDrive", &w32Disk); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	for _, disk := range w32Disk {
@@ -32,4 +38,8 @@ func scanDisk() ([]diskEntry, error) {
 	}
 
 	return result, nil
+}
+
+func (w *windowsDiskManager) LockDisk(path string) error {
+	return nil
 }
