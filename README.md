@@ -19,7 +19,7 @@ CLI toolkit to build, initialize and install a portable boot/rescue disk image (
 ## Build
 
 ```bash
-make                                          # cross-compile all platforms to build/
+make   # cross-compile all platforms to build/
 ```
 
 ## Example (bootable USB)
