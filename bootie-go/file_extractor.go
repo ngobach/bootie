@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/diskfs/go-diskfs/filesystem"
 	log "github.com/charmbracelet/log"
+	"github.com/diskfs/go-diskfs/filesystem"
 )
 
-func extractFiles(root fs.FS, source, dest string) error {
+func copyToLocalFilesystem(root fs.FS, source, dest string) error {
 	return fs.WalkDir(root, source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

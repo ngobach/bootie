@@ -20,7 +20,7 @@ func copyEfiCommand() *cli.Command {
 		},
 		Action: func(c context.Context, cmd *cli.Command) error {
 			target := cmd.String("target")
-			return extractFiles(
+			return copyToLocalFilesystem(
 				&resources.EfiFiles,
 				"efi-part",
 				target,
@@ -42,7 +42,7 @@ func copyDataCommand() *cli.Command {
 		},
 		Action: func(c context.Context, cmd *cli.Command) error {
 			target := cmd.String("target")
-			return extractFiles(
+			return copyToLocalFilesystem(
 				&resources.DataFiles,
 				"data-part",
 				target,
