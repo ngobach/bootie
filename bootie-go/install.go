@@ -46,11 +46,20 @@ func verifyDisk(target string) error {
 }
 
 func installTo(target string) error {
-	seedSizeInBytes := len(resources.SeedSectors)
-	if seedSizeInBytes%512 != 0 {
-		return fmt.Errorf("seedSectors is not a multiple of 512")
+	const sectorSize = 512
+	const grldrMBRStartSector = 34
+
+	if len(resources.MBR) != sectorSize {
+		return fmt.Errorf("mbr resource must be exactly %d bytes", sectorSize)
 	}
-	numSectors := seedSizeInBytes / 512
+
+	if len(resources.GrldrMBR)%sectorSize != 0 {
+		return fmt.Errorf("grldr.mbr resource is not a multiple of %d bytes", sectorSize)
+	}
+
+	if len(resources.GrldrMBR) != 16*sectorSize {
+		return fmt.Errorf("grldr.mbr resource must be exactly 16 sectors")
+	}
 
 	log.Infof("Host OS: %s", runtime.GOOS)
 	log.Infof("Target to be installed: %s", target)
@@ -77,26 +86,24 @@ func installTo(target string) error {
 
 	log.Info("Installing...")
 
-	buffer := make([]byte, seedSizeInBytes)
-	copy(buffer, resources.SeedSectors)
+	mbr := make([]byte, sectorSize)
+	copy(mbr, resources.MBR)
 
-	originalMBR := make([]byte, 512)
+	originalMBR := make([]byte, sectorSize)
 	if _, err := back.ReadAt(originalMBR, 0); err != nil {
 		return fmt.Errorf("failed to read original MBR: %w", err)
 	}
-	copy(buffer[446:512], originalMBR[446:512])
+	copy(mbr[446:512], originalMBR[446:512])
 
-	for i := 1; i <= 33; i++ {
-		sector := make([]byte, 512)
-		if _, err := back.ReadAt(sector, int64(i*512)); err != nil {
-			return fmt.Errorf("failed to read original sector number %d: %w", i, err)
-		}
-		copy(buffer[i*512:], sector)
+	if _, err := w.WriteAt(mbr, 0); err != nil {
+		return fmt.Errorf("failed to write MBR: %w", err)
 	}
 
-	for i := range numSectors {
-		if _, err := w.WriteAt(buffer[i*512:(i+1)*512], int64(i*512)); err != nil {
-			return fmt.Errorf("failed to write sector %d: %w", i, err)
+	for i := range len(resources.GrldrMBR) / sectorSize {
+		offset := i * sectorSize
+		sector := grldrMBRStartSector + i
+		if _, err := w.WriteAt(resources.GrldrMBR[offset:offset+sectorSize], int64(sector*sectorSize)); err != nil {
+			return fmt.Errorf("failed to write sector %d: %w", sector, err)
 		}
 	}
 	log.Default().Logf(SuccessLevel, "Successfully installed to %s", target)
