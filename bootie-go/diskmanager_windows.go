@@ -132,6 +132,14 @@ func (w *windowsDiskManager) LockDisk(path string) error {
 	return nil
 }
 
+func (w *windowsDiskManager) IsDevice(path string) (bool, error) {
+	_, ok, err := physicalDriveNumber(path)
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
+}
+
 func physicalDriveNumber(path string) (uint32, bool, error) {
 	const prefix = `\\.\PHYSICALDRIVE`
 	if !strings.HasPrefix(path, prefix) {

@@ -18,11 +18,16 @@ type QemuRunCommand struct {
 	memory   string
 	cpus     int
 	arch     string
+	volume   string
 	qemuArgs []string
 }
 
 func (cmd *QemuRunCommand) execute() error {
 	if err := validateFirmware(cmd.firmware); err != nil {
+		return err
+	}
+
+	if err := validateVolume(cmd.volume); err != nil {
 		return err
 	}
 
@@ -57,12 +62,14 @@ func (cmd *QemuRunCommand) buildX86_64() (*exec.Cmd, error) {
 		args = append(args, "-bios", cmd.firmware)
 	}
 
-	if cmd.target != "" {
-		if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
-			return nil, fmt.Errorf("failed to unmount disk: %w", err)
-		}
+	if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
+		return nil, fmt.Errorf("failed to unmount disk: %w", err)
+	}
 
-		args = append(args, "-drive", fmt.Sprintf("file=%s,if=ide,format=raw", cmd.target))
+	args = append(args, "-drive", fmt.Sprintf("file=%s,if=ide,format=raw", cmd.target))
+
+	if cmd.volume != "" {
+		args = append(args, "-drive", fmt.Sprintf("file=fat:rw:%s,if=ide", cmd.volume))
 	}
 
 	args = append(args, cmd.qemuArgs...)
@@ -88,12 +95,14 @@ func (cmd *QemuRunCommand) buildArm64() (*exec.Cmd, error) {
 		"-boot", "order=dc,menu=off",
 	}
 
-	if cmd.target != "" {
-		if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
-			return nil, fmt.Errorf("failed to unmount disk: %w", err)
-		}
+	if err := DefaultDiskManager.LockDisk(cmd.target); err != nil {
+		return nil, fmt.Errorf("failed to unmount disk: %w", err)
+	}
 
-		args = append(args, "-drive", fmt.Sprintf("file=%s,if=ide,format=raw", cmd.target))
+	args = append(args, "-drive", fmt.Sprintf("file=%s,if=ide,format=raw", cmd.target))
+
+	if cmd.volume != "" {
+		args = append(args, "-drive", fmt.Sprintf("file=fat:rw:%s,if=ide", cmd.volume))
 	}
 
 	args = append(args, cmd.qemuArgs...)
@@ -122,6 +131,20 @@ func validateFirmware(firmware string) error {
 	return nil
 }
 
+func validateVolume(volume string) error {
+	if volume == "" {
+		return nil
+	}
+	info, err := os.Stat(volume)
+	if err != nil {
+		return fmt.Errorf("volume path %s: %w", volume, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("volume path %s is not a directory", volume)
+	}
+	return nil
+}
+
 // CLI Commands
 
 func runQemuCommand() *cli.Command {
@@ -130,9 +153,15 @@ func runQemuCommand() *cli.Command {
 		Usage: "Run QEMU with a disk image or device",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:    "target",
-				Aliases: []string{"t"},
-				Usage:   "Target disk device or image file",
+				Name:     "target",
+				Aliases:  []string{"t"},
+				Usage:    "Target disk device or image file",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:    "volume",
+				Aliases: []string{"v"},
+				Usage:   "Folder to mount as a virtual FAT disk drive",
 			},
 			&cli.StringFlag{
 				Name:    "firmware",
@@ -165,6 +194,7 @@ func runQemuCommand() *cli.Command {
 				memory:   cmd.String("memory"),
 				cpus:     cmd.Int("cpus"),
 				arch:     cmd.String("arch"),
+				volume:   cmd.String("volume"),
 				qemuArgs: cmd.Args().Slice(),
 			}
 			return runCmd.execute()
