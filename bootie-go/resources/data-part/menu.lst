@@ -39,3 +39,7 @@ reboot
 title Poweroff
 echo Powering off...
 halt
+
+title Test script
+call /testscript
+halt
