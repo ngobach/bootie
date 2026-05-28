@@ -5,10 +5,6 @@ if not "%1"=="" goto %1
 
 # Initialize the memory menu
 echo color cyan/blue white/blue > (md)0x3000+0x50
-echo title [ISO] Back to main menu >> (md)0x3000+0x50
-echo configfile /menu.lst >> (md)0x3000+0x50
-echo title ---- >> (md)0x3000+0x50
-echo pause --wait=0 >> (md)0x3000+0x50
 
 # Ensure wenv is loaded from the /mod directory depending on BIOS/UEFI
 if %@UEFI%==64 && if exist /mod/g4e/wenv insmod /mod/g4e/wenv
@@ -28,7 +24,6 @@ echo configfile /menu.lst >> (md)0x3000+0x50
 configfile (md)0x3000+0x50
 goto :eof
 
-
 :iso_callback
 # We are now in the simulated subroutine! %2 is the filename.
 set file=%2
@@ -37,19 +32,9 @@ if "%file%"=="" goto :eof
 # Since GRUB4DOS 2010+ supports %~x2, we can filter for .iso safely!
 if not "%~x2"==".iso" if not "%~x2"==".ISO" goto :eof
 
-# Entry 1: Direct Mapping
-echo title [ISO] %~n2 (Direct Map) >> (md)0x3000+0x50
+echo title [ISO] %~nx2 >> (md)0x3000+0x50
 echo find --set-root /ISO/%file% >> (md)0x3000+0x50
 echo map /ISO/%file% (0xff) >> (md)0x3000+0x50
-echo map --hook >> (md)0x3000+0x50
-echo root (0xff) >> (md)0x3000+0x50
-echo chainloader (0xff) >> (md)0x3000+0x50
-echo boot >> (md)0x3000+0x50
-
-# Entry 2: Memory Mapping
-echo title [ISO] %~n2 (Load to RAM) >> (md)0x3000+0x50
-echo find --set-root /ISO/%file% >> (md)0x3000+0x50
-echo map --mem /ISO/%file% (0xff) >> (md)0x3000+0x50
 echo map --hook >> (md)0x3000+0x50
 echo root (0xff) >> (md)0x3000+0x50
 echo chainloader (0xff) >> (md)0x3000+0x50

@@ -1,5 +1,6 @@
 # Welcome to Bootie
 
+insmod /autoiso
 timeout 60
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
@@ -12,8 +13,8 @@ title ----
 pause
 
 title [ISO] Browse /ISO/ folder
-  /findiso.g4b
-  boot
+autoiso
+boot
 
 title ----
 pause
