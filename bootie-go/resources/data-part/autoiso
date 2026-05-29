@@ -1,11 +1,14 @@
 !BAT
+
+set nomenu=0
+
 if not "%1"=="" goto %1
-goto :eof
+goto :make_menu
 
 :make_menu
 wenv dir /ISO/ > 0x3800+0x80
-echo color cyan/blue white/blue > (md)0x3000+0x50
-wenv for /f %i in ( 0x3800+0x80 ) do exec %~nx0 :iso_callback %i
+echo color green/black green/blue > (md)0x3000+0x50
+wenv for /f %i in ( 0x3800+0x80 ) do ( call %~nx0 :iso_callback %i )
 
 echo title ---- >> (md)0x3000+0x50
 echo pause --wait=0 >> (md)0x3000+0x50
@@ -15,10 +18,10 @@ echo title [ISO] Back to main menu >> (md)0x3000+0x50
 echo configfile /menu.lst >> (md)0x3000+0x50
 echo -e \n >> (md)0x3000+0x50
 
-configfile (md)0x3000+0x50
-# echo -e \n\n---File---\n
-# cat (md)0x3000+0x50
-# pause --wait
+if %nomenu%==0 configfile (md)0x3000+0x50
+if %nomenu%==1 echo -e \n\n---File---\n
+if %nomenu%==1 cat (md)0x3000+0x50
+if %nomenu%==1 pause --wait
 goto :eof
 
 :iso_callback
