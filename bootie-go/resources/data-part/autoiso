@@ -30,12 +30,11 @@ if "%file%"=="" goto :eof
 if not "%~x2"==".iso" if not "%~x2"==".ISO" goto :eof
 
 echo title [ISO] %~nx2 >> (md)0x3000+0x50
-echo find --set-root /ISO/%file% >> (md)0x3000+0x50
-echo map /ISO/%file% (0xff) >> (md)0x3000+0x50
+echo find --set-root /ISO/%~nx2 >> (md)0x3000+0x50
+echo map /ISO/%~nx2 (0xff) >> (md)0x3000+0x50
 echo map --hook >> (md)0x3000+0x50
 echo root (0xff) >> (md)0x3000+0x50
 echo chainloader (0xff) >> (md)0x3000+0x50
 echo boot >> (md)0x3000+0x50
-echo -e \n >> (md)0x3000+0x50
 
 goto :eof

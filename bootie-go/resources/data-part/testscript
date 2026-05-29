@@ -1,6 +1,0 @@
-!BAT
-set x=1
-set y=x
-echo %%%y%%%
-echo %x%
-pause --wait=10
