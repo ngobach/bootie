@@ -71,7 +71,7 @@ func initializeDisk(target, fsType string) error {
 		return fmt.Errorf("failed to write MBR CHS start: %w", err)
 	}
 	// CHS end: 0xFEFFFF (max values)
-	if _, err := w.WriteAt([]byte{0xFE, 0xFF, 0xFF}, 452); err != nil {
+	if _, err := w.WriteAt([]byte{0xFE, 0xFF, 0xFF}, 451); err != nil {
 		return fmt.Errorf("failed to write MBR CHS end: %w", err)
 	}
 
