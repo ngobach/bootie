@@ -64,6 +64,13 @@ func mountImageMac(target string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hdiutil failed: %w", err)
 	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) > 0 {
+		fields := strings.Fields(lines[0])
+		if len(fields) > 0 {
+			return fields[0], nil
+		}
+	}
 	return strings.TrimSpace(string(out)), nil
 }
 
@@ -199,7 +206,6 @@ func mountImgCommand() *cli.Command {
 				return err
 			}
 			log.Default().Logf(SuccessLevel, "Mounted at %s", device)
-			fmt.Println(device)
 			return nil
 		},
 	}
