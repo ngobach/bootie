@@ -2,3 +2,4 @@
 .xmake/
 .vscode/
 build/
+/bootie-go/resources/data-part/NvVars
