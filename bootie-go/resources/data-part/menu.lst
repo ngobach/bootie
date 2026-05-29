@@ -1,6 +1,9 @@
 # Welcome to Bootie
 
+if %@UEFI%==64 && if exist /mod/g4e/wenv insmod /mod/g4e/wenv
+if not exist @UEFI && if exist /mod/g4d/wenv insmod /mod/g4d/wenv
 insmod /autoiso
+
 timeout 60
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
@@ -13,7 +16,7 @@ title ----
 pause
 
 title [ISO] Browse /ISO/ folder
-autoiso
+autoiso :make_menu
 boot
 
 title ----
