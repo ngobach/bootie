@@ -436,6 +436,22 @@ func exfatTruncate(ef *Exfat, node *exfatNode, size uint64, erase bool) error {
 		return rc
 	}
 
+	if erase && c1 < c2 {
+		zeros := make([]byte, clusterSize)
+		for c := c1; c < c2; c++ {
+			cluster := exfatAdvanceCluster(ef, node, uint32(c))
+			if cluster != exfatClusterBad && cluster != exfatClusterFree {
+				offset := exfatC2O(ef, cluster)
+				if _, err := ef.dev.Seek(offset, io.SeekStart); err != nil {
+					return err
+				}
+				if _, err := ef.dev.Write(zeros); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	if erase {
 		node.validSize = size
 	} else if size < node.validSize {
