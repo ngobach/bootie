@@ -67,12 +67,29 @@ func mountImageMac(target string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+func checkImDisk() error {
+	if _, err := exec.LookPath("imdisk"); err != nil {
+		url := "https://sourceforge.net/projects/imdisk-toolkit/"
+		log.Warn("ImDisk Toolkit is not installed but is required on Windows.")
+		log.Warnf("Opening download page: %s", url)
+		_ = openBrowser(url)
+		return fmt.Errorf("imdisk is required but was not found in PATH; please install ImDisk Toolkit from %s", url)
+	}
+	return nil
+}
+
+func openBrowser(url string) error {
+	return exec.Command("cmd", "/c", "start", "", url).Start()
+}
+
 func mountImageWindows(target string) (string, error) {
-	// ImDisk must be installed: https://sourceforge.net/projects/imdisk-toolkit/
+	if err := checkImDisk(); err != nil {
+		return "", err
+	}
 	cmd := exec.Command("imdisk", "-a", "-f", target, "-o", "ro")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("imdisk failed (is ImDisk Toolkit installed?): %w\n%s", err, string(out))
+		return "", fmt.Errorf("imdisk failed: %w\n%s", err, string(out))
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -132,6 +149,9 @@ func unmountImageMac(target string) error {
 }
 
 func unmountImageWindows(target string) error {
+	if err := checkImDisk(); err != nil {
+		return err
+	}
 	cmd := exec.Command("imdisk", "-l")
 	out, err := cmd.Output()
 	if err != nil {

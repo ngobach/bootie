@@ -102,7 +102,7 @@ func installTo(target string) error {
 		offset := i * sectorSize
 		sector := grldrMBRStartSector + i
 		if _, err := w.WriteAt(resources.GrldrMBR[offset:offset+sectorSize], int64(sector*sectorSize)); err != nil {
-			return fmt.Errorf("failed to wri te sector %d: %w", sector, err)
+			return fmt.Errorf("failed to write sector %d: %w", sector, err)
 		}
 	}
 	log.Default().Logf(SuccessLevel, "Successfully installed to %s", target)
