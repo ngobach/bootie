@@ -49,10 +49,6 @@ func installTo(target string) error {
 	const sectorSize = 512
 	const grldrMBRStartSector = 34
 
-	if len(resources.MBR) != sectorSize {
-		return fmt.Errorf("mbr resource must be exactly %d bytes", sectorSize)
-	}
-
 	if len(resources.GrldrMBR)%sectorSize != 0 {
 		return fmt.Errorf("grldr.mbr resource is not a multiple of %d bytes", sectorSize)
 	}
@@ -93,7 +89,10 @@ func installTo(target string) error {
 	if _, err := back.ReadAt(originalMBR, 0); err != nil {
 		return fmt.Errorf("failed to read original MBR: %w", err)
 	}
-	copy(mbr[446:512], originalMBR[446:512])
+	copy(mbr[440:512], originalMBR[440:512])
+
+	mbr[510] = 0x55
+	mbr[511] = 0xAA
 
 	if _, err := w.WriteAt(mbr, 0); err != nil {
 		return fmt.Errorf("failed to write MBR: %w", err)
@@ -103,7 +102,7 @@ func installTo(target string) error {
 		offset := i * sectorSize
 		sector := grldrMBRStartSector + i
 		if _, err := w.WriteAt(resources.GrldrMBR[offset:offset+sectorSize], int64(sector*sectorSize)); err != nil {
-			return fmt.Errorf("failed to write sector %d: %w", sector, err)
+			return fmt.Errorf("failed to wri te sector %d: %w", sector, err)
 		}
 	}
 	log.Default().Logf(SuccessLevel, "Successfully installed to %s", target)
