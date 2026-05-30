@@ -63,7 +63,14 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 		ProtectiveMBR:      true,
 		Partitions:         partitions,
 	}); err != nil {
-		return fmt.Errorf("failed to partition disk: %w", err)
+		// On macOS, go-diskfs fails with ENOTTY (inappropriate ioctl for device)
+		// when re-reading the partition table on a real block device, because
+		// it uses the Linux-specific BLKRRPART ioctl under the hood.
+		if runtime.GOOS == "darwin" && strings.Contains(err.Error(), "inappropriate ioctl for device") {
+			log.Warn("Ignoring macOS partition table re-read error (inappropriate ioctl for device)")
+		} else {
+			return fmt.Errorf("failed to partition disk: %w", err)
+		}
 	}
 
 	// Fix protective MBR CHS values (go-diskfs leaves them zeroed)
