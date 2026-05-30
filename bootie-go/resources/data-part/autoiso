@@ -8,9 +8,8 @@ ls /ISO/ | echo > (md)0x3800+0x80
 echo color green/black > (md)0x3000+0x50
 
 :make_menu_loop
-cat --locate=".iso" --number=1 (md)0x3800+0x80
-if "%?%"=="0x0" goto :make_menu_done
 cat --locate=".iso" --number=1 (md)0x3800+0x80 | set /a flen=4+
+if "%?%"=="0x0" goto :make_menu_done
 cat --length=%flen% (md)0x3800+0x80 | set file=
 call :iso_callback %file%
 cat --skip=%flen% (md)0x3800+0x80 | echo > (md)0x3800+0x80
