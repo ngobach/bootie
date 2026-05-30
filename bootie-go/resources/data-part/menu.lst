@@ -19,7 +19,7 @@ boot
 
 iftitle [find /grubfm_multiarch.iso] Grub File Manager (/grubfm_multiarch.iso)
 find --set-root /grubfm_multiarch.iso
-map /grubfm_multiarch.iso (0xff)
+map --mem /grubfm_multiarch.iso (0xff)
 map --hook
 root (0xff)
 chainloader (0xff)
