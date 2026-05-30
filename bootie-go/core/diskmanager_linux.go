@@ -1,6 +1,6 @@
 //go:build linux
 
-package main
+package core
 
 import (
 	"fmt"
@@ -29,8 +29,8 @@ func (l *linuxDiskManager) readFileAsString(path string) string {
 	return string(bytes)
 }
 
-func (l *linuxDiskManager) ScanDisks() ([]diskEntry, error) {
-	result := []diskEntry{}
+func (l *linuxDiskManager) ScanDisks() ([]DiskEntry, error) {
+	result := []DiskEntry{}
 
 	const basePath = "/sys/block"
 	entries, err := os.ReadDir(basePath)
@@ -57,10 +57,10 @@ func (l *linuxDiskManager) ScanDisks() ([]diskEntry, error) {
 				model = "Unknown"
 			}
 
-			entry := diskEntry{
-				identifier: fmt.Sprintf("/dev/%s", file.Name()),
-				label:      model,
-				size:       size,
+			entry := DiskEntry{
+				Identifier: fmt.Sprintf("/dev/%s", file.Name()),
+				Label:      model,
+				Size:       size,
 			}
 
 			result = append(result, entry)

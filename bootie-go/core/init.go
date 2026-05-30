@@ -1,7 +1,6 @@
-package main
+package core
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -12,14 +11,13 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/urfave/cli/v3"
 
 	log "github.com/charmbracelet/log"
 	"ngobach.com/bootie-go/exfat"
 	"ngobach.com/bootie-go/resources"
 )
 
-func initializeDisk(target, fsType string, noDataPart bool) error {
+func InitializeDisk(target, fsType string, noDataPart bool) error {
 	log.Infof("Host OS: %s", runtime.GOOS)
 	log.Infof("Target to be initialized: %s", target)
 
@@ -88,7 +86,7 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 	}
 
 	log.Info("Installing boot sectors...")
-	if err := installTo(target); err != nil {
+	if err := InstallTo(target); err != nil {
 		return fmt.Errorf("failed to install boot sectors: %w", err)
 	}
 
@@ -106,7 +104,7 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 			return fmt.Errorf("failed to create EFI partition: %w", err)
 		}
 
-		if err := copyToFilesystem(resources.EfiFiles, "efi-part", efiFs); err != nil {
+		if err := CopyToFilesystem(resources.EfiFiles, "efi-part", efiFs); err != nil {
 			efiFs.Close()
 			return fmt.Errorf("failed to copy EFI files: %w", err)
 		}
@@ -138,7 +136,7 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 				return fmt.Errorf("failed to mount exFAT: %w", err)
 			}
 
-			if err := copyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
+			if err := CopyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
 				ef.Close()
 				return fmt.Errorf("failed to copy data files: %w", err)
 			}
@@ -159,7 +157,7 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 				return fmt.Errorf("failed to create Bootie partition: %w", err)
 			}
 
-			if err := copyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
+			if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
 				dataFs.Close()
 				return fmt.Errorf("failed to copy data files: %w", err)
 			}
@@ -172,37 +170,4 @@ func initializeDisk(target, fsType string, noDataPart bool) error {
 
 	log.Default().Logf(SuccessLevel, "Successfully initialized to %s", target)
 	return nil
-}
-
-func initCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "init",
-		Usage: "Partition disk and create filesystems with embedded data",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "target",
-				Aliases:  []string{"t"},
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:    "fs",
-				Aliases: []string{"f"},
-				Value:   "exfat",
-				Usage:   "Filesystem for data partition: exfat (default) or fat32",
-			},
-			&cli.BoolFlag{
-				Name:    "no-data-part",
-				Usage:   "Skip formatting and copying files of the data partition",
-			},
-		},
-		Action: func(_ context.Context, c *cli.Command) error {
-			target := c.String("target")
-			fsType := c.String("fs")
-			if fsType != "fat32" && fsType != "exfat" {
-				return fmt.Errorf("unsupported filesystem %q (must be fat32 or exfat)", fsType)
-			}
-			noDataPart := c.Bool("no-data-part")
-			return initializeDisk(target, fsType, noDataPart)
-		},
-	}
 }

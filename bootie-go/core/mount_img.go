@@ -1,7 +1,6 @@
-package main
+package core
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/urfave/cli/v3"
 	"howett.net/plist"
 
 	log "github.com/charmbracelet/log"
@@ -28,7 +26,7 @@ type hdiutilSystemEntity struct {
 	DevEntry string `plist:"dev-entry"`
 }
 
-func mountImage(target string) (string, error) {
+func MountImage(target string) (string, error) {
 	info, err := os.Stat(target)
 	if err != nil {
 		return "", fmt.Errorf("image file %s: %w", target, err)
@@ -101,7 +99,7 @@ func mountImageWindows(target string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func unmountImage(target string) error {
+func UnmountImage(target string) error {
 	target, err := filepath.Abs(target)
 	if err != nil {
 		return err
@@ -173,40 +171,4 @@ func unmountImageWindows(target string) error {
 		}
 	}
 	return fmt.Errorf("no imdisk device found for %s", target)
-}
-
-func mountImgCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "mount-img",
-		Usage: "Mount a raw disk image as a virtual disk device",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "target",
-				Aliases:  []string{"t"},
-				Required: true,
-				Usage:    "Path to the raw disk image file",
-			},
-			&cli.BoolFlag{
-				Name:    "unmount",
-				Aliases: []string{"u"},
-				Usage:   "Unmount the virtual drive instead of mounting",
-			},
-		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
-			target := cmd.String("target")
-			if cmd.Bool("unmount") {
-				if err := unmountImage(target); err != nil {
-					return err
-				}
-				log.Default().Logf(SuccessLevel, "Unmounted %s", target)
-				return nil
-			}
-			device, err := mountImage(target)
-			if err != nil {
-				return err
-			}
-			log.Default().Logf(SuccessLevel, "Mounted at %s", device)
-			return nil
-		},
-	}
 }

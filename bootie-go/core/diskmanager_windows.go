@@ -1,6 +1,6 @@
 //go:build windows
 
-package main
+package core
 
 import (
 	"encoding/binary"
@@ -38,10 +38,10 @@ func init() {
 	DefaultDiskManager = &windowsDiskManager{}
 }
 
-func (w *windowsDiskManager) ScanDisks() ([]diskEntry, error) {
+func (w *windowsDiskManager) ScanDisks() ([]DiskEntry, error) {
 	var svc *wmi.Service
 	var err error
-	var result []diskEntry
+	var result []DiskEntry
 
 	if svc, err = wmi.NewLocalService(wmi.RootCIMV2); err != nil {
 		return nil, err
@@ -59,10 +59,10 @@ func (w *windowsDiskManager) ScanDisks() ([]diskEntry, error) {
 		if !disk.MediaLoaded {
 			continue
 		}
-		result = append(result, diskEntry{
-			identifier: disk.DeviceID,
-			label:      disk.Model,
-			size:       int64(disk.Size),
+		result = append(result, DiskEntry{
+			Identifier: disk.DeviceID,
+			Label:      disk.Model,
+			Size:       int64(disk.Size),
 		})
 	}
 

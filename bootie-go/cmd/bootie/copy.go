@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/urfave/cli/v3"
+	"ngobach.com/bootie-go/core"
 	"ngobach.com/bootie-go/resources"
 )
 
@@ -20,7 +21,7 @@ func copyEfiCommand() *cli.Command {
 		},
 		Action: func(c context.Context, cmd *cli.Command) error {
 			target := cmd.String("target")
-			return copyToLocalFilesystem(
+			return core.CopyToLocalFilesystem(
 				&resources.EfiFiles,
 				"efi-part",
 				target,
@@ -42,7 +43,7 @@ func copyDataCommand() *cli.Command {
 		},
 		Action: func(c context.Context, cmd *cli.Command) error {
 			target := cmd.String("target")
-			return copyToLocalFilesystem(
+			return core.CopyToLocalFilesystem(
 				&resources.DataFiles,
 				"data-part",
 				target,

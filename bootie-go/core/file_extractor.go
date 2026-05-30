@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"io"
@@ -11,7 +11,7 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem"
 )
 
-func copyToLocalFilesystem(root fs.FS, source, dest string) error {
+func CopyToLocalFilesystem(root fs.FS, source, dest string) error {
 	return fs.WalkDir(root, source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -46,7 +46,7 @@ func copyToLocalFilesystem(root fs.FS, source, dest string) error {
 	})
 }
 
-func copyToFilesystem(root fs.FS, source string, dest filesystem.FileSystem) error {
+func CopyToFilesystem(root fs.FS, source string, dest filesystem.FileSystem) error {
 	return fs.WalkDir(root, source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

@@ -1,14 +1,12 @@
-package main
+package core
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 
 	diskfs "github.com/diskfs/go-diskfs"
 	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
 	"github.com/diskfs/go-diskfs/partition/gpt"
-	"github.com/urfave/cli/v3"
 	"ngobach.com/bootie-go/resources"
 
 	log "github.com/charmbracelet/log"
@@ -45,7 +43,7 @@ func verifyDisk(target string) error {
 	return nil
 }
 
-func installTo(target string) error {
+func InstallTo(target string) error {
 	const sectorSize = 512
 	const grldrMBRStartSector = 34
 
@@ -107,22 +105,4 @@ func installTo(target string) error {
 	}
 	log.Default().Logf(SuccessLevel, "Successfully installed to %s", target)
 	return nil
-}
-
-func installCommand() *cli.Command {
-	return &cli.Command{
-		Name:  "install",
-		Usage: "Install bootie to given target",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "target",
-				Aliases:  []string{"t"},
-				Required: true,
-			},
-		},
-		Action: func(_ context.Context, c *cli.Command) error {
-			target := c.String("target")
-			return installTo(target)
-		},
-	}
 }

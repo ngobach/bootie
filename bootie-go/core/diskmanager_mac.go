@@ -1,6 +1,6 @@
 //go:build darwin
 
-package main
+package core
 
 import (
 	"fmt"
@@ -25,12 +25,12 @@ type darwinOutput struct {
 	WholeDisks []string
 }
 
-func (m *macDiskManager) entryFromDisk(disk string) diskEntry {
+func (m *macDiskManager) entryFromDisk(disk string) DiskEntry {
 	cmd := exec.Command("diskutil", "info", disk)
 	raw, _ := cmd.Output()
 	lines := string(raw)
-	entry := diskEntry{}
-	entry.identifier = "/dev/" + disk
+	entry := DiskEntry{}
+	entry.Identifier = "/dev/" + disk
 
 	for line := range strings.SplitSeq(lines, "\n") {
 		var k, v string
@@ -40,11 +40,13 @@ func (m *macDiskManager) entryFromDisk(disk string) diskEntry {
 
 			switch k {
 			case "Device / Media Name":
-				entry.label = v
+				entry.Label = v
 			case "Disk Size":
 				pattern := regexp.MustCompile(`\((\d+) Bytes\)`)
 				matches := pattern.FindStringSubmatch(v)
-				entry.size, _ = strconv.ParseInt(matches[1], 10, 64)
+				if len(matches) > 1 {
+					entry.Size, _ = strconv.ParseInt(matches[1], 10, 64)
+				}
 			}
 		}
 	}
@@ -52,8 +54,8 @@ func (m *macDiskManager) entryFromDisk(disk string) diskEntry {
 	return entry
 }
 
-func (m *macDiskManager) ScanDisks() ([]diskEntry, error) {
-	result := []diskEntry{}
+func (m *macDiskManager) ScanDisks() ([]DiskEntry, error) {
+	result := []DiskEntry{}
 	cmd := exec.Command("diskutil", "list", "-plist")
 	raw, _ := cmd.Output()
 	output := darwinOutput{}
