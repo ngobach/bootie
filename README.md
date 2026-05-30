@@ -9,7 +9,7 @@ CLI toolkit to build, initialize and install a portable boot/rescue disk image (
 | Command | Usage / Flags | Description |
 |---------|---------------|-------------|
 | **`list`** | *No flags* | Scans and lists all available target disks/devices on the host system. |
-| **`init`** | `-t, --target <device>` *(Required)*<br>`-f, --fs <exfat\|fat32>` *(Default: exfat)* | Wipes the target, partitions it with a GPT table (EFI + data), formats partitions, installs boot sectors, and extracts embedded resource files. |
+| **`init`** | `-t, --target <device>` *(Required)*<br>`-f, --fs <exfat\|fat32>` *(Default: exfat)*<br>`--no-data-part` *(Boolean)* | Wipes the target, partitions it with a GPT table (EFI + data), formats partitions, installs boot sectors, and extracts embedded resource files (skips formatting/copying data partition if `--no-data-part` is set). |
 | **`install`** | `-t, --target <device>` *(Required)* | Installs the boot sectors (protective MBR + raw `grldr.mbr` loader) to the target disk. |
 | **`copy-efi`** | `-t, --target <mount>` *(Required)* | Copies all embedded EFI/GRUB loader files to the specified directory/partition mount point. |
 | **`copy-data`** | `-t, --target <mount>` *(Required)* | Copies all embedded system rescue/utility data files to the specified directory/partition mount point. |

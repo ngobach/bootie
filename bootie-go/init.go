@@ -19,7 +19,7 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
-func initializeDisk(target, fsType string) error {
+func initializeDisk(target, fsType string, noDataPart bool) error {
 	log.Infof("Host OS: %s", runtime.GOOS)
 	log.Infof("Target to be initialized: %s", target)
 
@@ -39,24 +39,29 @@ func initializeDisk(target, fsType string) error {
 
 	log.Infof("Disk size: %s", humanize.IBytes(uint64(disk.Size)))
 
+	partitions := []*gpt.Partition{
+		{
+			Start: 1 * 1024 * 1024 / 512,
+			Size:  200 * 1024 * 1024,
+			Type:  gpt.EFISystemPartition,
+			Name:  "EFI",
+		},
+	}
+
+	if !noDataPart {
+		partitions = append(partitions, &gpt.Partition{
+			Start: 201 * 1024 * 1024 / 512,
+			End:   uint64(disk.Size)/512 - 1*1024*1024/512,
+			Type:  gpt.MicrosoftBasicData,
+			Name:  "Bootie",
+		})
+	}
+
 	if err = disk.Partition(&gpt.Table{
 		LogicalSectorSize:  512,
 		PhysicalSectorSize: 512,
 		ProtectiveMBR:      true,
-		Partitions: []*gpt.Partition{
-			{
-				Start: 1 * 1024 * 1024 / 512,
-				Size:  200 * 1024 * 1024,
-				Type:  gpt.EFISystemPartition,
-				Name:  "EFI",
-			},
-			{
-				Start: 201 * 1024 * 1024 / 512,
-				End:   uint64(disk.Size)/512 - 1*1024*1024/512,
-				Type:  gpt.MicrosoftBasicData,
-				Name:  "Bootie",
-			},
-		},
+		Partitions:         partitions,
 	}); err != nil {
 		return fmt.Errorf("failed to partition disk: %w", err)
 	}
@@ -104,7 +109,7 @@ func initializeDisk(target, fsType string) error {
 		}
 	}
 
-	{
+	if !noDataPart {
 		log.Infof("Creating Bootie partition (%s)", strings.ToUpper(fsType))
 		partitions := disk.Table.GetPartitions()
 		part := partitions[1]
@@ -178,6 +183,10 @@ func initCommand() *cli.Command {
 				Value:   "exfat",
 				Usage:   "Filesystem for data partition: exfat (default) or fat32",
 			},
+			&cli.BoolFlag{
+				Name:    "no-data-part",
+				Usage:   "Skip formatting and copying files of the data partition",
+			},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
 			target := c.String("target")
@@ -185,7 +194,8 @@ func initCommand() *cli.Command {
 			if fsType != "fat32" && fsType != "exfat" {
 				return fmt.Errorf("unsupported filesystem %q (must be fat32 or exfat)", fsType)
 			}
-			return initializeDisk(target, fsType)
+			noDataPart := c.Bool("no-data-part")
+			return initializeDisk(target, fsType, noDataPart)
 		},
 	}
 }
