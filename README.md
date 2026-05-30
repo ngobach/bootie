@@ -31,7 +31,7 @@ sudo ./build/bootie-linux init --target /dev/sdX
 ## Structure
 
 - `bootie-go/` — Go source (commands, platform disk managers, embedded `exfat/` filesystem writer, `resources/`)
-- `resources/` — firmware binaries (`bios.bin`, `edk2-aarch64-code.fd`)
+- `resources/` — firmware binaries (`OVMF.fd`, `edk2-aarch64-code.fd`)
 - `Makefile`
 
 ## Safety
