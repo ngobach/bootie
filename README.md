@@ -6,15 +6,16 @@ CLI toolkit to build, initialize and install a portable boot/rescue disk image (
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `list` | List disks |
-| `init --target <device> [--fs exfat\|fat32]` | Partition disk, create filesystems (default exfat), install boot sectors, and copy all embedded files |
-| `install --target <device>` | Write raw boot seed sectors |
-| `copy-efi --target <mount>` | Copy embedded EFI files to a mounted partition |
-| `copy-data --target <mount>` | Copy data partition files to a mounted partition |
-| `create-img --target <file> [--size 200M]` | Create an empty raw disk image |
-| `run-qemu --target <device> [--firmware] [--arch x86_64\|arm64]` | Boot disk/image in QEMU |
+| Command | Usage / Flags | Description |
+|---------|---------------|-------------|
+| **`list`** | *No flags* | Scans and lists all available target disks/devices on the host system. |
+| **`init`** | `-t, --target <device>` *(Required)*<br>`-f, --fs <exfat\|fat32>` *(Default: exfat)* | Wipes the target, partitions it with a GPT table (EFI + data), formats partitions, installs boot sectors, and extracts embedded resource files. |
+| **`install`** | `-t, --target <device>` *(Required)* | Installs the boot sectors (protective MBR + raw `grldr.mbr` loader) to the target disk. |
+| **`copy-efi`** | `-t, --target <mount>` *(Required)* | Copies all embedded EFI/GRUB loader files to the specified directory/partition mount point. |
+| **`copy-data`** | `-t, --target <mount>` *(Required)* | Copies all embedded system rescue/utility data files to the specified directory/partition mount point. |
+| **`create-img`** | `-t, --target <file>` *(Required)*<br>`-s, --size <size>` *(Default: 200M)* | Creates an empty raw disk image file of the specified size (e.g., `200M`, `1G`). |
+| **`mount-img`** | `-t, --target <file>` *(Required)*<br>`-u, --unmount` *(Boolean)* | Mounts/attaches a raw disk image file as a virtual disk device (uses `hdiutil` on macOS, `losetup` on Linux, `imdisk` on Windows). If `-u` is set, unmounts/detaches instead. |
+| **`run-qemu`** | `-t, --target <device>` *(Required)*<br>`-f, --firmware <path>`<br>`-v, --volume <folder>`<br>`-m, --memory <size>` *(Default: 2G)*<br>`-c, --cpus <count>` *(Default: 4)*<br>`-a, --arch <x86_64\|arm64>` *(Default: x86_64)* | Launches QEMU virtual machine booting from the target device/image. Supports BIOS or UEFI firmware loading, architecture selection, CPU/memory scaling, and directory mounting. |
 
 ## Build
 
