@@ -8,9 +8,15 @@ LDFLAGS      := -ldflags="-s -w"
 BUILD_DIR    := build
 BOOTIE_GO_DIR := bootie-go
 
-EXECUTABLE_DARWIN  := $(BUILD_DIR)/bootie-darwin
-EXECUTABLE_LINUX   := $(BUILD_DIR)/bootie-linux
-EXECUTABLE_WINDOWS := $(BUILD_DIR)/bootie-windows.exe
+# CLI executables
+CLI_DARWIN  := $(BUILD_DIR)/bootie-darwin
+CLI_LINUX   := $(BUILD_DIR)/bootie-linux
+CLI_WINDOWS := $(BUILD_DIR)/bootie-windows.exe
+
+# GUI executables
+GUI_DARWIN  := $(BUILD_DIR)/bootie-gui-darwin
+GUI_LINUX   := $(BUILD_DIR)/bootie-gui-linux
+GUI_WINDOWS := $(BUILD_DIR)/bootie-gui-windows.exe
 
 # Default target — build all platform binaries
 default: all
@@ -23,20 +29,29 @@ clean:
 build:
 	mkdir -p $(BUILD_DIR)
 
-# Build macOS (Darwin) executable
-$(EXECUTABLE_DARWIN): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_DARWIN) .
+# Build macOS (Darwin) executables
+$(CLI_DARWIN): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(CLI_DARWIN) ./cmd/bootie
 
-# Build Linux executable
-$(EXECUTABLE_LINUX): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_LINUX) .
+$(GUI_DARWIN): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_DARWIN) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(GUI_DARWIN) ./cmd/bootie-gui
 
-# Build Windows executable
-$(EXECUTABLE_WINDOWS): build
-	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(EXECUTABLE_WINDOWS) .
+# Build Linux executables
+$(CLI_LINUX): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(CLI_LINUX) ./cmd/bootie
 
-# Aggregate target — build all platform executables
-all: $(EXECUTABLE_DARWIN) $(EXECUTABLE_LINUX) $(EXECUTABLE_WINDOWS)
+$(GUI_LINUX): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_LINUX) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(GUI_LINUX) ./cmd/bootie-gui
+
+# Build Windows executables
+$(CLI_WINDOWS): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(CLI_WINDOWS) ./cmd/bootie
+
+$(GUI_WINDOWS): build
+	cd $(BOOTIE_GO_DIR) && GOOS=$(GOOS_WINDOWS) GOARCH=$(GOARCH) go build -trimpath $(LDFLAGS) -o ../$(GUI_WINDOWS) ./cmd/bootie-gui
+
+# Aggregate target — build all platform executables for both CLI and GUI
+all: $(CLI_DARWIN) $(GUI_DARWIN) $(CLI_LINUX) $(GUI_LINUX) $(CLI_WINDOWS) $(GUI_WINDOWS)
 
 # Declare phony targets to avoid conflicts with same-named files
 .PHONY: default clean build all
