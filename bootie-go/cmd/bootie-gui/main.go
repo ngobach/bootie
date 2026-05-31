@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	humanize "github.com/dustin/go-humanize"
 	. "modernc.org/tk9.0"
@@ -15,41 +17,32 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
-type logWriter struct {
-	txt *TextWidget
-}
-
-func (lw *logWriter) Write(p []byte) (n int, err error) {
-	msg := string(p)
-	PostEvent(func() {
-		lw.txt.Insert("end", msg)
-		lw.txt.See("end")
-	}, false)
-	return len(p), nil
-}
-
 func main() {
 	// 1. Initialise the App Window
-	App.WmTitle("Bootie System Utility Dashboard")
-	WmGeometry(App, "850x650")
+	App.WmTitle("Bootie")
+	App.SetResizable(false, false)
 
 	// Create main container frame
 	mainFrame := TFrame()
 	Pack(mainFrame, Fill("both"), Expand(true), Padx("10"), Pady("10"))
 
-	// 2. Create the Log Text Panel first
-	logFrame := TLabelframe(mainFrame, Txt("System Log Console"))
-	Pack(logFrame, Side("bottom"), Fill("both"), Expand(false), Pady("5"))
+	// 2. Setup Timestamped Temp Log File
+	tempDir := os.TempDir()
+	timestamp := time.Now().Format("20060102-150405")
+	logFilename := filepath.Join(tempDir, fmt.Sprintf("bootie-%s.log", timestamp))
+	logFile, err := os.Create(logFilename)
+	if err == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+	} else {
+		log.Errorf("Failed to create log file: %v", err)
+	}
 
-	logTxt := Text(logFrame, Height(10), Background("#1e1e1e"), Foreground("#d4d4d4"))
-	Pack(logTxt, Fill("both"), Expand(true))
+	// 3. Create the Log Path Label at the bottom
+	logPathLabel := mainFrame.TLabel(Txt(fmt.Sprintf("Logs written to: %s", logFilename)), Font("Helvetica 9"))
+	Pack(logPathLabel, Side("bottom"), Fill("x"), Pady("5"), Anchor("w"))
 
-	// Configure charmbracelet logger to output to both console and GUI log frame
-	lw := &logWriter{txt: logTxt}
-	log.SetOutput(io.MultiWriter(os.Stderr, lw))
-
-	// 3. Create the Notebook (Tabs) Container
-	nb := TNotebook(mainFrame)
+	// 4. Create the Notebook (Tabs) Container
+	nb := mainFrame.TNotebook()
 	Pack(nb, Side("top"), Fill("both"), Expand(true))
 
 	// ============================================
@@ -58,34 +51,34 @@ func main() {
 	initTab := nb.TFrame()
 	nb.Add(initTab, Txt("Initialize Disk"))
 
-	initContent := TFrame(initTab)
+	initContent := initTab.TFrame()
 	Pack(initContent, Fill("both"), Expand(true), Padx("20"), Pady("20"))
 
-	Pack(TLabel(initContent, Txt("Format a raw disk or device, installing UEFI EFI and data partitions."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
+	Pack(initContent.TLabel(Txt("Format a raw disk or device, installing UEFI EFI and data partitions."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
 
-	diskSelectRow := TFrame(initContent)
+	diskSelectRow := initContent.TFrame()
 	Pack(diskSelectRow, Fill("x"), Pady("5"))
-	Pack(TLabel(diskSelectRow, Txt("Select Target Disk: "), Width(18)), Side("left"), Anchor("w"))
-	
-	initDiskCombo := TCombobox(diskSelectRow, State("readonly"), Textvariable("initDiskVar"), Width(50))
+	Pack(diskSelectRow.TLabel(Txt("Select Target Disk: "), Width(18)), Side("left"), Anchor("w"))
+
+	initDiskCombo := diskSelectRow.TCombobox(State("readonly"), Textvariable("initDiskVar"), Width(50))
 	Pack(initDiskCombo, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
-	fsRow := TFrame(initContent)
+	fsRow := initContent.TFrame()
 	Pack(fsRow, Fill("x"), Pady("5"))
-	Pack(TLabel(fsRow, Txt("Filesystem type: "), Width(18)), Side("left"), Anchor("w"))
-	initFsCombo := TCombobox(fsRow, State("readonly"), Values("exfat fat32"), Textvariable("initFsVar"), Width(20))
+	Pack(fsRow.TLabel(Txt("Filesystem type: "), Width(18)), Side("left"), Anchor("w"))
+	initFsCombo := fsRow.TCombobox(State("readonly"), Values("exfat fat32"), Textvariable("initFsVar"), Width(20))
 	Pack(initFsCombo, Side("left"), Padx("5"))
 	initFsCombo.Current(0)
 
-	checkRow := TFrame(initContent)
+	checkRow := initContent.TFrame()
 	Pack(checkRow, Fill("x"), Pady("5"))
 	noDataVar := Variable(false)
-	noDataCheck := TCheckbutton(checkRow, Txt("Skip formatting and extracting data partition (no-data-part)"), noDataVar)
+	noDataCheck := checkRow.TCheckbutton(Txt("Skip formatting and extracting data partition (no-data-part)"), noDataVar)
 	Pack(noDataCheck, Side("left"), Padx("5"))
 
-	btnRow := TFrame(initContent)
+	btnRow := initContent.TFrame()
 	Pack(btnRow, Fill("x"), Pady("20"))
-	initActionBtn := TButton(btnRow, Txt("Initialize Selected Disk"))
+	initActionBtn := btnRow.TButton(Txt("Initialize Selected Disk"))
 	Pack(initActionBtn, Side("left"))
 
 	// ============================================
@@ -94,21 +87,21 @@ func main() {
 	installTab := nb.TFrame()
 	nb.Add(installTab, Txt("Install Boot"))
 
-	installContent := TFrame(installTab)
+	installContent := installTab.TFrame()
 	Pack(installContent, Fill("both"), Expand(true), Padx("20"), Pady("20"))
 
-	Pack(TLabel(installContent, Txt("Install bootie boot sectors and MBR directly on a physical disk."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
+	Pack(installContent.TLabel(Txt("Install bootie boot sectors and MBR directly on a physical disk."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
 
-	installDiskRow := TFrame(installContent)
+	installDiskRow := installContent.TFrame()
 	Pack(installDiskRow, Fill("x"), Pady("5"))
-	Pack(TLabel(installDiskRow, Txt("Select Target Disk: "), Width(18)), Side("left"), Anchor("w"))
+	Pack(installDiskRow.TLabel(Txt("Select Target Disk: "), Width(18)), Side("left"), Anchor("w"))
 
-	installDiskCombo := TCombobox(installDiskRow, State("readonly"), Textvariable("installDiskVar"), Width(50))
+	installDiskCombo := installDiskRow.TCombobox(State("readonly"), Textvariable("installDiskVar"), Width(50))
 	Pack(installDiskCombo, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
-	installBtnRow := TFrame(installContent)
+	installBtnRow := installContent.TFrame()
 	Pack(installBtnRow, Fill("x"), Pady("20"))
-	installActionBtn := TButton(installBtnRow, Txt("Install Boot Sectors"))
+	installActionBtn := installBtnRow.TButton(Txt("Install Boot Sectors"))
 	Pack(installActionBtn, Side("left"))
 
 	// Global disk refresh helper
@@ -136,10 +129,10 @@ func main() {
 		log.Infof("Refreshed physical disks list (%d found)", len(disks))
 	}
 
-	initRefreshBtn := TButton(diskSelectRow, Txt("Refresh List"), Command(refreshAllDisks))
+	initRefreshBtn := diskSelectRow.TButton(Txt("Refresh List"), Command(refreshAllDisks))
 	Pack(initRefreshBtn, Side("right"), Padx("5"))
 
-	installRefreshBtn := TButton(installDiskRow, Txt("Refresh List"), Command(refreshAllDisks))
+	installRefreshBtn := installDiskRow.TButton(Txt("Refresh List"), Command(refreshAllDisks))
 	Pack(installRefreshBtn, Side("right"), Padx("5"))
 
 	getSelectedDiskPath := func(combo *TComboboxWidget) string {
@@ -196,24 +189,24 @@ func main() {
 	copierTab := nb.TFrame()
 	nb.Add(copierTab, Txt("File Copier"))
 
-	copierContent := TFrame(copierTab)
+	copierContent := copierTab.TFrame()
 	Pack(copierContent, Fill("both"), Expand(true), Padx("20"), Pady("20"))
 
-	Pack(TLabel(copierContent, Txt("Extract embedded resources (EFI / Data assets) directly into any target directory."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
+	Pack(copierContent.TLabel(Txt("Extract embedded resources (EFI / Data assets) directly into any target directory."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
 
-	destRow := TFrame(copierContent)
+	destRow := copierContent.TFrame()
 	Pack(destRow, Fill("x"), Pady("5"))
-	Pack(TLabel(destRow, Txt("Target Folder Path: "), Width(18)), Side("left"), Anchor("w"))
-	destEntry := TEntry(destRow, Textvariable("destVar"), Width(50))
+	Pack(destRow.TLabel(Txt("Target Folder Path: "), Width(18)), Side("left"), Anchor("w"))
+	destEntry := destRow.TEntry(Textvariable("destVar"), Width(50))
 	Pack(destEntry, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
-	copierButtonsRow := TFrame(copierContent)
+	copierButtonsRow := copierContent.TFrame()
 	Pack(copierButtonsRow, Fill("x"), Pady("20"))
 
-	copyEfiBtn := TButton(copierButtonsRow, Txt("Extract EFI Files"))
+	copyEfiBtn := copierButtonsRow.TButton(Txt("Extract EFI Files"))
 	Pack(copyEfiBtn, Side("left"), Padx("5"))
 
-	copyDataBtn := TButton(copierButtonsRow, Txt("Extract Data Files"))
+	copyDataBtn := copierButtonsRow.TButton(Txt("Extract Data Files"))
 	Pack(copyDataBtn, Side("left"), Padx("5"))
 
 	copyEfiBtn.Configure(Command(func() {
@@ -256,19 +249,19 @@ func main() {
 	qemuTab := nb.TFrame()
 	nb.Add(qemuTab, Txt("QEMU Emulator"))
 
-	qemuContent := TFrame(qemuTab)
+	qemuContent := qemuTab.TFrame()
 	Pack(qemuContent, Fill("both"), Expand(true), Padx("20"), Pady("20"))
 
-	Pack(TLabel(qemuContent, Txt("Configure and spin up QEMU emulator testing your setup virtualized."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
+	Pack(qemuContent.TLabel(Txt("Configure and spin up QEMU emulator testing your setup virtualized."), Font("Helvetica 11 bold")), Anchor("w"), Pady("10"))
 
-	qemuGrid := TFrame(qemuContent)
+	qemuGrid := qemuContent.TFrame()
 	Pack(qemuGrid, Fill("x"), Pady("5"))
 
 	makeQemuRow := func(label string, varName string, defaultVal string) *TEntryWidget {
-		row := TFrame(qemuGrid)
+		row := qemuGrid.TFrame()
 		Pack(row, Fill("x"), Pady("3"))
-		Pack(TLabel(row, Txt(label), Width(18)), Side("left"), Anchor("w"))
-		entry := TEntry(row, Textvariable(varName))
+		Pack(row.TLabel(Txt(label), Width(18)), Side("left"), Anchor("w"))
+		entry := row.TEntry(Textvariable(varName))
 		Pack(entry, Side("left"), Fill("x"), Expand(true), Padx("5"))
 		if defaultVal != "" {
 			entry.Configure(Textvariable(defaultVal))
@@ -282,15 +275,15 @@ func main() {
 	qemuMemory := makeQemuRow("RAM Size (Memory): ", "qemuMemoryVar", "2G")
 	qemuCpus := makeQemuRow("CPUs Allocation: ", "qemuCpusVar", "4")
 
-	qemuArchRow := TFrame(qemuGrid)
+	qemuArchRow := qemuGrid.TFrame()
 	Pack(qemuArchRow, Fill("x"), Pady("3"))
-	Pack(TLabel(qemuArchRow, Txt("Target Architecture: "), Width(18)), Side("left"), Anchor("w"))
-	
+	Pack(qemuArchRow.TLabel(Txt("Target Architecture: "), Width(18)), Side("left"), Anchor("w"))
+
 	defaultArch := "x86_64"
 	if runtime.GOARCH == "arm64" && runtime.GOOS == "darwin" {
 		defaultArch = "arm64"
 	}
-	qemuArchCombo := TCombobox(qemuArchRow, State("readonly"), Values("x86_64 arm64"), Textvariable("qemuArchVar"), Width(10))
+	qemuArchCombo := qemuArchRow.TCombobox(State("readonly"), Values("x86_64 arm64"), Textvariable("qemuArchVar"), Width(10))
 	Pack(qemuArchCombo, Side("left"), Padx("5"))
 	if defaultArch == "arm64" {
 		qemuArchCombo.Current(1)
@@ -298,10 +291,10 @@ func main() {
 		qemuArchCombo.Current(0)
 	}
 
-	qemuBtnRow := TFrame(qemuContent)
+	qemuBtnRow := qemuContent.TFrame()
 	Pack(qemuBtnRow, Fill("x"), Pady("20"))
-	
-	qemuActionBtn := TButton(qemuBtnRow, Txt("Launch QEMU Emulator"))
+
+	qemuActionBtn := qemuBtnRow.TButton(Txt("Launch QEMU Emulator"))
 	Pack(qemuActionBtn, Side("left"))
 
 	qemuActionBtn.Configure(Command(func() {
@@ -342,28 +335,28 @@ func main() {
 	imagesTab := nb.TFrame()
 	nb.Add(imagesTab, Txt("Raw Images"))
 
-	imagesContent := TFrame(imagesTab)
+	imagesContent := imagesTab.TFrame()
 	Pack(imagesContent, Fill("both"), Expand(true), Padx("20"), Pady("20"))
 
-	createFrame := TLabelframe(imagesContent, Txt("Create Raw Disk Image File"))
+	createFrame := imagesContent.TLabelframe(Txt("Create Raw Disk Image File"))
 	Pack(createFrame, Fill("x"), Pady("10"), Padx("5"), Ipady("10"))
 
-	cPathRow := TFrame(createFrame)
+	cPathRow := createFrame.TFrame()
 	Pack(cPathRow, Fill("x"), Pady("3"), Padx("10"))
-	Pack(TLabel(cPathRow, Txt("Output File Path: "), Width(18)), Side("left"), Anchor("w"))
-	createPath := TEntry(cPathRow, Textvariable("createPathVar"))
+	Pack(cPathRow.TLabel(Txt("Output File Path: "), Width(18)), Side("left"), Anchor("w"))
+	createPath := cPathRow.TEntry(Textvariable("createPathVar"))
 	Pack(createPath, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
-	cSizeRow := TFrame(createFrame)
+	cSizeRow := createFrame.TFrame()
 	Pack(cSizeRow, Fill("x"), Pady("3"), Padx("10"))
-	Pack(TLabel(cSizeRow, Txt("Image Size: "), Width(18)), Side("left"), Anchor("w"))
-	createSize := TEntry(cSizeRow, Textvariable("createSizeVar"), Width(20))
+	Pack(cSizeRow.TLabel(Txt("Image Size: "), Width(18)), Side("left"), Anchor("w"))
+	createSize := cSizeRow.TEntry(Textvariable("createSizeVar"), Width(20))
 	Pack(createSize, Side("left"), Padx("5"))
 	createSize.Configure(Textvariable("200M"))
 
-	createBtnRow := TFrame(createFrame)
+	createBtnRow := createFrame.TFrame()
 	Pack(createBtnRow, Fill("x"), Pady("10"), Padx("10"))
-	createActionBtn := TButton(createBtnRow, Txt("Create Empty Disk Image"))
+	createActionBtn := createBtnRow.TButton(Txt("Create Empty Disk Image"))
 	Pack(createActionBtn, Side("left"))
 
 	createActionBtn.Configure(Command(func() {
@@ -384,22 +377,22 @@ func main() {
 		}()
 	}))
 
-	mountFrame := TLabelframe(imagesContent, Txt("Mount / Unmount Disk Image"))
+	mountFrame := imagesContent.TLabelframe(Txt("Mount / Unmount Disk Image"))
 	Pack(mountFrame, Fill("x"), Pady("10"), Padx("5"), Ipady("10"))
 
-	mPathRow := TFrame(mountFrame)
+	mPathRow := mountFrame.TFrame()
 	Pack(mPathRow, Fill("x"), Pady("3"), Padx("10"))
-	Pack(TLabel(mPathRow, Txt("Image File Path: "), Width(18)), Side("left"), Anchor("w"))
-	mountPath := TEntry(mPathRow, Textvariable("mountPathVar"))
+	Pack(mPathRow.TLabel(Txt("Image File Path: "), Width(18)), Side("left"), Anchor("w"))
+	mountPath := mPathRow.TEntry(Textvariable("mountPathVar"))
 	Pack(mountPath, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
-	mountBtnRow := TFrame(mountFrame)
+	mountBtnRow := mountFrame.TFrame()
 	Pack(mountBtnRow, Fill("x"), Pady("10"), Padx("10"))
-	
-	mountActionBtn := TButton(mountBtnRow, Txt("Mount Image"))
+
+	mountActionBtn := mountBtnRow.TButton(Txt("Mount Image"))
 	Pack(mountActionBtn, Side("left"), Padx("5"))
 
-	unmountActionBtn := TButton(mountBtnRow, Txt("Unmount Image"))
+	unmountActionBtn := mountBtnRow.TButton(Txt("Unmount Image"))
 	Pack(unmountActionBtn, Side("left"), Padx("5"))
 
 	mountActionBtn.Configure(Command(func() {
