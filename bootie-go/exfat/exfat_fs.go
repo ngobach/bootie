@@ -1862,7 +1862,18 @@ func exfatDecodeTimestamp(date, etime uint16, centisec uint8, tzoffset uint8) ti
 	if sec > 59 {
 		sec = 59
 	}
-	return time.Date(year, time.Month(month), day, hour, min, sec, 0, time.Local)
+	var loc *time.Location
+	if tzoffset&0x80 != 0 {
+		offsetVal := int(tzoffset & 0x7F)
+		if offsetVal >= 64 {
+			offsetVal -= 128
+		}
+		offsetSec := offsetVal * 15 * 60
+		loc = time.FixedZone("", offsetSec)
+	} else {
+		loc = time.Local
+	}
+	return time.Date(year, time.Month(month), day, hour, min, sec, 0, loc)
 }
 
 func exfatEncodeTimestamp(t time.Time) (edate, etime uint16, centisec uint8, tzoffset uint8) {
@@ -1884,7 +1895,7 @@ func exfatEncodeTimestamp(t time.Time) (edate, etime uint16, centisec uint8, tzo
 	etime = uint16(twosec) | (uint16(min) << 5) | (uint16(hour) << 11)
 	centisec = uint8((sec % 2) * 100)
 	_, offset := t.Zone()
-	tzoffset = uint8(-offset/60/15) | 0x80
+	tzoffset = uint8(offset/60/15) | 0x80
 	return
 }
 
