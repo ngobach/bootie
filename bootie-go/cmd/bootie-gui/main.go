@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -14,6 +16,21 @@ import (
 	log "github.com/charmbracelet/log"
 	"ngobach.com/bootie-go/core"
 )
+
+func openFolder(dir string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", dir)
+	case "darwin":
+		cmd = exec.Command("open", dir)
+	default:
+		cmd = exec.Command("xdg-open", dir)
+	}
+	if err := cmd.Start(); err != nil {
+		log.Errorf("Failed to open containing folder: %v", err)
+	}
+}
 
 func main() {
 	// 1. Initialise the App Window
@@ -35,29 +52,78 @@ func main() {
 		log.Errorf("Failed to create log file: %v", err)
 	}
 
-	// 3. Create the Log Path Label at the bottom
-	logPathLabel := mainFrame.TLabel(Txt(fmt.Sprintf("Logs: %s", logFilename)), Font("Helvetica 9"), Wraplength(360))
-	Pack(logPathLabel, Side("bottom"), Fill("x"), Pady("5"), Anchor("w"))
+	// 3. Create the Log Path and Open Containing Folder Button at the bottom
+	openFolderBtn := mainFrame.TButton(Txt("Open containing folder"), Command(func() {
+		openFolder(filepath.Dir(logFilename))
+	}))
+	Pack(openFolderBtn, Side("bottom"), Anchor("w"), Pady("5"))
+
+	logPathLabel := mainFrame.TLabel(Txt(fmt.Sprintf("Logs: %s", logFilename)), Font("Helvetica 9"))
+	Pack(logPathLabel, Side("bottom"), Anchor("w"), Pady("2"))
 
 	// 4. Create Content Widgets directly inside mainFrame
 	Pack(mainFrame.TLabel(Txt("Format a raw disk or device, installing UEFI EFI and data partitions."), Font("Helvetica 11 bold"), Wraplength(360)), Anchor("w"), Pady("10"))
 
+	// Target picker components
+	targetTypeRow := mainFrame.TFrame()
+	Pack(targetTypeRow, Fill("x"), Pady("5"))
+	Pack(targetTypeRow.TLabel(Txt("Target Type: "), Width(18)), Side("left"), Anchor("w"))
+
+	targetTypeVar := Variable("discovered")
+
+	var updateTargetState func()
+
+	radioDiscovered := targetTypeRow.TRadiobutton(Txt("Discovered Target"), targetTypeVar, Value("discovered"), Command(func() { updateTargetState() }))
+	Pack(radioDiscovered, Side("left"), Padx("5"))
+
+	radioFile := targetTypeRow.TRadiobutton(Txt("Disk Image (File)"), targetTypeVar, Value("file"), Command(func() { updateTargetState() }))
+	Pack(radioFile, Side("left"), Padx("5"))
+
 	diskSelectRow := mainFrame.TFrame()
 	Pack(diskSelectRow, Fill("x"), Pady("5"))
-	Pack(diskSelectRow.TLabel(Txt("Target Disk: "), Width(12)), Side("left"), Anchor("w"))
+	Pack(diskSelectRow.TLabel(Txt("Target Disk: "), Width(18)), Side("left"), Anchor("w"))
 
 	initDiskCombo := diskSelectRow.TCombobox(State("readonly"), Textvariable("initDiskVar"), Width(24))
 	Pack(initDiskCombo, Side("left"), Fill("x"), Expand(true), Padx("5"))
 
+	fileSelectRow := mainFrame.TFrame()
+	Pack(fileSelectRow, Fill("x"), Pady("5"))
+	Pack(fileSelectRow.TLabel(Txt("Image File: "), Width(18)), Side("left"), Anchor("w"))
+
+	imageEntry := fileSelectRow.TEntry(Width(24))
+	Pack(imageEntry, Side("left"), Fill("x"), Expand(true), Padx("5"))
+
+	browseFile := func() {
+		files := GetOpenFile(
+			Title("Select Disk Image File"),
+			Filetypes([]FileType{
+				{TypeName: "Disk Images", Extensions: []string{".img", ".iso", ".raw"}},
+				{TypeName: "All Files", Extensions: []string{"*"}},
+			}),
+		)
+		if len(files) > 0 && files[0] != "" {
+			imageEntry.Configure(Textvariable(files[0]))
+		}
+	}
+
+	browseBtn := fileSelectRow.TButton(Txt("Browse..."), Command(browseFile))
+	Pack(browseBtn, Side("right"), Padx("5"))
+
 	fsRow := mainFrame.TFrame()
 	Pack(fsRow, Fill("x"), Pady("5"))
-	Pack(fsRow.TLabel(Txt("Filesystem: "), Width(12)), Side("left"), Anchor("w"))
-	initFsCombo := fsRow.TCombobox(State("readonly"), Values("exfat fat32"), Textvariable("initFsVar"), Width(10))
-	Pack(initFsCombo, Side("left"), Padx("5"))
-	initFsCombo.Current(0)
+	Pack(fsRow.TLabel(Txt("Data partition FS: "), Width(18)), Side("left"), Anchor("w"))
+
+	initFsVar := Variable("exfat")
+
+	radioExfat := fsRow.TRadiobutton(Txt("exFAT"), initFsVar, Value("exfat"))
+	Pack(radioExfat, Side("left"), Padx("5"))
+
+	radioFat32 := fsRow.TRadiobutton(Txt("FAT32"), initFsVar, Value("fat32"))
+	Pack(radioFat32, Side("left"), Padx("5"))
 
 	checkRow := mainFrame.TFrame()
 	Pack(checkRow, Fill("x"), Pady("5"))
+	Pack(checkRow.TLabel(Txt(""), Width(18)), Side("left"), Anchor("w"))
 	noDataVar := Variable(false)
 	noDataCheck := checkRow.TCheckbutton(Txt("Skip data partition (no-data-part)"), noDataVar)
 	Pack(noDataCheck, Side("left"), Padx("5"))
@@ -92,6 +158,21 @@ func main() {
 	initRefreshBtn := diskSelectRow.TButton(Txt("Refresh List"), Command(refreshAllDisks))
 	Pack(initRefreshBtn, Side("right"), Padx("5"))
 
+	updateTargetState = func() {
+		targetType := targetTypeVar.Get()
+		if targetType == "discovered" {
+			initDiskCombo.Configure(State("readonly"))
+			initRefreshBtn.Configure(State("normal"))
+			imageEntry.Configure(State("disabled"))
+			browseBtn.Configure(State("disabled"))
+		} else {
+			initDiskCombo.Configure(State("disabled"))
+			initRefreshBtn.Configure(State("disabled"))
+			imageEntry.Configure(State("normal"))
+			browseBtn.Configure(State("normal"))
+		}
+	}
+
 	getSelectedDiskPath := func(combo *TComboboxWidget) string {
 		val := combo.Textvariable()
 		if val == "" {
@@ -105,12 +186,21 @@ func main() {
 	}
 
 	initActionBtn.Configure(Command(func() {
-		target := getSelectedDiskPath(initDiskCombo)
-		if target == "" {
-			log.Error("No target disk selected.")
-			return
+		var target string
+		if targetTypeVar.Get() == "discovered" {
+			target = getSelectedDiskPath(initDiskCombo)
+			if target == "" {
+				log.Error("No target disk selected.")
+				return
+			}
+		} else {
+			target = imageEntry.Textvariable()
+			if target == "" {
+				log.Error("No disk image file selected.")
+				return
+			}
 		}
-		fsType := initFsCombo.Textvariable()
+		fsType := initFsVar.Get()
 		noDataPart := noDataVar.Get() == "1"
 
 		initActionBtn.Configure(State("disabled"))
@@ -123,8 +213,9 @@ func main() {
 		}()
 	}))
 
-	// Initial scanning trigger
+	// Initial scanning and state trigger
 	refreshAllDisks()
+	updateTargetState()
 
 	// 5. Start Event Loop
 	App.Wait()
