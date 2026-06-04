@@ -153,3 +153,33 @@ struct drive_map_slot
   unsigned long long sector_count;
 };
 ```
+
+---
+
+## 8. Development "Gotchas" and Core Limitations
+
+When developing flat binaries and external modules for GRUB4DOS / GRUB4EFI, pay close attention to these structural limitations and behavioral quirks:
+
+### 1. Module Entry Point Alignment
+The entry point `main` function must always remain the **very first function** defined in your `.c` source file. 
+*   **Why**: The build toolchain compiles the file top-to-bottom. If other functions are defined before `main`, they will be placed at offset `0` in the output flat binary, which will cause GRUB4DOS to execute the wrong function when the module starts.
+
+### 2. No Data Section Pollution (BSS Placement)
+Avoid defining global variables *after* `#include <bootprog.h>`.
+*   **Why**: GRUB4DOS executable binaries require a specific 8-byte magic signature (`05 18 05 03 ba a7 ba bc`) placed at the very end of the executable. Global or static variables declared after the `#include <bootprog.h>` line are emitted into the data or BSS sections and get appended to the end of the flat binary, pushing them past the signature. This invalidates the executable format, causing `"Invalid or unsupported executable format"` errors.
+
+### 3. File and Console Output Redirection
+You cannot redirect or hook console/directory outputs by hooking the system function table at index `62` (the standard directory completion output callback).
+*   **Why**: Core filesystem drivers inside the bootloader bypass the system function table at index `62` entirely, calling the internal `print_a_completion` function directly using static C linkages.
+*   **Workaround**: Set `putchar_hooked` (index `47` in the system variables table) to a memory buffer pointer. This redirects all characters printed by `print_a_completion` (via `putchar`) to your buffer.
+
+### 4. Dynamic Console Capture & Termination
+When using `putchar_hooked` to capture terminal output:
+*   The GRUB4DOS kernel automatically increments the `putchar_hooked` address pointer by `1` for each character written.
+*   To correctly null-terminate the buffer after the execution of functions like `grub_dir`, save the initial buffer pointer, read the final pointer value of `putchar_hooked` after the command returns, and write a null terminator `\0` at that final address before restoring the original `putchar_hooked` value.
+
+### 5. Escaping Whitespace in Filenames
+When capturing directory output using `grub_dir` and the `putchar_hooked` redirection:
+*   `print_a_completion` automatically escapes space characters inside filenames using a backslash (e.g. `\ `).
+*   Your output parser must process these escape sequences correctly to reconstruct the original filenames containing spaces.
+
