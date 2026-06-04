@@ -6,8 +6,8 @@ typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
 typedef unsigned long uint32_t;
 
-#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID \
-  { 0x9042a9de, 0x23dc, 0x4a38, { 0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a } }
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID                                      \
+  {0x9042a9de, 0x23dc, 0x4a38, {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a}}
 
 typedef enum {
   PixelRedGreenBlueReserved8BitPerColor,
@@ -57,12 +57,12 @@ int main(char *arg, int flags) {
   printf("UEFI screen_test POC started.\n");
 
   efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  printf("SystemTable: %p\n", st);
+  printf("SystemTable: 0x%lx\n", (unsigned long)st);
   if (!st) {
     printf("st is NULL!\n");
     return 0;
   }
-  printf("BootServices: %p\n", st->boot_services);
+  printf("BootServices: 0x%lx\n", (unsigned long)st->boot_services);
   if (!st->boot_services) {
     printf("boot_services is NULL!\n");
     return 0;
@@ -71,14 +71,34 @@ int main(char *arg, int flags) {
   efi_guid_t gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
   EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
 
-  efi_status_t status = st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
-  printf("locate_protocol status: 0x%lx, GOP ptr: %p\n", (unsigned long)status, gop);
+  efi_status_t status =
+      st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
+  printf("locate_protocol status: 0x%lx, GOP ptr: 0x%lx\n",
+         (unsigned long)status, (unsigned long)gop);
 
   if (status == EFI_SUCCESS && gop) {
-    printf("GOP Mode: %p\n", gop->Mode);
+    // Dump GOP structure bytes
+    printf("GOP struct memory: ");
+    unsigned char *gop_bytes = (unsigned char *)gop;
+    for (int i = 0; i < 32; i++) {
+      printf("%02x ", gop_bytes[i]);
+    }
+    printf("\n");
+
+    printf("GOP Mode: 0x%lx\n", (unsigned long)gop->Mode);
     if (gop->Mode) {
-      printf("FrameBufferBase: 0x%lx\n", (unsigned long)gop->Mode->FrameBufferBase);
-      printf("FrameBufferSize: 0x%lx\n", (unsigned long)gop->Mode->FrameBufferSize);
+      // Dump GOP Mode structure bytes
+      printf("GOP Mode struct memory: ");
+      unsigned char *mode_bytes = (unsigned char *)gop->Mode;
+      for (int i = 0; i < 48; i++) {
+        printf("%02x ", mode_bytes[i]);
+      }
+      printf("\n");
+
+      printf("FrameBufferBase: 0x%lx\n",
+             (unsigned long)gop->Mode->FrameBufferBase);
+      printf("FrameBufferSize: 0x%lx\n",
+             (unsigned long)gop->Mode->FrameBufferSize);
       if (gop->Mode->Info) {
         printf("Resolution: %dx%d, Stride: %d, Format: %d\n",
                (int)gop->Mode->Info->HorizontalResolution,
@@ -86,7 +106,7 @@ int main(char *arg, int flags) {
                (int)gop->Mode->Info->PixelsPerScanLine,
                (int)gop->Mode->Info->PixelFormat);
       }
-      
+
       if (gop->Mode->FrameBufferBase) {
         uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
         uint32_t width = gop->Mode->Info->HorizontalResolution;
@@ -94,11 +114,13 @@ int main(char *arg, int flags) {
         uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
 
         uint32_t color = 0x000000FF; // BGRX Blue
-        if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
+        if (gop->Mode->Info->PixelFormat ==
+            PixelRedGreenBlueReserved8BitPerColor) {
           color = 0x00FF0000; // RGBX Blue
         }
 
-        printf("Drawing blue screen with color 0x%x...\n", (unsigned int)color);
+        printf("Drawing blue screen with color 0x%x...\n",
+               (unsigned int)color);
         for (uint32_t y = 0; y < height; y++) {
           uint32_t *line = fb + (y * stride);
           for (uint32_t x = 0; x < width; x++) {
@@ -454,7 +476,8 @@ static void fill_screen(uint32_t color_val, struct vbe_mode_info *mi) {
 }
 
 static int bios_checkkey(void) {
-  struct realmode_regs int_regs = {0, 0, 0, -1, 0, 0, 0, 0x0100, -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
+  struct realmode_regs int_regs = {0,  0,  0,  -1, 0,  0,          0,  0x0100,
+                                   -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
   realmode_run((long)&int_regs);
   if ((int_regs.eflags & (1 << 6)) == 0) {
     return 1;
@@ -463,7 +486,8 @@ static int bios_checkkey(void) {
 }
 
 static int bios_getkey(void) {
-  struct realmode_regs int_regs = {0, 0, 0, -1, 0, 0, 0, 0x0000, -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
+  struct realmode_regs int_regs = {0,  0,  0,  -1, 0,  0,          0,  0x0000,
+                                   -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
   realmode_run((long)&int_regs);
   uint8_t ascii = int_regs.eax & 0xFF;
   uint8_t scan = (int_regs.eax >> 8) & 0xFF;
