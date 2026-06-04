@@ -1,8 +1,9 @@
 # Welcome to Bootie
 
 insmod /autoiso
-if not "%@UEFI%"=="" insmod /mod/uefi/eachtitle
-if "%@UEFI%"=="" insmod /mod/bios/eachtitle
+if not "%@UEFI%"=="" set moddir=/mod/uefi
+if "%@UEFI%"=="" set moddir=/mod/bios
+insmod %moddir%/eachtitle
 
 timeout 60
 color red/black
