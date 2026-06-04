@@ -149,7 +149,7 @@ int main(char *arg, int flags) {
     if (!(name_len > 0 && filename_start[name_len - 1] == '/')) {
       if (glob_match(pattern, filename_start)) {
         printf("title Boot \"%s\"\n", filename_start);
-        printf("%s %s\n", callback, filename_start);
+        printf("%s \"%s\"\n", callback, filename_start);
         printf("echo There are problem booting the entry\n");
         printf("pause --wait=10\n");
         printf("reboot\n\n");

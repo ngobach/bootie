@@ -4,7 +4,6 @@ if not "%1"=="" goto %1
 goto :make_menu
 
 :make_menu
-echo color green/black > (md)0x3000+0x50
 eachtitle /ISO/ *.iso "%~0 :boot" >> (md)0x3000+0x50
 echo title ---- >> (md)0x3000+0x50
 echo pause --wait=0 >> (md)0x3000+0x50
@@ -16,9 +15,7 @@ configfile (md)0x3000+0x50
 goto :eof
 
 :boot
-if "%2"=="" goto :eof
-if not "%~x2"==".iso" if not "%~x2"==".ISO" goto :eof
-map /ISO/%~nx2 (0xff)
+map /ISO/"%~2" (0xff)
 map --hook
 root (0xff)
 chainloader (0xff)
