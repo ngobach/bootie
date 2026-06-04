@@ -16,27 +16,31 @@ CFLAGS_UEFI := -Wl,--build-id=none -m64 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
                -fshort-wchar -fno-jump-tables -Wl,-N -fPIE
 
-.PHONY: all bios uefi clean prepare
+SOURCES := $(wildcard src/*.c)
+NAMES := $(patsubst src/%.c,%,$(SOURCES))
 
-all: prepare bios uefi
+BIOS_TARGETS := $(patsubst %,bin/bios/%,$(NAMES))
+UEFI_TARGETS := $(patsubst %,bin/uefi/%,$(NAMES))
 
-prepare:
-	$(MKDIR) bin
+.PHONY: all bios uefi clean
 
-bios: bin/hello_bios
+all: bios uefi
 
-uefi: bin/hello_uefi
+bios: $(BIOS_TARGETS)
 
-bin/hello_bios: src/main.c
-	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o main_bios.o
-	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary main_bios.o $@
-	$(RM) main_bios.o
+uefi: $(UEFI_TARGETS)
 
-bin/hello_uefi: src/main.c
-	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o main_uefi.o
-	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary main_uefi.o $@
-	$(RM) main_uefi.o
+bin/bios/%: src/%.c
+	$(MKDIR) $(dir $@)
+	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o $@.o
+	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
+	$(RM) $@.o
+
+bin/uefi/%: src/%.c
+	$(MKDIR) $(dir $@)
+	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o $@.o
+	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
+	$(RM) $@.o
 
 clean:
-	$(RM) main_bios.o main_bios.mod main_uefi.o main_uefi.mod
 	rm -rf bin
