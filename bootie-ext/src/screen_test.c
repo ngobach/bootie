@@ -54,8 +54,17 @@ struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
 int main(char *arg, int flags) {
   INIT_BOOT_MODULE();
 
+  printf("UEFI screen_test POC started.\n");
+
   efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  if (!st || !st->boot_services) {
+  printf("SystemTable: %p\n", st);
+  if (!st) {
+    printf("st is NULL!\n");
+    return 0;
+  }
+  printf("BootServices: %p\n", st->boot_services);
+  if (!st->boot_services) {
+    printf("boot_services is NULL!\n");
     return 0;
   }
 
@@ -63,28 +72,51 @@ int main(char *arg, int flags) {
   EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
 
   efi_status_t status = st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
-  if (status == EFI_SUCCESS && gop && gop->Mode && gop->Mode->FrameBufferBase) {
-    uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
-    uint32_t width = gop->Mode->Info->HorizontalResolution;
-    uint32_t height = gop->Mode->Info->VerticalResolution;
-    uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
+  printf("locate_protocol status: 0x%lx, GOP ptr: %p\n", (unsigned long)status, gop);
 
-    uint32_t color = 0x000000FF; // BGRX Blue
-    if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
-      color = 0x00FF0000; // RGBX Blue
-    }
+  if (status == EFI_SUCCESS && gop) {
+    printf("GOP Mode: %p\n", gop->Mode);
+    if (gop->Mode) {
+      printf("FrameBufferBase: 0x%lx\n", (unsigned long)gop->Mode->FrameBufferBase);
+      printf("FrameBufferSize: 0x%lx\n", (unsigned long)gop->Mode->FrameBufferSize);
+      if (gop->Mode->Info) {
+        printf("Resolution: %dx%d, Stride: %d, Format: %d\n",
+               (int)gop->Mode->Info->HorizontalResolution,
+               (int)gop->Mode->Info->VerticalResolution,
+               (int)gop->Mode->Info->PixelsPerScanLine,
+               (int)gop->Mode->Info->PixelFormat);
+      }
+      
+      if (gop->Mode->FrameBufferBase) {
+        uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
+        uint32_t width = gop->Mode->Info->HorizontalResolution;
+        uint32_t height = gop->Mode->Info->VerticalResolution;
+        uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
 
-    for (uint32_t y = 0; y < height; y++) {
-      uint32_t *line = fb + (y * stride);
-      for (uint32_t x = 0; x < width; x++) {
-        line[x] = color;
+        uint32_t color = 0x000000FF; // BGRX Blue
+        if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
+          color = 0x00FF0000; // RGBX Blue
+        }
+
+        printf("Drawing blue screen with color 0x%x...\n", (unsigned int)color);
+        for (uint32_t y = 0; y < height; y++) {
+          uint32_t *line = fb + (y * stride);
+          for (uint32_t x = 0; x < width; x++) {
+            line[x] = color;
+          }
+        }
+        printf("Drawing finished.\n");
       }
     }
+  } else {
+    printf("Failed to locate GOP protocol!\n");
   }
 
-  while (1) {
-    // Hang forever
+  printf("POC finished. Press any key to exit...\n");
+  while (!checkkey()) {
+    // wait
   }
+  getkey();
 
   return 0;
 }
