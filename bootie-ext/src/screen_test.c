@@ -4,7 +4,7 @@
 
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
-typedef unsigned long uint32_t;
+typedef unsigned int uint32_t;
 
 #define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID                                      \
   {0x9042a9de, 0x23dc, 0x4a38, {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a}}
@@ -146,7 +146,7 @@ int main(char *arg, int flags) {
 
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
-typedef unsigned long uint32_t;
+typedef unsigned int uint32_t;
 
 struct vbe_mode_info {
   uint16_t ModeAttributes;
