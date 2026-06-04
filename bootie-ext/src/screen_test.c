@@ -1,9 +1,91 @@
 #include <bootprog.h>
 
 #if !defined(__i386__)
-// UEFI Mode: Stubbed out
+
+typedef unsigned short uint16_t;
+typedef unsigned char uint8_t;
+typedef unsigned long uint32_t;
+
+#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID \
+  { 0x9042a9de, 0x23dc, 0x4a38, { 0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a } }
+
+typedef enum {
+  PixelRedGreenBlueReserved8BitPerColor,
+  PixelBlueGreenRedReserved8BitPerColor,
+  PixelBitMask,
+  PixelBltOnly,
+  PixelFormatMax
+} EFI_GRAPHICS_OUTPUT_OBJECT_PIXEL_FORMAT;
+
+typedef struct {
+  uint32_t RedMask;
+  uint32_t GreenMask;
+  uint32_t BlueMask;
+  uint32_t ReservedMask;
+} EFI_PIXEL_BITMASK;
+
+typedef struct {
+  uint32_t Version;
+  uint32_t HorizontalResolution;
+  uint32_t VerticalResolution;
+  EFI_GRAPHICS_OUTPUT_OBJECT_PIXEL_FORMAT PixelFormat;
+  EFI_PIXEL_BITMASK PixelInformation;
+  uint32_t PixelsPerScanLine;
+} EFI_GRAPHICS_OUTPUT_MODE_INFORMATION;
+
+typedef struct {
+  uint32_t MaxMode;
+  uint32_t Mode;
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info;
+  grub_size_t SizeOfInfo;
+  efi_physical_address_t FrameBufferBase;
+  grub_size_t FrameBufferSize;
+} EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE;
+
+typedef struct _EFI_GRAPHICS_OUTPUT_PROTOCOL EFI_GRAPHICS_OUTPUT_PROTOCOL;
+
+struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
+  void *QueryMode;
+  void *SetMode;
+  void *Blt;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *Mode;
+};
+
 int main(char *arg, int flags) {
   INIT_BOOT_MODULE();
+
+  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+  if (!st || !st->boot_services) {
+    return 0;
+  }
+
+  efi_guid_t gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
+  EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
+
+  efi_status_t status = st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
+  if (status == EFI_SUCCESS && gop && gop->Mode && gop->Mode->FrameBufferBase) {
+    uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
+    uint32_t width = gop->Mode->Info->HorizontalResolution;
+    uint32_t height = gop->Mode->Info->VerticalResolution;
+    uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
+
+    uint32_t color = 0x000000FF; // BGRX Blue
+    if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
+      color = 0x00FF0000; // RGBX Blue
+    }
+
+    for (uint32_t y = 0; y < height; y++) {
+      uint32_t *line = fb + (y * stride);
+      for (uint32_t x = 0; x < width; x++) {
+        line[x] = color;
+      }
+    }
+  }
+
+  while (1) {
+    // Hang forever
+  }
+
   return 0;
 }
 #else
