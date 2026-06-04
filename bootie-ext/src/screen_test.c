@@ -51,95 +51,129 @@ struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
   EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *Mode;
 };
 
+struct test_color {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+  const char *name;
+};
+
+// Forward declarations
+static void delay_ms(unsigned int ms);
+static int uefi_checkkey(void);
+static int uefi_getkey(void);
+
 int main(char *arg, int flags) {
   INIT_BOOT_MODULE();
 
-  printf("UEFI screen_test POC started.\n");
-
   efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  printf("SystemTable: 0x%lx\n", (unsigned long)st);
-  if (!st) {
-    printf("st is NULL!\n");
-    return 0;
-  }
-  printf("BootServices: 0x%lx\n", (unsigned long)st->boot_services);
-  if (!st->boot_services) {
-    printf("boot_services is NULL!\n");
+  if (!st || !st->boot_services) {
     return 0;
   }
 
   efi_guid_t gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
   EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
 
-  efi_status_t status =
-      st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
-  printf("locate_protocol status: 0x%lx, GOP ptr: 0x%lx\n",
-         (unsigned long)status, (unsigned long)gop);
+  efi_status_t status = st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
+  if (status != EFI_SUCCESS || !gop || !gop->Mode || !gop->Mode->FrameBufferBase) {
+    printf("Failed to locate GOP protocol or FrameBuffer.\n");
+    return 0;
+  }
 
-  if (status == EFI_SUCCESS && gop) {
-    // Dump GOP structure bytes
-    printf("GOP struct memory: ");
-    unsigned char *gop_bytes = (unsigned char *)gop;
-    for (int i = 0; i < 32; i++) {
-      printf("%02x ", gop_bytes[i]);
+  uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
+  uint32_t width = gop->Mode->Info->HorizontalResolution;
+  uint32_t height = gop->Mode->Info->VerticalResolution;
+  uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
+
+  struct test_color colors[] = {
+    {255, 0, 0, "Red"},
+    {0, 255, 0, "Green"},
+    {0, 0, 255, "Blue"},
+    {0, 0, 0, "Black"},
+    {255, 255, 255, "White"}
+  };
+
+  int exit_early = 0;
+
+  for (int i = 0; i < 5; i++) {
+    // Calculate color value based on GOP pixel format
+    uint32_t color_val = 0;
+    if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
+      // RGBX
+      color_val = ((uint32_t)colors[i].r) | (((uint32_t)colors[i].g) << 8) | (((uint32_t)colors[i].b) << 16);
+    } else {
+      // BGRX (Default / Common)
+      color_val = ((uint32_t)colors[i].b) | (((uint32_t)colors[i].g) << 8) | (((uint32_t)colors[i].r) << 16);
     }
-    printf("\n");
 
-    printf("GOP Mode: 0x%lx\n", (unsigned long)gop->Mode);
-    if (gop->Mode) {
-      // Dump GOP Mode structure bytes
-      printf("GOP Mode struct memory: ");
-      unsigned char *mode_bytes = (unsigned char *)gop->Mode;
-      for (int i = 0; i < 48; i++) {
-        printf("%02x ", mode_bytes[i]);
-      }
-      printf("\n");
-
-      printf("FrameBufferBase: 0x%lx\n",
-             (unsigned long)gop->Mode->FrameBufferBase);
-      printf("FrameBufferSize: 0x%lx\n",
-             (unsigned long)gop->Mode->FrameBufferSize);
-      if (gop->Mode->Info) {
-        printf("Resolution: %dx%d, Stride: %d, Format: %d\n",
-               (int)gop->Mode->Info->HorizontalResolution,
-               (int)gop->Mode->Info->VerticalResolution,
-               (int)gop->Mode->Info->PixelsPerScanLine,
-               (int)gop->Mode->Info->PixelFormat);
-      }
-
-      if (gop->Mode->FrameBufferBase) {
-        uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
-        uint32_t width = gop->Mode->Info->HorizontalResolution;
-        uint32_t height = gop->Mode->Info->VerticalResolution;
-        uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
-
-        uint32_t color = 0x000000FF; // BGRX Blue
-        if (gop->Mode->Info->PixelFormat ==
-            PixelRedGreenBlueReserved8BitPerColor) {
-          color = 0x00FF0000; // RGBX Blue
-        }
-
-        printf("Drawing blue screen with color 0x%x...\n",
-               (unsigned int)color);
-        for (uint32_t y = 0; y < height; y++) {
-          uint32_t *line = fb + (y * stride);
-          for (uint32_t x = 0; x < width; x++) {
-            line[x] = color;
-          }
-        }
-        printf("Drawing finished.\n");
+    // Fill screen
+    for (uint32_t y = 0; y < height; y++) {
+      uint32_t *line = fb + (y * stride);
+      for (uint32_t x = 0; x < width; x++) {
+        line[x] = color_val;
       }
     }
+
+    unsigned int elapsed = 0;
+    while (elapsed < 1000) {
+      delay_ms(50);
+      elapsed += 50;
+      if (uefi_checkkey()) {
+        int key = uefi_getkey();
+        if (key == 27 || key == 0x1b) {
+          exit_early = 1;
+        }
+        break; // skip to next color or exit
+      }
+    }
+
+    if (exit_early) {
+      break;
+    }
+  }
+
+  // Clear G4D screen on exit to redraw console menu cleanly
+  cls();
+
+  return 0;
+}
+
+static void delay_ms(unsigned int ms) {
+  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+  if (st && st->boot_services) {
+    st->boot_services->stall(ms * 1000); // stall expects microseconds
   } else {
-    printf("Failed to locate GOP protocol!\n");
+    volatile unsigned long long i;
+    for (i = 0; i < ms * 100000ULL; i++) {
+      // noop fallback
+    }
   }
+}
 
-  printf("POC finished. Press any key to exit...\n");
-  while (!checkkey()) {
-    // wait
+static int uefi_checkkey(void) {
+  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+  if (st && st->con_in) {
+    efi_input_key_t key;
+    efi_status_t status = st->con_in->read_key_stroke(st->con_in, &key);
+    if (status == EFI_SUCCESS) {
+      return 1;
+    }
   }
-  getkey();
+  return 0;
+}
 
+static int uefi_getkey(void) {
+  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+  if (st && st->con_in) {
+    efi_input_key_t key;
+    efi_status_t status = st->con_in->read_key_stroke(st->con_in, &key);
+    if (status == EFI_SUCCESS) {
+      if (key.scan_code == 0x17 || key.unicode_char == 27) {
+        return 27; // Esc
+      }
+      return key.unicode_char ? key.unicode_char : (key.scan_code << 8);
+    }
+  }
   return 0;
 }
 #else
