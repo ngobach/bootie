@@ -4,40 +4,23 @@ if not "%1"=="" goto %1
 goto :make_menu
 
 :make_menu
-ls /ISO/ | echo > (md)0x3800+0x80
 echo color green/black > (md)0x3000+0x50
-
-:make_menu_loop
-cat --locate=".iso" --number=1 (md)0x3800+0x80
-set flen=%?%
-if "%flen%"=="0x0" goto :make_menu_done
-set /A flen=0x4+%flen%
-cat --length=%flen% (md)0x3800+0x80 | set file=
-call :iso_callback %file%
-cat --skip=%flen% (md)0x3800+0x80 | echo > (md)0x3800+0x80
-goto :make_menu_loop
-
-:make_menu_done
+eachtitle /ISO/ *.iso "%~0 :boot" >> (md)0x3000+0x50
 echo title ---- >> (md)0x3000+0x50
 echo pause --wait=0 >> (md)0x3000+0x50
 echo -e \n >> (md)0x3000+0x50
-
 echo title Back to main menu >> (md)0x3000+0x50
 echo configfile /menu.lst >> (md)0x3000+0x50
 echo -e \n >> (md)0x3000+0x50
-
 configfile (md)0x3000+0x50
 goto :eof
 
-:iso_callback
-if "%1"=="" goto :eof
-if not "%~x1"==".iso" if not "%~x1"==".ISO" goto :eof
-
-echo title [ISO] %~nx1 >> (md)0x3000+0x50
-echo find --set-root /ISO/%~nx1 >> (md)0x3000+0x50
-echo map /ISO/%~nx1 (0xff) >> (md)0x3000+0x50
-echo map --hook >> (md)0x3000+0x50
-echo root (0xff) >> (md)0x3000+0x50
-echo chainloader (0xff) >> (md)0x3000+0x50
-echo boot >> (md)0x3000+0x50
+:boot
+if "%2"=="" goto :eof
+if not "%~x2"==".iso" if not "%~x2"==".ISO" goto :eof
+map /ISO/%~nx2 (0xff)
+map --hook
+root (0xff)
+chainloader (0xff)
+boot
 goto :eof
