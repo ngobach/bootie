@@ -19,8 +19,8 @@ CFLAGS_UEFI := -Wl,--build-id=none -m64 -mno-sse -nostdlib \
 SOURCES := $(wildcard src/*.c)
 NAMES := $(patsubst src/%.c,%,$(SOURCES))
 
-BIOS_TARGETS := $(patsubst %,bin/bios/%,$(NAMES))
-UEFI_TARGETS := $(patsubst %,bin/uefi/%,$(NAMES))
+BIOS_TARGETS := $(patsubst %,mod/bios/%,$(NAMES))
+UEFI_TARGETS := $(patsubst %,mod/uefi/%,$(NAMES))
 
 .PHONY: all bios uefi clean
 
@@ -30,17 +30,17 @@ bios: $(BIOS_TARGETS)
 
 uefi: $(UEFI_TARGETS)
 
-bin/bios/%: src/%.c
+mod/bios/%: src/%.c
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 	$(RM) $@.o
 
-bin/uefi/%: src/%.c
+mod/uefi/%: src/%.c
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 	$(RM) $@.o
 
 clean:
-	rm -rf bin
+	rm -rf mod
