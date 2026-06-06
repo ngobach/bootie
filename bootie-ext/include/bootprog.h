@@ -36,40 +36,10 @@ int main(char *arg, int flags) {
   }
 #endif
 
-  int argc = 0;
-  char *argv[64];
-  argv[argc++] = "bootprog";
-
-  char *p = arg;
-  if (p) {
-    while (*p && argc < 63) {
-      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
-        p++;
-      }
-      if (!*p) {
-        break;
-      }
-      if (*p == '"' || *p == '\'') {
-        char quote = *p++;
-        argv[argc++] = p;
-        while (*p && *p != quote) {
-          p++;
-        }
-        if (*p) {
-          *p++ = '\0';
-        }
-      } else {
-        argv[argc++] = p;
-        while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {
-          p++;
-        }
-        if (*p) {
-          *p++ = '\0';
-        }
-      }
-    }
-  }
-  argv[argc] = 0;
+  int argc = 1;
+  char *argv[2];
+  argv[0] = "bootprog";
+  argv[1] = 0;
 
   return gmain(argc, argv, flags);
 }
