@@ -18,7 +18,7 @@ SOURCES := $(wildcard src/*.c)
 NAMES   := $(patsubst src/%.c,%,$(SOURCES))
 
 BIOS_TARGETS := $(patsubst %,mod/bios/%,$(NAMES))
-UEFI_TARGETS := $(patsubst %,mod/uefi/%,$(filter-out screen_test snake,$(NAMES)))
+UEFI_TARGETS := $(patsubst %,mod/uefi/%,$(NAMES))
 
 .PHONY: all bios uefi clean
 

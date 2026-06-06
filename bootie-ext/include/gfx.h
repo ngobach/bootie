@@ -4,7 +4,7 @@
 #if defined(__i386__)
   #include <bios/gfx.h>
 #else
-  // UEFI gfx.h will be included here once implemented
+  #include <uefi/gfx.h>
 #endif
 
 #endif /* GFX_H */

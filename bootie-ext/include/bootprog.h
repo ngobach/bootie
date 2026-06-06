@@ -1,6 +1,8 @@
 #ifndef BOOTPROG_H
 #define BOOTPROG_H
 
+#include <stdint.h>
+
 #if defined(__i386__)
   #include <bios/grub4dos.h>
   #include <bios/grubprog.h>
@@ -12,6 +14,21 @@
 
   #include <uefi/grubprog.h>
 #endif
+
+static uint32_t rand_seed = 12345;
+
+static inline void seed_rand(uint32_t s) {
+#if defined(__i386__)
+    s += *(volatile unsigned long *)0x46c;
+#endif
+    rand_seed = s;
+}
+
+/* Linear Congruential Generator for simple PRNG */
+static inline uint32_t next_rand(void) {
+    rand_seed = rand_seed * 1103515245 + 12345;
+    return (rand_seed / 65536) % 32768;
+}
 
 extern int gmain(int argc, char *argv[], int flags);
 
@@ -35,6 +52,21 @@ int main(char *arg, int flags) {
     return 0;
   }
 #endif
+
+  /* Auto-seed the PRNG at startup */
+  uint32_t seed = 12345;
+#if defined(__i386__)
+  seed += *(volatile unsigned long *)0x46c;
+#else
+  efi_system_table_t *st = grub_efi_system_table;
+  if (st && st->runtime_services) {
+    efi_time_t et;
+    if (st->runtime_services->get_time(&et, NULL) == 0) {
+      seed += et.second + et.minute * 60 + et.hour * 3600 + et.nanosecond;
+    }
+  }
+#endif
+  seed_rand(seed);
 
   int argc = 1;
   char *argv[2];
