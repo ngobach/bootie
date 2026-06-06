@@ -6,7 +6,7 @@ MKDIR   := mkdir -p
 CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
                -fshort-wchar -fno-jump-tables -fno-tree-loop-distribute-patterns \
-               -Wl,-N -Wl,-m,elf_i386 -Wl,-Ttext -Wl,0 -fPIE
+               -DNO_GRUB_SIGNATURE -Wl,-N -Wl,-m,elf_i386 -Wl,-T,src/linker_bios.ld -fPIE
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
@@ -47,14 +47,6 @@ mod/uefi/%: src/%.c
 	$(RM) $@.o
 
 # ------------------------------------------------------------------
-# screen_test (BIOS only) - pure C + VBE, no LVGL
-# ------------------------------------------------------------------
-mod/bios/screen_test: src/screen_test.c
-	$(MKDIR) $(dir $@)
-	$(CC) $(CFLAGS_BIOS) -Wl,-T,src/linker_bios.ld -Iinclude \
-	      src/screen_test.c \
-	      -o $@.o
-	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 
 # ------------------------------------------------------------------
 clean:

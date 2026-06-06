@@ -4,13 +4,8 @@
  * Tests VBE mode detection, linear framebuffer pixel writes,
  * and a basic font renderer using a built-in 5x7 bitmap font.
  */
-#define NO_GRUB_HEADER
-#define NO_GRUB_SIGNATURE
 #include <bootprog.h>
 #include <stdint.h>
-
-asm(".globl _start");
-asm("_start = main");
 
 /* ------------------------------------------------------------------ */
 /*  VBE structures                                                      */

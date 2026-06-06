@@ -1,4 +1,5 @@
 ENTRY(main)
+PROVIDE(_start = main);
 SECTIONS
 {
     . = 0;
