@@ -13,7 +13,7 @@
   #include <uefi/grubprog.h>
 #endif
 
-extern int gmain(char *arg, int flags);
+extern int gmain(int argc, char *argv[], int flags);
 
 int main(char *arg, int flags) {
   /* Zero BSS section */
@@ -35,7 +35,43 @@ int main(char *arg, int flags) {
     return 0;
   }
 #endif
-  return gmain(arg, flags);
+
+  int argc = 0;
+  char *argv[64];
+  argv[argc++] = "bootprog";
+
+  char *p = arg;
+  if (p) {
+    while (*p && argc < 63) {
+      while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
+        p++;
+      }
+      if (!*p) {
+        break;
+      }
+      if (*p == '"' || *p == '\'') {
+        char quote = *p++;
+        argv[argc++] = p;
+        while (*p && *p != quote) {
+          p++;
+        }
+        if (*p) {
+          *p++ = '\0';
+        }
+      } else {
+        argv[argc++] = p;
+        while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {
+          p++;
+        }
+        if (*p) {
+          *p++ = '\0';
+        }
+      }
+    }
+  }
+  argv[argc] = 0;
+
+  return gmain(argc, argv, flags);
 }
 
 #endif /* BOOTPROG_H */

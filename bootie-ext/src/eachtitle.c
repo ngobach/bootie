@@ -12,52 +12,17 @@ static void restore_putchar_hook(platform_size_t val);
 static int glob_match(const char *pat, const char *str);
 
 // Entry point gmain() will be called by main() in bootprog.h.
-int gmain(char *arg, int flags) {
+int gmain(int argc, char *argv[], int flags) {
 
-  char *args[3] = {0};
-  int arg_count = 0;
-  char *p = arg;
-
-  // Parse command line arguments
-  while (*p && arg_count < 3) {
-    // Skip whitespace
-    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') {
-      p++;
-    }
-    if (!*p) {
-      break;
-    }
-
-    // Handle quoted argument
-    if (*p == '"' || *p == '\'') {
-      char quote = *p++;
-      args[arg_count++] = p;
-      while (*p && *p != quote) {
-        p++;
-      }
-      if (*p) {
-        *p++ = '\0'; // terminate token and advance past quote
-      }
-    } else {
-      args[arg_count++] = p;
-      while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {
-        p++;
-      }
-      if (*p) {
-        *p++ = '\0'; // terminate token and advance
-      }
-    }
-  }
-
-  // Validate arguments
-  if (arg_count < 3) {
+  // Validate arguments (we expect "eachtitle" + 3 arguments, so argc must be >= 4)
+  if (argc < 4) {
     printf("Usage: eachtitle <base_dir> <pattern> <callback>\n");
     return ERR_BAD_ARGUMENT;
   }
 
-  char *base_dir = args[0];
-  char *pattern = args[1];
-  char *callback = args[2];
+  char *base_dir = argv[1];
+  char *pattern = argv[2];
+  char *callback = argv[3];
 
   // Allocate a buffer to capture print output (128 KB)
   char *buf = malloc(131072);
@@ -100,7 +65,7 @@ int gmain(char *arg, int flags) {
 
   // Parse the captured output, match against pattern, and print formatted
   // titles
-  p = buf;
+  char *p = buf;
 
   // Skip leading spaces
   while (*p == ' ') {

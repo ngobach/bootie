@@ -6,7 +6,7 @@ MKDIR   := mkdir -p
 CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
                -fshort-wchar -fno-jump-tables -fno-tree-loop-distribute-patterns \
-               -DNO_GRUB_SIGNATURE -Wl,-N -Wl,-m,elf_i386 -Wl,-T,src/linker_bios.ld -fPIE
+               -DNO_GRUB_SIGNATURE -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \

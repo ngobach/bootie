@@ -486,7 +486,7 @@ static void draw_demo(void) {
 /* ------------------------------------------------------------------ */
 /*  Entry point                                                         */
 /* ------------------------------------------------------------------ */
-int gmain(char *arg, int flags) {
+int gmain(int argc, char *argv[], int flags) {
     printf("Bootie-ext: VBE screen test starting\n");
 
     /* --- find best VBE mode --- */
