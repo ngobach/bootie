@@ -3,7 +3,6 @@ SECTIONS
 {
     . = 0;
     .text : {
-        *screen_test_entry.o(.text)
         *(.text.startup)
         *(.text)
         *(.text.*)

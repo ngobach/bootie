@@ -11,9 +11,8 @@ static void set_putchar_hook(void *buf);
 static void restore_putchar_hook(platform_size_t val);
 static int glob_match(const char *pat, const char *str);
 
-// Entry point main() must be the very first function defined in the file.
-int main(char *arg, int flags) {
-  INIT_BOOT_MODULE();
+// Entry point gmain() will be called by main() in bootprog.h.
+int gmain(char *arg, int flags) {
 
   char *args[3] = {0};
   int arg_count = 0;

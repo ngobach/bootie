@@ -13,8 +13,8 @@ CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-sse -nostdlib \
                -fshort-wchar -fno-jump-tables -fno-tree-loop-distribute-patterns \
                -Wl,-N -fPIE
 
-# Collect all top-level C sources, excluding screen_test helper files
-SOURCES := $(filter-out src/screen_test_sig.c src/screen_test_entry.c,$(wildcard src/*.c))
+# Collect all top-level C sources
+SOURCES := $(wildcard src/*.c)
 NAMES   := $(patsubst src/%.c,%,$(SOURCES))
 
 BIOS_TARGETS := $(patsubst %,mod/bios/%,$(NAMES))
@@ -49,10 +49,10 @@ mod/uefi/%: src/%.c
 # ------------------------------------------------------------------
 # screen_test (BIOS only) - pure C + VBE, no LVGL
 # ------------------------------------------------------------------
-mod/bios/screen_test: src/screen_test_entry.c src/screen_test.c src/screen_test_sig.c
+mod/bios/screen_test: src/screen_test.c
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_BIOS) -Wl,-T,src/linker_bios.ld -Iinclude \
-	      src/screen_test_entry.c src/screen_test.c src/screen_test_sig.c \
+	      src/screen_test.c \
 	      -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 

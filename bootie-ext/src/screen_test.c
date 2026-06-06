@@ -9,6 +9,9 @@
 #include <bootprog.h>
 #include <stdint.h>
 
+asm(".globl _start");
+asm("_start = main");
+
 /* ------------------------------------------------------------------ */
 /*  VBE structures                                                      */
 /* ------------------------------------------------------------------ */
@@ -488,7 +491,7 @@ static void draw_demo(void) {
 /* ------------------------------------------------------------------ */
 /*  Entry point                                                         */
 /* ------------------------------------------------------------------ */
-int screen_test_main(char *arg, int flags) {
+int gmain(char *arg, int flags) {
     printf("Bootie-ext: VBE screen test starting\n");
 
     /* --- find best VBE mode --- */
