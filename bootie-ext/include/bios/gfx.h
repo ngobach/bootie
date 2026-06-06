@@ -80,16 +80,26 @@ struct realmode_regs {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Global framebuffer state                                            */
+/*  Graphics Context Structure                                        */
 /* ------------------------------------------------------------------ */
-static uint8_t  *fb          = (void *)0;
-static uint32_t  fb_width    = 0;
-static uint32_t  fb_height   = 0;
-static uint32_t  fb_pitch    = 0;  /* bytes per scan line */
-static uint32_t  fb_bpp      = 4;  /* bytes per pixel     */
-static uint8_t   fb_rshift   = 16;
-static uint8_t   fb_gshift   = 8;
-static uint8_t   fb_bshift   = 0;
+struct gfx {
+    uint8_t  *fb;
+    uint32_t  width;
+    uint32_t  height;
+    uint32_t  pitch;
+    uint32_t  bpp;
+    uint8_t   rshift;
+    uint8_t   gshift;
+    uint8_t   bshift;
+};
+
+static inline uint32_t gfx_width(const struct gfx *g) {
+    return g->width;
+}
+
+static inline uint32_t gfx_height(const struct gfx *g) {
+    return g->height;
+}
 
 /* ------------------------------------------------------------------ */
 /*  5x7 bitmap font (printable ASCII 0x20..0x7E)                       */
@@ -267,19 +277,19 @@ static int get_mode_info(uint16_t mode, struct vbe_mode_info *mi_out) {
 /* ------------------------------------------------------------------ */
 /*  Framebuffer pixel writer                                            */
 /* ------------------------------------------------------------------ */
-static inline __attribute__((always_inline)) void put_pixel(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
-    if (x >= fb_width || y >= fb_height) return;
-    uint8_t *p = fb + y * fb_pitch + x * fb_bpp;
-    uint32_t color = ((uint32_t)r << fb_rshift) |
-                     ((uint32_t)g << fb_gshift) |
-                     ((uint32_t)b << fb_bshift);
-    if (fb_bpp == 4) {
+static inline __attribute__((always_inline)) void put_pixel(struct gfx *ctx, uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
+    if (x >= ctx->width || y >= ctx->height) return;
+    uint8_t *p = ctx->fb + y * ctx->pitch + x * ctx->bpp;
+    uint32_t color = ((uint32_t)r << ctx->rshift) |
+                     ((uint32_t)g << ctx->gshift) |
+                     ((uint32_t)b << ctx->bshift);
+    if (ctx->bpp == 4) {
         *((uint32_t *)p) = color;
-    } else if (fb_bpp == 3) {
+    } else if (ctx->bpp == 3) {
         p[0] = color & 0xFF;
         p[1] = (color >> 8) & 0xFF;
         p[2] = (color >> 16) & 0xFF;
-    } else if (fb_bpp == 2) {
+    } else if (ctx->bpp == 2) {
         /* 5-6-5 approximation */
         uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         *((uint16_t *)p) = c16;
@@ -287,21 +297,21 @@ static inline __attribute__((always_inline)) void put_pixel(uint32_t x, uint32_t
 }
 
 /* Fill a rectangle with a solid colour using fast row writes */
-static void fill_rect(uint32_t x, uint32_t y,
+static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
                       uint32_t w, uint32_t h,
                       uint8_t r, uint8_t g, uint8_t b) {
-    if (x >= fb_width || y >= fb_height) return;
-    uint32_t x_end = (x + w > fb_width) ? fb_width : (x + w);
-    uint32_t y_end = (y + h > fb_height) ? fb_height : (y + h);
+    if (x >= ctx->width || y >= ctx->height) return;
+    uint32_t x_end = (x + w > ctx->width) ? ctx->width : (x + w);
+    uint32_t y_end = (y + h > ctx->height) ? ctx->height : (y + h);
     if (x_end <= x || y_end <= y) return;
 
-    uint32_t color = ((uint32_t)r << fb_rshift) |
-                     ((uint32_t)g << fb_gshift) |
-                     ((uint32_t)b << fb_bshift);
+    uint32_t color = ((uint32_t)r << ctx->rshift) |
+                     ((uint32_t)g << ctx->gshift) |
+                     ((uint32_t)b << ctx->bshift);
 
-    if (fb_bpp == 4) {
+    if (ctx->bpp == 4) {
         for (uint32_t row = y; row < y_end; row++) {
-            uint32_t *p = (uint32_t *)(fb + row * fb_pitch) + x;
+            uint32_t *p = (uint32_t *)(ctx->fb + row * ctx->pitch) + x;
             uint32_t count = x_end - x;
             while (count >= 8) {
                 p[0] = color; p[1] = color; p[2] = color; p[3] = color;
@@ -314,12 +324,12 @@ static void fill_rect(uint32_t x, uint32_t y,
                 count--;
             }
         }
-    } else if (fb_bpp == 3) {
+    } else if (ctx->bpp == 3) {
         uint8_t b0 = color & 0xFF;
         uint8_t b1 = (color >> 8) & 0xFF;
         uint8_t b2 = (color >> 16) & 0xFF;
         for (uint32_t row = y; row < y_end; row++) {
-            uint8_t *p = fb + row * fb_pitch + x * 3;
+            uint8_t *p = ctx->fb + row * ctx->pitch + x * 3;
             uint32_t count = x_end - x;
             for (uint32_t col = 0; col < count; col++) {
                 p[0] = b0;
@@ -328,10 +338,10 @@ static void fill_rect(uint32_t x, uint32_t y,
                 p += 3;
             }
         }
-    } else if (fb_bpp == 2) {
+    } else if (ctx->bpp == 2) {
         uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         for (uint32_t row = y; row < y_end; row++) {
-            uint16_t *p = (uint16_t *)(fb + row * fb_pitch) + x;
+            uint16_t *p = (uint16_t *)(ctx->fb + row * ctx->pitch) + x;
             uint32_t count = x_end - x;
             while (count >= 8) {
                 p[0] = c16; p[1] = c16; p[2] = c16; p[3] = c16;
@@ -348,7 +358,7 @@ static void fill_rect(uint32_t x, uint32_t y,
 }
 
 /* Draw a single character (scale: each dot = scale x scale pixels) */
-static void draw_char(uint32_t cx, uint32_t cy, char ch,
+static void draw_char(struct gfx *ctx, uint32_t cx, uint32_t cy, char ch,
                       uint8_t r, uint8_t g, uint8_t b, uint32_t scale) {
     if (ch < 0x20 || ch > 0x7E) ch = '?';
     const uint8_t *glyph = font5x7[ch - 0x20];
@@ -357,7 +367,7 @@ static void draw_char(uint32_t cx, uint32_t cy, char ch,
             if (glyph[col] & (1 << row)) {
                 for (uint32_t sy = 0; sy < scale; sy++)
                     for (uint32_t sx = 0; sx < scale; sx++)
-                        put_pixel(cx + col*scale + sx,
+                        put_pixel(ctx, cx + col*scale + sx,
                                   cy + row*scale + sy,
                                   r, g, b);
             }
@@ -366,10 +376,10 @@ static void draw_char(uint32_t cx, uint32_t cy, char ch,
 }
 
 /* Draw a string */
-static void draw_str(uint32_t cx, uint32_t cy, const char *s,
+static void draw_str(struct gfx *ctx, uint32_t cx, uint32_t cy, const char *s,
                      uint8_t r, uint8_t g, uint8_t b, uint32_t scale) {
     while (*s) {
-        draw_char(cx, cy, *s, r, g, b, scale);
+        draw_char(ctx, cx, cy, *s, r, g, b, scale);
         cx += (5 + 1) * scale; /* 5 columns + 1 gap */
         s++;
     }
@@ -382,6 +392,113 @@ static void delay_ms(unsigned int ms) {
     unsigned int ticks = (ms + 54) / 55;
     unsigned long start = *(volatile unsigned long *)0x46c;
     while ((*(volatile unsigned long *)0x46c - start) < ticks) {}
+}
+
+/* ------------------------------------------------------------------ */
+/*  Platform Agnostic Wrappers                                        */
+/* ------------------------------------------------------------------ */
+static inline int gfx_init(struct gfx *ctx) {
+    /* --- find best VBE mode --- */
+    struct vbe_driver_info drv;
+    if (!get_driver_info(&drv)) {
+        printf("VBE 2.0 not supported\n");
+        return 0;
+    }
+
+    uint16_t *modes = (uint16_t *)drv.VideoModePtr;
+    uint16_t best_mode  = 0;
+    int      best_score = -1;
+    struct vbe_mode_info best_mi;
+
+    for (int idx = 0; modes[idx] != 0xFFFF; idx++) {
+        uint16_t mode = modes[idx];
+        struct vbe_mode_info mi;
+        if (!get_mode_info(mode, &mi)) continue;
+
+        /* skip non-packed-pixel memory models */
+        if (mi.MemoryModel != 4 && mi.MemoryModel != 6) continue;
+
+        int score = 0;
+        if      (mi.BitsPerPixel == 32) score += 100;
+        else if (mi.BitsPerPixel == 24) score +=  90;
+        else if (mi.BitsPerPixel == 16) score +=  50;
+        else continue;
+
+        if      (mi.XResolution == 1024 && mi.YResolution == 768)  score += 60;
+        else if (mi.XResolution ==  800 && mi.YResolution == 600)  score += 50;
+        else if (mi.XResolution ==  640 && mi.YResolution == 480)  score += 30;
+        else score += 5;
+
+        if (score > best_score) {
+            best_score = score;
+            best_mode  = mode;
+            best_mi    = mi;
+        }
+    }
+
+    if (!best_mode) {
+        printf("No suitable VBE mode found\n");
+        return 0;
+    }
+
+    printf("Setting VBE mode 0x%X (%dx%d, %d bpp)\n",
+           (int)best_mode,
+           (int)best_mi.XResolution, (int)best_mi.YResolution,
+           (int)best_mi.BitsPerPixel);
+
+    if ((bios_int10(0x4F02, 0x4000 | best_mode, 0, 0, (unsigned long)-1, 0) & 0xFF) != 0x4F) {
+        printf("Failed to set VBE mode\n");
+        return 0;
+    }
+
+    /* --- set up framebuffer fields in ctx --- */
+    ctx->fb        = (uint8_t *)best_mi.PhysBasePtr;
+    ctx->width  = best_mi.XResolution;
+    ctx->height = best_mi.YResolution;
+    ctx->pitch  = best_mi.LinBytesPerScanline ? best_mi.LinBytesPerScanline
+                                            : best_mi.BytesPerScanline;
+    ctx->bpp    = (best_mi.BitsPerPixel + 7) / 8;
+
+    /* determine channel shifts from VBE colour mask info */
+    ctx->rshift = best_mi.LinRedFieldPosition   ? best_mi.LinRedFieldPosition
+                                              : best_mi.RedFieldPosition;
+    ctx->gshift = best_mi.LinGreenFieldPosition ? best_mi.LinGreenFieldPosition
+                                              : best_mi.GreenFieldPosition;
+    ctx->bshift = best_mi.LinBlueFieldPosition  ? best_mi.LinBlueFieldPosition
+                                              : best_mi.BlueFieldPosition;
+
+    printf("fb=0x%08X pitch=%u bpp=%u rgb_shifts=(%u,%u,%u)\n",
+           (unsigned int)ctx->fb, (unsigned int)ctx->pitch, (unsigned int)ctx->bpp,
+           (unsigned int)ctx->rshift, (unsigned int)ctx->gshift, (unsigned int)ctx->bshift);
+
+    return 1;
+}
+
+static inline void gfx_close(struct gfx *ctx) {
+    (void)ctx;
+    /* --- restore text mode --- */
+    if (graphics_inited) {
+        if (current_term->STARTUP)
+            ((int (*)(int))current_term->STARTUP)(0);
+    } else {
+        bios_int10(3, 0, 0, 0, (unsigned long)-1, 0);
+    }
+    cls();
+}
+
+static inline int gfx_checkkey(struct gfx *ctx) {
+    (void)ctx;
+    return bios_checkkey();
+}
+
+static inline int gfx_getkey(struct gfx *ctx) {
+    (void)ctx;
+    return bios_getkey();
+}
+
+static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
+    (void)ctx;
+    delay_ms(ms);
 }
 
 #endif /* BIOS_GFX_H */
