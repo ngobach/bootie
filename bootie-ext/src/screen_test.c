@@ -1,534 +1,536 @@
+/*
+ * screen_test.c - VBE graphics test (pure C, no LVGL)
+ *
+ * Tests VBE mode detection, linear framebuffer pixel writes,
+ * and a basic font renderer using a built-in 5x7 bitmap font.
+ */
+#define NO_GRUB_HEADER
+#define NO_GRUB_SIGNATURE
 #include <bootprog.h>
+#include <stdint.h>
 
-#if !defined(__i386__)
-
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-typedef unsigned int uint32_t;
-
-#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID                                      \
-  {0x9042a9de, 0x23dc, 0x4a38, {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a}}
-
-typedef enum {
-  PixelRedGreenBlueReserved8BitPerColor,
-  PixelBlueGreenRedReserved8BitPerColor,
-  PixelBitMask,
-  PixelBltOnly,
-  PixelFormatMax
-} EFI_GRAPHICS_OUTPUT_OBJECT_PIXEL_FORMAT;
-
-typedef struct {
-  uint32_t RedMask;
-  uint32_t GreenMask;
-  uint32_t BlueMask;
-  uint32_t ReservedMask;
-} EFI_PIXEL_BITMASK;
-
-typedef struct {
-  uint32_t Version;
-  uint32_t HorizontalResolution;
-  uint32_t VerticalResolution;
-  EFI_GRAPHICS_OUTPUT_OBJECT_PIXEL_FORMAT PixelFormat;
-  EFI_PIXEL_BITMASK PixelInformation;
-  uint32_t PixelsPerScanLine;
-} EFI_GRAPHICS_OUTPUT_MODE_INFORMATION;
-
-typedef struct {
-  uint32_t MaxMode;
-  uint32_t Mode;
-  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info;
-  grub_size_t SizeOfInfo;
-  efi_physical_address_t FrameBufferBase;
-  grub_size_t FrameBufferSize;
-} EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE;
-
-typedef struct _EFI_GRAPHICS_OUTPUT_PROTOCOL EFI_GRAPHICS_OUTPUT_PROTOCOL;
-
-struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
-  void *QueryMode;
-  void *SetMode;
-  void *Blt;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *Mode;
-};
-
-struct test_color {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  const char *name;
-};
-
-// Forward declarations
-static void delay_ms(unsigned int ms);
-static int uefi_checkkey(void);
-static int uefi_getkey(void);
-
-int main(char *arg, int flags) {
-  INIT_BOOT_MODULE();
-
-  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  if (!st || !st->boot_services) {
-    return 0;
-  }
-
-  efi_guid_t gop_guid = EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID;
-  EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
-
-  efi_status_t status = st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
-  if (status != EFI_SUCCESS || !gop || !gop->Mode || !gop->Mode->FrameBufferBase) {
-    printf("Failed to locate GOP protocol or FrameBuffer.\n");
-    return 0;
-  }
-
-  uint32_t *fb = (uint32_t *)(grub_size_t)gop->Mode->FrameBufferBase;
-  uint32_t width = gop->Mode->Info->HorizontalResolution;
-  uint32_t height = gop->Mode->Info->VerticalResolution;
-  uint32_t stride = gop->Mode->Info->PixelsPerScanLine;
-
-  struct test_color colors[] = {
-    {255, 0, 0, "Red"},
-    {0, 255, 0, "Green"},
-    {0, 0, 255, "Blue"},
-    {0, 0, 0, "Black"},
-    {255, 255, 255, "White"}
-  };
-
-  int exit_early = 0;
-
-  for (int i = 0; i < 5; i++) {
-    // Calculate color value based on GOP pixel format
-    uint32_t color_val = 0;
-    if (gop->Mode->Info->PixelFormat == PixelRedGreenBlueReserved8BitPerColor) {
-      // RGBX
-      color_val = ((uint32_t)colors[i].r) | (((uint32_t)colors[i].g) << 8) | (((uint32_t)colors[i].b) << 16);
-    } else {
-      // BGRX (Default / Common)
-      color_val = ((uint32_t)colors[i].b) | (((uint32_t)colors[i].g) << 8) | (((uint32_t)colors[i].r) << 16);
-    }
-
-    // Fill screen
-    for (uint32_t y = 0; y < height; y++) {
-      uint32_t *line = fb + (y * stride);
-      for (uint32_t x = 0; x < width; x++) {
-        line[x] = color_val;
-      }
-    }
-
-    unsigned int elapsed = 0;
-    while (elapsed < 1000) {
-      delay_ms(50);
-      elapsed += 50;
-      if (uefi_checkkey()) {
-        int key = uefi_getkey();
-        if (key == 27 || key == 0x1b) {
-          exit_early = 1;
-        }
-        break; // skip to next color or exit
-      }
-    }
-
-    if (exit_early) {
-      break;
-    }
-  }
-
-  // Clear G4D screen on exit to redraw console menu cleanly
-  cls();
-
-  return 0;
-}
-
-static void delay_ms(unsigned int ms) {
-  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  if (st && st->boot_services) {
-    st->boot_services->stall(ms * 1000); // stall expects microseconds
-  } else {
-    volatile unsigned long long i;
-    for (i = 0; i < ms * 100000ULL; i++) {
-      // noop fallback
-    }
-  }
-}
-
-static int uefi_checkkey(void) {
-  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  if (st && st->con_in) {
-    efi_input_key_t key;
-    efi_status_t status = st->con_in->read_key_stroke(st->con_in, &key);
-    if (status == EFI_SUCCESS) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
-static int uefi_getkey(void) {
-  efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
-  if (st && st->con_in) {
-    efi_input_key_t key;
-    efi_status_t status = st->con_in->read_key_stroke(st->con_in, &key);
-    if (status == EFI_SUCCESS) {
-      if (key.scan_code == 0x17 || key.unicode_char == 27) {
-        return 27; // Esc
-      }
-      return key.unicode_char ? key.unicode_char : (key.scan_code << 8);
-    }
-  }
-  return 0;
-}
-#else
-
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
-typedef unsigned int uint32_t;
-
+/* ------------------------------------------------------------------ */
+/*  VBE structures                                                      */
+/* ------------------------------------------------------------------ */
 struct vbe_mode_info {
-  uint16_t ModeAttributes;
-  uint8_t WinAAttributes;
-  uint8_t WinBAttributes;
-  uint16_t WinGranularity;
-  uint16_t WinSize;
-  uint16_t WinASegment;
-  uint16_t WinBSegment;
-  uint32_t WinFuncPtr;
-  uint16_t BytesPerScanline;
+    uint16_t ModeAttributes;
+    uint8_t  WinAAttributes;
+    uint8_t  WinBAttributes;
+    uint16_t WinGranularity;
+    uint16_t WinSize;
+    uint16_t WinASegment;
+    uint16_t WinBSegment;
+    uint32_t WinFuncPtr;
+    uint16_t BytesPerScanline;
 
-  // VBE 1.2+
-  uint16_t XResolution;
-  uint16_t YResolution;
-  uint8_t XCharSize;
-  uint8_t YCharSize;
-  uint8_t NumberOfPlanes;
-  uint8_t BitsPerPixel;
-  uint8_t NumberOfBanks;
-  uint8_t MemoryModel;
-  uint8_t BankSize;
-  uint8_t NumberOfImagePages;
-  uint8_t Reserved1;
+    uint16_t XResolution;
+    uint16_t YResolution;
+    uint8_t  XCharSize;
+    uint8_t  YCharSize;
+    uint8_t  NumberOfPlanes;
+    uint8_t  BitsPerPixel;
+    uint8_t  NumberOfBanks;
+    uint8_t  MemoryModel;
+    uint8_t  BankSize;
+    uint8_t  NumberOfImagePages;
+    uint8_t  Reserved1;
 
-  // VBE 1.2+ Direct Color fields
-  uint8_t RedMaskSize;
-  uint8_t RedFieldPosition;
-  uint8_t GreenMaskSize;
-  uint8_t GreenFieldPosition;
-  uint8_t BlueMaskSize;
-  uint8_t BlueFieldPosition;
-  uint8_t RsvdMaskSize;
-  uint8_t RsvdFieldPosition;
-  uint8_t DirectColorModeInfo;
+    uint8_t  RedMaskSize;
+    uint8_t  RedFieldPosition;
+    uint8_t  GreenMaskSize;
+    uint8_t  GreenFieldPosition;
+    uint8_t  BlueMaskSize;
+    uint8_t  BlueFieldPosition;
+    uint8_t  RsvdMaskSize;
+    uint8_t  RsvdFieldPosition;
+    uint8_t  DirectColorModeInfo;
 
-  // VBE 2.0+
-  uint32_t PhysBasePtr;
-  uint32_t Reserved2;
-  uint16_t Reserved3;
+    uint32_t PhysBasePtr;
+    uint32_t Reserved2;
+    uint16_t Reserved3;
 
-  // VBE 3.0+
-  uint16_t LinBytesPerScanline;
-  uint8_t BnkNumberOfImagePages;
-  uint8_t LinNumberOfImagePages;
-  uint8_t LinRedMaskSize;
-  uint8_t LinRedFieldPosition;
-  uint8_t LinGreenMaskSize;
-  uint8_t LinGreenFieldPosition;
-  uint8_t LinBlueMaskSize;
-  uint8_t LinBlueFieldPosition;
-  uint8_t LinRsvdMaskSize;
-  uint8_t LinRsvdFieldPosition;
-  uint32_t MaxPixelClock;
-
-  uint8_t Reserved4[189];
+    uint16_t LinBytesPerScanline;
+    uint8_t  BnkNumberOfImagePages;
+    uint8_t  LinNumberOfImagePages;
+    uint8_t  LinRedMaskSize;
+    uint8_t  LinRedFieldPosition;
+    uint8_t  LinGreenMaskSize;
+    uint8_t  LinGreenFieldPosition;
+    uint8_t  LinBlueMaskSize;
+    uint8_t  LinBlueFieldPosition;
+    uint8_t  LinRsvdMaskSize;
+    uint8_t  LinRsvdFieldPosition;
+    uint32_t MaxPixelClock;
+    uint8_t  Reserved4[189];
 } __attribute__((packed));
 
 struct vbe_driver_info {
-  uint8_t VBESignature[4];
-  uint16_t VBEVersion;
-  uint32_t OEMStringPtr;
-  uint32_t Capabilities;
-  uint32_t VideoModePtr;
-  uint16_t TotalMemory;
-
-  // VBE 2.0 extensions
-  uint16_t OemSoftwareRev;
-  uint32_t OemVendorNamePtr;
-  uint32_t OemProductNamePtr;
-  uint32_t OemProductRevPtr;
-  uint8_t Reserved[222];
-  uint8_t OemDATA[256];
+    uint8_t  VBESignature[4];
+    uint16_t VBEVersion;
+    uint32_t OEMStringPtr;
+    uint32_t Capabilities;
+    uint32_t VideoModePtr;
+    uint16_t TotalMemory;
+    uint16_t OemSoftwareRev;
+    uint32_t OemVendorNamePtr;
+    uint32_t OemProductNamePtr;
+    uint32_t OemProductRevPtr;
+    uint8_t  Reserved[222];
+    uint8_t  OemDATA[256];
 } __attribute__((packed));
 
 struct realmode_regs {
-  unsigned long edi;    // as input and output
-  unsigned long esi;    // as input and output
-  unsigned long ebp;    // as input and output
-  unsigned long esp;    // stack pointer, as input
-  unsigned long ebx;    // as input and output
-  unsigned long edx;    // as input and output
-  unsigned long ecx;    // as input and output
-  unsigned long eax;    // as input and output
-  unsigned long gs;     // as input and output
-  unsigned long fs;     // as input and output
-  unsigned long es;     // as input and output
-  unsigned long ds;     // as input and output
-  unsigned long ss;     // stack segment, as input
-  unsigned long eip;    // instruction pointer, as input
-  unsigned long cs;     // code segment, as input
-  unsigned long eflags; // as input and output
+    unsigned long edi, esi, ebp, esp, ebx, edx, ecx, eax;
+    unsigned long gs, fs, es, ds, ss, eip, cs, eflags;
 };
 
-struct test_color {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  const char *name;
+/* ------------------------------------------------------------------ */
+/*  Global framebuffer state                                            */
+/* ------------------------------------------------------------------ */
+static uint8_t  *fb          = NULL;
+static uint32_t  fb_width    = 0;
+static uint32_t  fb_height   = 0;
+static uint32_t  fb_pitch    = 0;  /* bytes per scan line */
+static uint32_t  fb_bpp      = 4;  /* bytes per pixel     */
+static uint8_t   fb_rshift   = 16;
+static uint8_t   fb_gshift   = 8;
+static uint8_t   fb_bshift   = 0;
+
+/* ------------------------------------------------------------------ */
+/*  5x7 bitmap font (printable ASCII 0x20..0x7E)                       */
+/* ------------------------------------------------------------------ */
+static const uint8_t font5x7[][5] = {
+    {0x00,0x00,0x00,0x00,0x00}, /* ' ' */
+    {0x00,0x00,0x5F,0x00,0x00}, /* '!' */
+    {0x00,0x07,0x00,0x07,0x00}, /* '"' */
+    {0x14,0x7F,0x14,0x7F,0x14}, /* '#' */
+    {0x24,0x2A,0x7F,0x2A,0x12}, /* '$' */
+    {0x23,0x13,0x08,0x64,0x62}, /* '%' */
+    {0x36,0x49,0x55,0x22,0x50}, /* '&' */
+    {0x00,0x05,0x03,0x00,0x00}, /* '\'' */
+    {0x00,0x1C,0x22,0x41,0x00}, /* '(' */
+    {0x00,0x41,0x22,0x1C,0x00}, /* ')' */
+    {0x14,0x08,0x3E,0x08,0x14}, /* '*' */
+    {0x08,0x08,0x3E,0x08,0x08}, /* '+' */
+    {0x00,0x50,0x30,0x00,0x00}, /* ',' */
+    {0x08,0x08,0x08,0x08,0x08}, /* '-' */
+    {0x00,0x60,0x60,0x00,0x00}, /* '.' */
+    {0x20,0x10,0x08,0x04,0x02}, /* '/' */
+    {0x3E,0x51,0x49,0x45,0x3E}, /* '0' */
+    {0x00,0x42,0x7F,0x40,0x00}, /* '1' */
+    {0x42,0x61,0x51,0x49,0x46}, /* '2' */
+    {0x21,0x41,0x45,0x4B,0x31}, /* '3' */
+    {0x18,0x14,0x12,0x7F,0x10}, /* '4' */
+    {0x27,0x45,0x45,0x45,0x39}, /* '5' */
+    {0x3C,0x4A,0x49,0x49,0x30}, /* '6' */
+    {0x01,0x71,0x09,0x05,0x03}, /* '7' */
+    {0x36,0x49,0x49,0x49,0x36}, /* '8' */
+    {0x06,0x49,0x49,0x29,0x1E}, /* '9' */
+    {0x00,0x36,0x36,0x00,0x00}, /* ':' */
+    {0x00,0x56,0x36,0x00,0x00}, /* ';' */
+    {0x08,0x14,0x22,0x41,0x00}, /* '<' */
+    {0x14,0x14,0x14,0x14,0x14}, /* '=' */
+    {0x00,0x41,0x22,0x14,0x08}, /* '>' */
+    {0x02,0x01,0x51,0x09,0x06}, /* '?' */
+    {0x32,0x49,0x79,0x41,0x3E}, /* '@' */
+    {0x7E,0x11,0x11,0x11,0x7E}, /* 'A' */
+    {0x7F,0x49,0x49,0x49,0x36}, /* 'B' */
+    {0x3E,0x41,0x41,0x41,0x22}, /* 'C' */
+    {0x7F,0x41,0x41,0x22,0x1C}, /* 'D' */
+    {0x7F,0x49,0x49,0x49,0x41}, /* 'E' */
+    {0x7F,0x09,0x09,0x09,0x01}, /* 'F' */
+    {0x3E,0x41,0x49,0x49,0x7A}, /* 'G' */
+    {0x7F,0x08,0x08,0x08,0x7F}, /* 'H' */
+    {0x00,0x41,0x7F,0x41,0x00}, /* 'I' */
+    {0x20,0x40,0x41,0x3F,0x01}, /* 'J' */
+    {0x7F,0x08,0x14,0x22,0x41}, /* 'K' */
+    {0x7F,0x40,0x40,0x40,0x40}, /* 'L' */
+    {0x7F,0x02,0x0C,0x02,0x7F}, /* 'M' */
+    {0x7F,0x04,0x08,0x10,0x7F}, /* 'N' */
+    {0x3E,0x41,0x41,0x41,0x3E}, /* 'O' */
+    {0x7F,0x09,0x09,0x09,0x06}, /* 'P' */
+    {0x3E,0x41,0x51,0x21,0x5E}, /* 'Q' */
+    {0x7F,0x09,0x19,0x29,0x46}, /* 'R' */
+    {0x46,0x49,0x49,0x49,0x31}, /* 'S' */
+    {0x01,0x01,0x7F,0x01,0x01}, /* 'T' */
+    {0x3F,0x40,0x40,0x40,0x3F}, /* 'U' */
+    {0x1F,0x20,0x40,0x20,0x1F}, /* 'V' */
+    {0x3F,0x40,0x38,0x40,0x3F}, /* 'W' */
+    {0x63,0x14,0x08,0x14,0x63}, /* 'X' */
+    {0x07,0x08,0x70,0x08,0x07}, /* 'Y' */
+    {0x61,0x51,0x49,0x45,0x43}, /* 'Z' */
+    {0x00,0x7F,0x41,0x41,0x00}, /* '[' */
+    {0x02,0x04,0x08,0x10,0x20}, /* '\\' */
+    {0x00,0x41,0x41,0x7F,0x00}, /* ']' */
+    {0x04,0x02,0x01,0x02,0x04}, /* '^' */
+    {0x40,0x40,0x40,0x40,0x40}, /* '_' */
+    {0x00,0x01,0x02,0x04,0x00}, /* '`' */
+    {0x20,0x54,0x54,0x54,0x78}, /* 'a' */
+    {0x7F,0x48,0x44,0x44,0x38}, /* 'b' */
+    {0x38,0x44,0x44,0x44,0x20}, /* 'c' */
+    {0x38,0x44,0x44,0x48,0x7F}, /* 'd' */
+    {0x38,0x54,0x54,0x54,0x18}, /* 'e' */
+    {0x08,0x7E,0x09,0x01,0x02}, /* 'f' */
+    {0x0C,0x52,0x52,0x52,0x3E}, /* 'g' */
+    {0x7F,0x08,0x04,0x04,0x78}, /* 'h' */
+    {0x00,0x44,0x7D,0x40,0x00}, /* 'i' */
+    {0x20,0x40,0x44,0x3D,0x00}, /* 'j' */
+    {0x7F,0x10,0x28,0x44,0x00}, /* 'k' */
+    {0x00,0x41,0x7F,0x40,0x00}, /* 'l' */
+    {0x7C,0x04,0x18,0x04,0x78}, /* 'm' */
+    {0x7C,0x08,0x04,0x04,0x78}, /* 'n' */
+    {0x38,0x44,0x44,0x44,0x38}, /* 'o' */
+    {0x7C,0x14,0x14,0x14,0x08}, /* 'p' */
+    {0x08,0x14,0x14,0x18,0x7C}, /* 'q' */
+    {0x7C,0x08,0x04,0x04,0x08}, /* 'r' */
+    {0x48,0x54,0x54,0x54,0x20}, /* 's' */
+    {0x04,0x3F,0x44,0x40,0x20}, /* 't' */
+    {0x3C,0x40,0x40,0x40,0x7C}, /* 'u' */
+    {0x1C,0x20,0x40,0x20,0x1C}, /* 'v' */
+    {0x3C,0x40,0x30,0x40,0x3C}, /* 'w' */
+    {0x44,0x28,0x10,0x28,0x44}, /* 'x' */
+    {0x0C,0x50,0x50,0x50,0x3C}, /* 'y' */
+    {0x44,0x64,0x54,0x4C,0x44}, /* 'z' */
+    {0x00,0x08,0x36,0x41,0x00}, /* '{' */
+    {0x00,0x00,0x7F,0x00,0x00}, /* '|' */
+    {0x00,0x41,0x36,0x08,0x00}, /* '}' */
+    {0x10,0x08,0x08,0x10,0x08}, /* '~' */
 };
 
-// Forward declarations - main must be the very first function defined
-static void delay_ms(unsigned int ms);
-static int bios_int10(unsigned long eax, unsigned long ebx, unsigned long ecx,
-                      unsigned long edx, unsigned long es, unsigned long edi);
-static uint32_t sys_RM16ToFlat32(uint32_t p_RMSegOfs);
-static int get_driver_info(struct vbe_driver_info *drv);
-static int get_mode_info(uint16_t mode, struct vbe_mode_info *modeInfo);
-static uint32_t get_color_val(uint8_t r, uint8_t g, uint8_t b,
-                              struct vbe_mode_info *mi);
-static void fill_screen(uint32_t color_val, struct vbe_mode_info *mi);
-static int bios_checkkey(void);
-static int bios_getkey(void);
-
-int main(char *arg, int flags) {
-  INIT_BOOT_MODULE();
-
-  struct vbe_driver_info drv;
-  if (!get_driver_info(&drv)) {
-    printf("VBE driver not supported.\n");
-    return 0;
-  }
-
-  uint16_t *modes = (uint16_t *)drv.VideoModePtr;
-  uint16_t best_mode = 0;
-  int best_score = -1;
-  struct vbe_mode_info best_mi;
-
-  for (int idx = 0; modes[idx] != 0xFFFF; idx++) {
-    uint16_t mode = modes[idx];
-    struct vbe_mode_info temp_mi;
-    if (!get_mode_info(mode, &temp_mi)) {
-      continue;
-    }
-
-    // Score based on BitsPerPixel and Resolution
-    int score = 0;
-    if (temp_mi.BitsPerPixel == 32)
-      score += 100;
-    else if (temp_mi.BitsPerPixel == 24)
-      score += 90;
-    else if (temp_mi.BitsPerPixel == 16)
-      score += 50;
-    else if (temp_mi.BitsPerPixel == 15)
-      score += 40;
-    else
-      continue; // skip 8-bit or lower modes
-
-    if (temp_mi.XResolution == 800 && temp_mi.YResolution == 600)
-      score += 50;
-    else if (temp_mi.XResolution == 1024 && temp_mi.YResolution == 768)
-      score += 40;
-    else if (temp_mi.XResolution == 640 && temp_mi.YResolution == 480)
-      score += 30;
-    else
-      score += 10;
-
-    if (score > best_score) {
-      best_score = score;
-      best_mode = mode;
-      best_mi = temp_mi;
-    }
-  }
-
-  if (best_mode == 0) {
-    printf("No suitable VBE graphics mode found.\n");
-    return 0;
-  }
-
-  // Set selected mode (0x4000 flag requesting Linear Frame Buffer)
-  if (bios_int10(0x4F02, 0x4000 | best_mode, 0, 0, -1, 0) != 0x004F) {
-    printf("Failed to set VBE mode 0x%X.\n", best_mode);
-    return 0;
-  }
-
-  struct test_color colors[] = {{255, 0, 0, "Red"},
-                                {0, 255, 0, "Green"},
-                                {0, 0, 255, "Blue"},
-                                {0, 0, 0, "Black"},
-                                {255, 255, 255, "White"}};
-
-  int exit_early = 0;
-
-  for (int i = 0; i < 5; i++) {
-    uint32_t color_val =
-        get_color_val(colors[i].r, colors[i].g, colors[i].b, &best_mi);
-    fill_screen(color_val, &best_mi);
-
-    unsigned int elapsed = 0;
-    while (elapsed < 1000) {
-      delay_ms(50);
-      elapsed += 50;
-      if (bios_checkkey()) {
-        int key = bios_getkey();
-        if (key == 27 || key == 0x1b) {
-          exit_early = 1;
-        }
-        break; // skip to next color or exit
-      }
-    }
-
-    if (exit_early) {
-      break;
-    }
-  }
-
-  // Restore original video state
-  if (graphics_inited) {
-    if (current_term->STARTUP) {
-      ((int (*)(int))current_term->STARTUP)(0);
-    }
-  } else {
-    bios_int10(3, 0, 0, 0, -1, 0);
-  }
-  cls();
-
-  return 0;
-}
-
-static void delay_ms(unsigned int ms) {
-  // 1 tick = 55 milliseconds on BIOS system timer
-  unsigned int ticks = (ms + 54) / 55;
-  unsigned long start = *(volatile unsigned long *)0x46c;
-  while ((*(volatile unsigned long *)0x46c - start) < ticks) {
-    // busy wait
-  }
-}
-
-static int bios_int10(unsigned long eax, unsigned long ebx, unsigned long ecx,
-                      unsigned long edx, unsigned long es, unsigned long edi) {
-  struct realmode_regs int_regs = {edi, 0,  0,  -1, ebx, edx,        ecx, eax,
-                                   -1,  -1, es, -1, -1,  0xFFFF10CD, -1,  -1};
-  realmode_run((long)&int_regs);
-  return (int)int_regs.eax;
-}
-
-static uint32_t sys_RM16ToFlat32(uint32_t p_RMSegOfs) {
-  uint32_t hi, lo;
-  hi = (p_RMSegOfs >> 16);
-  lo = (uint16_t)p_RMSegOfs;
-  return (hi << 4) + lo;
-}
-
-static int get_driver_info(struct vbe_driver_info *drv) {
-  char vbe2Sig[4] = "VBE2";
-  struct vbe_driver_info *di = (struct vbe_driver_info *)0x20000;
-  memset(di, 0, sizeof(struct vbe_driver_info));
-  memmove(di->VBESignature, vbe2Sig, 4);
-
-  if ((bios_int10(0x4F00, 0, 0, 0, 0x2000, 0) == 0x4f) &&
-      (memcmp(di->VBESignature, "VESA", 4) == 0) && (di->VBEVersion >= 0x200)) {
-    di->VideoModePtr = sys_RM16ToFlat32(di->VideoModePtr);
-    memmove(drv, di, sizeof(struct vbe_driver_info));
-    return 1;
-  }
-  return 0;
-}
-
-static int get_mode_info(uint16_t mode, struct vbe_mode_info *modeInfo) {
-  if (!mode || mode == 0xFFFF)
-    return 0;
-
-  struct vbe_mode_info *mi = (struct vbe_mode_info *)0x20400;
-  memset(mi, 0, sizeof(struct vbe_mode_info));
-
-  if (bios_int10(0x4F01, 0, mode, 0, 0x2000, 1024) != 0x004F)
-    return 0;
-
-  if ((mi->ModeAttributes & 1) == 0) // Mode supported in hardware
-    return 0;
-  if ((mi->ModeAttributes & 0x80) == 0) // LFB must be present
-    // Note: Bit 7 of ModeAttributes indicates Linear Frame Buffer availability.
-    return 0;
-  if (mi->PhysBasePtr == 0)
-    return 0;
-
-  memmove(modeInfo, mi, sizeof(struct vbe_mode_info));
-  return 1;
-}
-
-static uint32_t get_color_val(uint8_t r, uint8_t g, uint8_t b,
-                              struct vbe_mode_info *mi) {
-  uint32_t val = 0;
-  uint32_t r_val = (r >> (8 - mi->RedMaskSize)) << mi->RedFieldPosition;
-  uint32_t g_val = (g >> (8 - mi->GreenMaskSize)) << mi->GreenFieldPosition;
-  uint32_t b_val = (b >> (8 - mi->BlueMaskSize)) << mi->BlueFieldPosition;
-  val = r_val | g_val | b_val;
-  return val;
-}
-
-static void fill_screen(uint32_t color_val, struct vbe_mode_info *mi) {
-  uint8_t *fb = (uint8_t *)mi->PhysBasePtr;
-  uint32_t width = mi->XResolution;
-  uint32_t height = mi->YResolution;
-  uint32_t bytes_per_line = mi->BytesPerScanline;
-  uint8_t bpp = (mi->BitsPerPixel + 7) / 8;
-
-  if (bpp == 4) {
-    for (uint32_t y = 0; y < height; y++) {
-      uint32_t *line = (uint32_t *)(fb + y * bytes_per_line);
-      for (uint32_t x = 0; x < width; x++) {
-        line[x] = color_val;
-      }
-    }
-  } else if (bpp == 3) {
-    uint8_t c0 = color_val & 0xFF;
-    uint8_t c1 = (color_val >> 8) & 0xFF;
-    uint8_t c2 = (color_val >> 16) & 0xFF;
-    for (uint32_t y = 0; y < height; y++) {
-      uint8_t *line = fb + y * bytes_per_line;
-      for (uint32_t x = 0; x < width; x++) {
-        uint32_t idx = x * 3;
-        line[idx] = c0;
-        line[idx + 1] = c1;
-        line[idx + 2] = c2;
-      }
-    }
-  } else if (bpp == 2) {
-    uint16_t val16 = (uint16_t)color_val;
-    for (uint32_t y = 0; y < height; y++) {
-      uint16_t *line = (uint16_t *)(fb + y * bytes_per_line);
-      for (uint32_t x = 0; x < width; x++) {
-        line[x] = val16;
-      }
-    }
-  }
+/* ------------------------------------------------------------------ */
+/*  Low-level pixel & BIOS helpers                                      */
+/* ------------------------------------------------------------------ */
+static int bios_int10(unsigned long eax, unsigned long ebx,
+                      unsigned long ecx, unsigned long edx,
+                      unsigned long es,  unsigned long edi) {
+    struct realmode_regs r = {
+        edi, 0, 0, (unsigned long)-1,
+        ebx, edx, ecx, eax,
+        (unsigned long)-1, (unsigned long)-1,
+        es, (unsigned long)-1, (unsigned long)-1,
+        0xFFFF10CD, (unsigned long)-1, (unsigned long)-1
+    };
+    realmode_run((long)&r);
+    return (int)r.eax;
 }
 
 static int bios_checkkey(void) {
-  struct realmode_regs int_regs = {0,  0,  0,  -1, 0,  0,          0,  0x0100,
-                                   -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
-  realmode_run((long)&int_regs);
-  if ((int_regs.eflags & (1 << 6)) == 0) {
-    return 1;
-  }
-  return 0;
+    struct realmode_regs r = {
+        0, 0, 0, (unsigned long)-1, 0, 0, 0, 0x0100,
+        (unsigned long)-1, (unsigned long)-1,
+        (unsigned long)-1, (unsigned long)-1,
+        (unsigned long)-1, 0xFFFF16CD,
+        (unsigned long)-1, (unsigned long)-1
+    };
+    realmode_run((long)&r);
+    return (r.eflags & (1 << 6)) == 0;
 }
 
 static int bios_getkey(void) {
-  struct realmode_regs int_regs = {0,  0,  0,  -1, 0,  0,          0,  0x0000,
-                                   -1, -1, -1, -1, -1, 0xFFFF16CD, -1, -1};
-  realmode_run((long)&int_regs);
-  uint8_t ascii = int_regs.eax & 0xFF;
-  uint8_t scan = (int_regs.eax >> 8) & 0xFF;
-  if (ascii != 0) {
-    return ascii;
-  }
-  return scan << 8;
+    struct realmode_regs r = {
+        0, 0, 0, (unsigned long)-1, 0, 0, 0, 0x0000,
+        (unsigned long)-1, (unsigned long)-1,
+        (unsigned long)-1, (unsigned long)-1,
+        (unsigned long)-1, 0xFFFF16CD,
+        (unsigned long)-1, (unsigned long)-1
+    };
+    realmode_run((long)&r);
+    uint8_t ascii = r.eax & 0xFF;
+    return ascii ? ascii : (int)((r.eax >> 8) & 0xFF) << 8;
 }
 
-#endif
+static uint32_t rm_to_flat(uint32_t seg_ofs) {
+    return ((seg_ofs >> 16) << 4) + (uint16_t)seg_ofs;
+}
+
+static int get_driver_info(struct vbe_driver_info *drv) {
+    struct vbe_driver_info *di = (struct vbe_driver_info *)0x20000;
+    memset(di, 0, sizeof(*di));
+    di->VBESignature[0] = 'V'; di->VBESignature[1] = 'B';
+    di->VBESignature[2] = 'E'; di->VBESignature[3] = '2';
+    if ((bios_int10(0x4F00, 0, 0, 0, 0x2000, 0) & 0xFF) != 0x4F)
+        return 0;
+    if (memcmp(di->VBESignature, "VESA", 4) != 0) return 0;
+    if (di->VBEVersion < 0x200) return 0;
+    di->VideoModePtr = rm_to_flat(di->VideoModePtr);
+    memmove(drv, di, sizeof(*di));
+    return 1;
+}
+
+static int get_mode_info(uint16_t mode, struct vbe_mode_info *mi_out) {
+    if (!mode || mode == 0xFFFF) return 0;
+    struct vbe_mode_info *mi = (struct vbe_mode_info *)0x20400;
+    memset(mi, 0, sizeof(*mi));
+    if ((bios_int10(0x4F01, 0, mode, 0, 0x2000, 1024) & 0xFF) != 0x4F) return 0;
+    if (!(mi->ModeAttributes & 1))    return 0;  /* not supported */
+    if (!(mi->ModeAttributes & 0x80)) return 0;  /* no LFB        */
+    if (mi->PhysBasePtr == 0)         return 0;
+    memmove(mi_out, mi, sizeof(*mi));
+    return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Framebuffer pixel writer                                            */
+/* ------------------------------------------------------------------ */
+static void put_pixel(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
+    if (x >= fb_width || y >= fb_height) return;
+    uint8_t *p = fb + y * fb_pitch + x * fb_bpp;
+    uint32_t color = ((uint32_t)r << fb_rshift) |
+                     ((uint32_t)g << fb_gshift) |
+                     ((uint32_t)b << fb_bshift);
+    if (fb_bpp == 4) {
+        *((uint32_t *)p) = color;
+    } else if (fb_bpp == 3) {
+        p[0] = color & 0xFF;
+        p[1] = (color >> 8) & 0xFF;
+        p[2] = (color >> 16) & 0xFF;
+    } else if (fb_bpp == 2) {
+        /* 5-6-5 approximation */
+        uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        *((uint16_t *)p) = c16;
+    }
+}
+
+/* Fill a rectangle with a solid colour */
+static void fill_rect(uint32_t x, uint32_t y,
+                      uint32_t w, uint32_t h,
+                      uint8_t r, uint8_t g, uint8_t b) {
+    for (uint32_t row = y; row < y + h && row < fb_height; row++)
+        for (uint32_t col = x; col < x + w && col < fb_width; col++)
+            put_pixel(col, row, r, g, b);
+}
+
+/* Draw a single character (scale: each dot = scale x scale pixels) */
+static void draw_char(uint32_t cx, uint32_t cy, char ch,
+                      uint8_t r, uint8_t g, uint8_t b, uint32_t scale) {
+    if (ch < 0x20 || ch > 0x7E) ch = '?';
+    const uint8_t *glyph = font5x7[ch - 0x20];
+    for (uint32_t col = 0; col < 5; col++) {
+        for (uint32_t row = 0; row < 7; row++) {
+            if (glyph[col] & (1 << row)) {
+                for (uint32_t sy = 0; sy < scale; sy++)
+                    for (uint32_t sx = 0; sx < scale; sx++)
+                        put_pixel(cx + col*scale + sx,
+                                  cy + row*scale + sy,
+                                  r, g, b);
+            }
+        }
+    }
+}
+
+/* Draw a string */
+static void draw_str(uint32_t cx, uint32_t cy, const char *s,
+                     uint8_t r, uint8_t g, uint8_t b, uint32_t scale) {
+    while (*s) {
+        draw_char(cx, cy, *s, r, g, b, scale);
+        cx += (5 + 1) * scale; /* 5 columns + 1 gap */
+        s++;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Delay (BIOS timer tick ≈ 55 ms)                                    */
+/* ------------------------------------------------------------------ */
+static void delay_ms(unsigned int ms) {
+    unsigned int ticks = (ms + 54) / 55;
+    unsigned long start = *(volatile unsigned long *)0x46c;
+    while ((*(volatile unsigned long *)0x46c - start) < ticks) {}
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main graphics demo                                                  */
+/* ------------------------------------------------------------------ */
+static void draw_demo(void) {
+    uint32_t W = fb_width, H = fb_height;
+
+    /* --- dark background --- */
+    fill_rect(0, 0, W, H, 10, 14, 26);
+
+    /* --- horizontal colour bars (rainbow) in the lower third --- */
+    uint8_t bar_colors[7][3] = {
+        {255,  50,  50}, /* red    */
+        {255, 160,  30}, /* orange */
+        {255, 220,  30}, /* yellow */
+        { 50, 210,  50}, /* green  */
+        { 30, 140, 255}, /* blue   */
+        { 80,  50, 220}, /* indigo */
+        {180,  50, 220}, /* violet */
+    };
+    uint32_t bar_h = H / 3 / 7;
+    for (int i = 0; i < 7; i++) {
+        uint32_t by = H * 2 / 3 + i * bar_h;
+        fill_rect(0, by, W, bar_h,
+                  bar_colors[i][0], bar_colors[i][1], bar_colors[i][2]);
+    }
+
+    /* --- horizontal gradient strip just above the bars --- */
+    uint32_t grad_y = H * 2 / 3 - 4;
+    for (uint32_t x = 0; x < W; x++) {
+        uint8_t t = (uint8_t)((x * 255) / (W > 1 ? W - 1 : 1));
+        for (uint32_t y = grad_y; y < grad_y + 4; y++)
+            put_pixel(x, y, t, 80, 255 - t);
+    }
+
+    /* --- centred title banner --- */
+    const char *title = "Bootie-ext VBE Test";
+    uint32_t scale   = 3;
+    uint32_t char_w  = (5 + 1) * scale;
+    uint32_t str_len = 0;
+    for (const char *p = title; *p; p++) str_len++;
+    uint32_t tx = (W > str_len * char_w) ? (W - str_len * char_w) / 2 : 0;
+    uint32_t ty = H / 4;
+    /* shadow */
+    draw_str(tx + 2, ty + 2, title, 10, 10, 40, scale);
+    /* main text */
+    draw_str(tx, ty, title, 220, 240, 255, scale);
+
+    /* --- sub-title --- */
+    const char *sub = "Press any key to exit";
+    uint32_t slen = 0;
+    for (const char *p = sub; *p; p++) slen++;
+    uint32_t sx2 = (W > slen * (5+1)*2) ? (W - slen * (5+1)*2) / 2 : 0;
+    draw_str(sx2, ty + 7*scale + 8, sub, 160, 180, 200, 2);
+
+    /* --- resolution info line --- */
+    /* build a small string manually with printf into a local buffer */
+    char info[64];
+    int pos = 0;
+    /* "Mode: WxH bpp=B" */
+    info[pos++] = 'M'; info[pos++] = 'o'; info[pos++] = 'd';
+    info[pos++] = 'e'; info[pos++] = ':'; info[pos++] = ' ';
+    /* width digits */
+    uint32_t tmp = W; int start_pos = pos;
+    if (tmp == 0) { info[pos++] = '0'; } else {
+        char digs[10]; int nd = 0;
+        while (tmp) { digs[nd++] = '0' + (tmp % 10); tmp /= 10; }
+        for (int i = nd-1; i >= 0; i--) info[pos++] = digs[i];
+    }
+    info[pos++] = 'x';
+    tmp = H;
+    if (tmp == 0) { info[pos++] = '0'; } else {
+        char digs[10]; int nd = 0;
+        while (tmp) { digs[nd++] = '0' + (tmp % 10); tmp /= 10; }
+        for (int i = nd-1; i >= 0; i--) info[pos++] = digs[i];
+    }
+    info[pos++] = ' '; info[pos++] = 'b'; info[pos++] = 'p';
+    info[pos++] = 'p'; info[pos++] = '=';
+    tmp = fb_bpp * 8;
+    if (tmp == 0) { info[pos++] = '0'; } else {
+        char digs[10]; int nd = 0;
+        while (tmp) { digs[nd++] = '0' + (tmp % 10); tmp /= 10; }
+        for (int i = nd-1; i >= 0; i--) info[pos++] = digs[i];
+    }
+    info[pos] = '\0';
+    (void)start_pos;
+
+    draw_str(8, 8, info, 120, 200, 100, 1);
+
+    /* --- simple border --- */
+    uint32_t bw = 3;
+    fill_rect(0, 0, W, bw, 80, 120, 200);
+    fill_rect(0, H-bw, W, bw, 80, 120, 200);
+    fill_rect(0, 0, bw, H, 80, 120, 200);
+    fill_rect(W-bw, 0, bw, H, 80, 120, 200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Entry point                                                         */
+/* ------------------------------------------------------------------ */
+int screen_test_main(char *arg, int flags) {
+    printf("Bootie-ext: VBE screen test starting\n");
+
+    /* --- find best VBE mode --- */
+    struct vbe_driver_info drv;
+    if (!get_driver_info(&drv)) {
+        printf("VBE 2.0 not supported\n");
+        return 0;
+    }
+
+    uint16_t *modes = (uint16_t *)drv.VideoModePtr;
+    uint16_t best_mode  = 0;
+    int      best_score = -1;
+    struct vbe_mode_info best_mi;
+
+    for (int idx = 0; modes[idx] != 0xFFFF; idx++) {
+        uint16_t mode = modes[idx];
+        struct vbe_mode_info mi;
+        if (!get_mode_info(mode, &mi)) continue;
+
+        /* skip non-packed-pixel memory models */
+        if (mi.MemoryModel != 4 && mi.MemoryModel != 6) continue;
+
+        int score = 0;
+        if      (mi.BitsPerPixel == 32) score += 100;
+        else if (mi.BitsPerPixel == 24) score +=  90;
+        else if (mi.BitsPerPixel == 16) score +=  50;
+        else continue;
+
+        if      (mi.XResolution == 1024 && mi.YResolution == 768)  score += 60;
+        else if (mi.XResolution ==  800 && mi.YResolution == 600)  score += 50;
+        else if (mi.XResolution ==  640 && mi.YResolution == 480)  score += 30;
+        else score += 5;
+
+        if (score > best_score) {
+            best_score = score;
+            best_mode  = mode;
+            best_mi    = mi;
+        }
+    }
+
+    if (!best_mode) {
+        printf("No suitable VBE mode found\n");
+        return 0;
+    }
+
+    printf("Setting VBE mode 0x%X (%dx%d, %d bpp)\n",
+           (int)best_mode,
+           (int)best_mi.XResolution, (int)best_mi.YResolution,
+           (int)best_mi.BitsPerPixel);
+
+    if ((bios_int10(0x4F02, 0x4000 | best_mode, 0, 0, (unsigned long)-1, 0) & 0xFF) != 0x4F) {
+        printf("Failed to set VBE mode\n");
+        return 0;
+    }
+
+    /* --- set up framebuffer globals --- */
+    fb        = (uint8_t *)best_mi.PhysBasePtr;
+    fb_width  = best_mi.XResolution;
+    fb_height = best_mi.YResolution;
+    fb_pitch  = best_mi.LinBytesPerScanline ? best_mi.LinBytesPerScanline
+                                            : best_mi.BytesPerScanline;
+    fb_bpp    = (best_mi.BitsPerPixel + 7) / 8;
+
+    /* determine channel shifts from VBE colour mask info */
+    fb_rshift = best_mi.LinRedFieldPosition   ? best_mi.LinRedFieldPosition
+                                              : best_mi.RedFieldPosition;
+    fb_gshift = best_mi.LinGreenFieldPosition ? best_mi.LinGreenFieldPosition
+                                              : best_mi.GreenFieldPosition;
+    fb_bshift = best_mi.LinBlueFieldPosition  ? best_mi.LinBlueFieldPosition
+                                              : best_mi.BlueFieldPosition;
+
+    printf("fb=0x%08X pitch=%u bpp=%u rgb_shifts=(%u,%u,%u)\n",
+           (unsigned int)fb, (unsigned int)fb_pitch, (unsigned int)fb_bpp,
+           (unsigned int)fb_rshift, (unsigned int)fb_gshift, (unsigned int)fb_bshift);
+
+    /* --- draw the demo --- */
+    draw_demo();
+
+    printf("Demo drawn. Press any key to return...\n");
+
+    /* wait for keypress */
+    while (!bios_checkkey()) {
+        delay_ms(55);
+    }
+    bios_getkey();
+
+    /* --- restore text mode --- */
+    if (graphics_inited) {
+        if (current_term->STARTUP)
+            ((int (*)(int))current_term->STARTUP)(0);
+    } else {
+        bios_int10(3, 0, 0, 0, (unsigned long)-1, 0);
+    }
+    cls();
+
+    return 0;
+}

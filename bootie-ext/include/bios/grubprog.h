@@ -19,6 +19,7 @@
 extern int __BSS_END;
 extern int __BSS_START;
 
+#ifndef NO_GRUB_HEADER
 unsigned long long GRUB = 0x534f443442555247LL;/* this is needed, see the following comment. */
 /* gcc treat the following as data only if a global initialization like the
  * above line occurs.
@@ -45,13 +46,18 @@ asm(".long 0");
 //asm(ASM_BUILD_DATE);	//asm(".long 0");
 asm(".long 0");
 /* Don't insert any code/data here! */
+#endif
 
+#ifndef NO_GRUB_SIGNATURE
+asm(".data");
 /* a valid executable file for grub4dos must end with these 8 bytes */
 asm(".long 0x03051805");
 asm(".long 0xBCBAA7BA");
 
 asm(".globl _start");
 asm("_start:");
+asm(".text");
+#endif
 /* thank goodness gcc will place the above 8 bytes at the end of the program
  * file. Do not insert any other asm lines here.
  */

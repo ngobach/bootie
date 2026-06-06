@@ -20,6 +20,7 @@
 extern int __BSS_END;
 extern int __BSS_START;
 
+#ifndef NO_GRUB_HEADER
 unsigned long long GRUB = 0x534f443442555247LL;/* this is needed, see the following comment.  'GRUB4DOS'这是必需的，请参阅以下命令 */
 /* gcc treat the following as data only if a global initialization like the		gcc仅在发生与上述行类似的全局初始化时才将以下内容视为数据。
  * above line occurs.
@@ -42,9 +43,10 @@ asm(".long 0");
 asm(".long 0");
 asm(".long 0");
 asm(".long 0");
+#endif
 
-/* Don't insert any code/data here! 不要在这里插入任何代码/数据*/
-
+#ifndef NO_GRUB_SIGNATURE
+asm(".data");
 /* a valid executable file for grub4dos must end with these 8 bytes     grub4dos的有效可执行文件必须以这8字节结尾 */
 //grub4dos外部命令结束签名
 asm(".long 0x03051805");
@@ -52,7 +54,8 @@ asm(".long 0xBCBAA7BA");
 
 asm(".globl _start");
 asm("_start:");
-/* thank goodness gcc will place the above 8 bytes at the end of the program		谢天谢地，gcc会把上面的8个字节放在程序文件的末尾。请勿在此处插入任何其他asm管路。 
- * file. Do not insert any other asm lines here.
+asm(".text");
+#endif
+/* thank goodness gcc will place the above 8 bytes at the end of the program		谢天谢地，gcc会把上面的8个字节放在程序文件的末尾。请勿在此处插入 any other asm lines here.
  */
 
