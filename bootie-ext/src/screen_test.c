@@ -272,7 +272,7 @@ static int get_mode_info(uint16_t mode, struct vbe_mode_info *mi_out) {
 /* ------------------------------------------------------------------ */
 /*  Framebuffer pixel writer                                            */
 /* ------------------------------------------------------------------ */
-static void put_pixel(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
+static inline __attribute__((always_inline)) void put_pixel(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
     if (x >= fb_width || y >= fb_height) return;
     uint8_t *p = fb + y * fb_pitch + x * fb_bpp;
     uint32_t color = ((uint32_t)r << fb_rshift) |
@@ -291,13 +291,65 @@ static void put_pixel(uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
     }
 }
 
-/* Fill a rectangle with a solid colour */
+/* Fill a rectangle with a solid colour using fast row writes */
 static void fill_rect(uint32_t x, uint32_t y,
                       uint32_t w, uint32_t h,
                       uint8_t r, uint8_t g, uint8_t b) {
-    for (uint32_t row = y; row < y + h && row < fb_height; row++)
-        for (uint32_t col = x; col < x + w && col < fb_width; col++)
-            put_pixel(col, row, r, g, b);
+    if (x >= fb_width || y >= fb_height) return;
+    uint32_t x_end = (x + w > fb_width) ? fb_width : (x + w);
+    uint32_t y_end = (y + h > fb_height) ? fb_height : (y + h);
+    if (x_end <= x || y_end <= y) return;
+
+    uint32_t color = ((uint32_t)r << fb_rshift) |
+                     ((uint32_t)g << fb_gshift) |
+                     ((uint32_t)b << fb_bshift);
+
+    if (fb_bpp == 4) {
+        for (uint32_t row = y; row < y_end; row++) {
+            uint32_t *p = (uint32_t *)(fb + row * fb_pitch) + x;
+            uint32_t count = x_end - x;
+            while (count >= 8) {
+                p[0] = color; p[1] = color; p[2] = color; p[3] = color;
+                p[4] = color; p[5] = color; p[6] = color; p[7] = color;
+                p += 8;
+                count -= 8;
+            }
+            while (count > 0) {
+                *p++ = color;
+                count--;
+            }
+        }
+    } else if (fb_bpp == 3) {
+        uint8_t b0 = color & 0xFF;
+        uint8_t b1 = (color >> 8) & 0xFF;
+        uint8_t b2 = (color >> 16) & 0xFF;
+        for (uint32_t row = y; row < y_end; row++) {
+            uint8_t *p = fb + row * fb_pitch + x * 3;
+            uint32_t count = x_end - x;
+            for (uint32_t col = 0; col < count; col++) {
+                p[0] = b0;
+                p[1] = b1;
+                p[2] = b2;
+                p += 3;
+            }
+        }
+    } else if (fb_bpp == 2) {
+        uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        for (uint32_t row = y; row < y_end; row++) {
+            uint16_t *p = (uint16_t *)(fb + row * fb_pitch) + x;
+            uint32_t count = x_end - x;
+            while (count >= 8) {
+                p[0] = c16; p[1] = c16; p[2] = c16; p[3] = c16;
+                p[4] = c16; p[5] = c16; p[6] = c16; p[7] = c16;
+                p += 8;
+                count -= 8;
+            }
+            while (count > 0) {
+                *p++ = c16;
+                count--;
+            }
+        }
+    }
 }
 
 /* Draw a single character (scale: each dot = scale x scale pixels) */

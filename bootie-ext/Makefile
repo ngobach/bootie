@@ -3,14 +3,15 @@ OBJCOPY := x86_64-elf-objcopy
 RM      := rm -f
 MKDIR   := mkdir -p
 
-CFLAGS_BIOS := -Wl,--build-id=none -m32 -mno-sse -nostdlib \
+CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
-               -fshort-wchar -fno-jump-tables -Wl,-N -Wl,-m,elf_i386 \
-               -Wl,-Ttext -Wl,0 -fPIE
+               -fshort-wchar -fno-jump-tables -fno-tree-loop-distribute-patterns \
+               -Wl,-N -Wl,-m,elf_i386 -Wl,-Ttext -Wl,0 -fPIE
 
-CFLAGS_UEFI := -Wl,--build-id=none -m64 -mno-sse -nostdlib \
+CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-sse -nostdlib \
                -fno-zero-initialized-in-bss -fno-function-cse \
-               -fshort-wchar -fno-jump-tables -Wl,-N -fPIE
+               -fshort-wchar -fno-jump-tables -fno-tree-loop-distribute-patterns \
+               -Wl,-N -fPIE
 
 # Collect all top-level C sources, excluding screen_test helper files
 SOURCES := $(filter-out src/screen_test_sig.c src/screen_test_entry.c,$(wildcard src/*.c))
