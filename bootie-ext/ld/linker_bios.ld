@@ -44,6 +44,7 @@ SECTIONS
         edata = .;
         _edata = .;
     }
+    . = ALIGN(8);
     .grub_sig : {
         QUAD(0xBCBAA7BA03051805);
     }
