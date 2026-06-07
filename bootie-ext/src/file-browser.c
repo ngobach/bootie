@@ -3,12 +3,6 @@
 #include <bootie-gfx.h>
 #include <stdint.h>
 
-#if defined(__i386__)
-#define bt_ptr_uint unsigned long
-#else
-#define bt_ptr_uint unsigned long long
-#endif
-
 #define MAX_ENTRIES 512
 #define PATH_MAX 260
 #define NAME_MAX 128
@@ -17,6 +11,9 @@
 #define LINE_H 9
 #define HEADER_H 24
 #define FOOTER_H 12
+#define MAX_DRIVES 32
+#define DPAD_Y 4
+#define DPAD_LH 9
 
 static const char *bootable_ext[] = {
     ".iso", ".img", ".ima", ".vhd", ".vhdx", ".wim", ".efi", NULL
@@ -53,8 +50,8 @@ static int list_dir(struct browser *br) {
     if (!buf) return -1;
 
     errnum = ERR_NONE;
-    bt_ptr_uint saved = putchar_hooked;
-    putchar_hooked = (bt_ptr_uint)buf;
+    uintptr_t saved = putchar_hooked;
+    putchar_hooked = (uintptr_t)buf;
 
     bt_dir_list(br->cwd);
 
@@ -260,6 +257,63 @@ static void boot_file(const struct browser *br, struct gfx *g) {
     gfx_getkey(g);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Drive picker                                                        */
+/* ------------------------------------------------------------------ */
+
+static int drive_picker(struct gfx *g, struct bt_drive_info *drives, int count) {
+    int view = (g->height - DPAD_Y * 2 - DPAD_LH * 2) / DPAD_LH;
+    if (view > count) view = count;
+    if (view < 1) view = 1;
+
+    int cur = 0;
+    int top = 0;
+
+    while (1) {
+        fill_rect(g, 0, 0, g->width, g->height, 15, 15, 30);
+        draw_str(g, 8, DPAD_Y, "Select Drive", 200, 200, 255, 2);
+        fill_rect(g, 0, DPAD_Y + 18, g->width, 1, 80, 80, 120);
+
+        int y = DPAD_Y + 24;
+        int end = top + view;
+        if (end > count) end = count;
+
+        for (int i = top; i < end; i++) {
+            if (i == cur)
+                fill_rect(g, 0, y - 1, g->width, DPAD_LH, 50, 50, 120);
+
+            char buf[32];
+            buf[0] = ' ';
+            strcpy(buf + 1, drives[i].name);
+            draw_str(g, 8, y, buf, 200, 200, 200, 1);
+            y += DPAD_LH;
+        }
+
+        fill_rect(g, 0, g->height - FOOTER_H, g->width, FOOTER_H, 30, 30, 60);
+        draw_str(g, 8, g->height - FOOTER_H + 2,
+                 "[^v] Nav  [Enter] Select  [Esc] Quit",
+                 150, 150, 180, 1);
+
+        int key = gfx_getkey(g);
+        int scan = (key >> 8) & 0xFF;
+        int ascii = key & 0xFF;
+
+        if (ascii == 0x1B || ascii == 'q' || ascii == 'Q')
+            return -1;
+        else if (ascii == 0x0D)
+            return cur;
+        else if (scan == 0x48) {
+            cur--;
+            if (cur < 0) cur = 0;
+            if (cur < top) top = cur;
+        } else if (scan == 0x50) {
+            cur++;
+            if (cur >= count) cur = count - 1;
+            if (cur >= top + view) top = cur - view + 1;
+        }
+    }
+}
+
 int gmain(int argc, char *argv[], int flags) {
     struct gfx g;
     if (!gfx_init(&g)) {
@@ -267,65 +321,116 @@ int gmain(int argc, char *argv[], int flags) {
         return 1;
     }
 
-    struct browser *br = malloc(sizeof(struct browser));
-    if (!br) {
-        draw_str(&g, 8, g.height / 2 - 7, "Out of memory", 255, 50, 50, 2);
-        gfx_getkey(&g);
-        gfx_close(&g);
-        return ERR_NOT_ENOUGH_MEMORY;
-    }
+    struct browser *br = NULL;
+    char start_device[24] = "";
 
-    br->view_rows = (g.height - HEADER_H - FOOTER_H) / LINE_H;
-    br->show_dotfiles = 0;
-
-    if (argc >= 2)
-        strcpy(br->cwd, argv[1]);
-    else
-        strcpy(br->cwd, "/");
-
-    if (list_dir(br) != 0) {
-        draw_str(&g, 8, g.height / 2 - 7, "Cannot list directory", 255, 50, 50, 2);
-        gfx_getkey(&g);
-        gfx_close(&g);
-        free(br);
-        return 1;
-    }
-
-    while (1) {
-        draw(br, &g);
-
-        int key = gfx_getkey(&g);
-        int scan = (key >> 8) & 0xFF;
-        int ascii = key & 0xFF;
-
-        if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
-            break;
-        } else if (ascii == 'b' || ascii == 'B') {
-            if (br->cur < br->count && br->entries[br->cur].bootable)
-                boot_file(br, &g);
-        } else if (ascii == 0x0D || scan == 0x4D) {
-            if (br->cur < br->count) {
-                const struct entry *e = &br->entries[br->cur];
-                if (strcmp(e->name, "..") == 0)
-                    go_up(br);
-                else if (e->is_dir)
-                    enter_dir(br, e->name);
+    if (argc >= 2) {
+        char *rest = bt_drive_set_dev(argv[1]);
+        if (rest) {
+            strcpy(start_device, argv[1]);
+            br = malloc(sizeof(struct browser));
+            if (br) {
+                br->view_rows = (g.height - HEADER_H - FOOTER_H) / LINE_H;
+                br->show_dotfiles = 0;
+                if (*rest == '/')
+                    strcpy(br->cwd, rest);
+                else
+                    strcpy(br->cwd, "/");
             }
-        } else if (scan == 0x4B) {
-            go_up(br);
-        } else if (ascii == '.') {
-            br->show_dotfiles = !br->show_dotfiles;
-            list_dir(br);
-        } else if (scan == 0x48) {
-            br->cur--;
-            ensure_visible(br);
-        } else if (scan == 0x50) {
-            br->cur++;
-            ensure_visible(br);
         }
     }
 
+    while (1) {
+        /* --- Drive picker (if no browser) --- */
+        if (!br) {
+            struct bt_drive_info drives[MAX_DRIVES];
+            int nd = bt_drive_enum(drives, MAX_DRIVES);
+            if (nd == 0) {
+                draw_str(&g, 8, g.height / 2 - 7, "No drives found", 255, 50, 50, 2);
+                gfx_getkey(&g);
+                gfx_close(&g);
+                return 1;
+            }
+
+            while (1) {
+                int sel = drive_picker(&g, drives, nd);
+                if (sel < 0) {
+                    gfx_close(&g);
+                    return 0;
+                }
+
+                strcpy(start_device, drives[sel].name);
+                bt_drive_set_dev(start_device);
+
+                br = malloc(sizeof(struct browser));
+                if (!br) continue;
+                br->view_rows = (g.height - HEADER_H - FOOTER_H) / LINE_H;
+                br->show_dotfiles = 0;
+                strcpy(br->cwd, "/");
+
+                if (list_dir(br) == 0)
+                    break;
+
+                free(br);
+                br = NULL;
+
+                fill_rect(&g, 0, g.height / 2 - 10, g.width, 30, 40, 20, 20);
+                draw_str(&g, 8, g.height / 2 - 7, "Cannot access drive", 255, 100, 100, 2);
+                gfx_getkey(&g);
+            }
+        }
+
+        if (!br || list_dir(br) != 0) {
+            draw_str(&g, 8, g.height / 2 - 7, "Cannot list directory", 255, 50, 50, 2);
+            gfx_getkey(&g);
+            gfx_close(&g);
+            free(br);
+            return 1;
+        }
+
+        /* --- File browser loop --- */
+        while (1) {
+            draw(br, &g);
+
+            int key = gfx_getkey(&g);
+            int scan = (key >> 8) & 0xFF;
+            int ascii = key & 0xFF;
+
+            if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
+                free(br);
+                br = NULL;
+                break;
+            } else if (ascii == 'b' || ascii == 'B') {
+                if (br->cur < br->count && br->entries[br->cur].bootable)
+                    boot_file(br, &g);
+            } else if (ascii == 0x0D || scan == 0x4D) {
+                if (br->cur < br->count) {
+                    const struct entry *e = &br->entries[br->cur];
+                    if (strcmp(e->name, "..") == 0)
+                        go_up(br);
+                    else if (e->is_dir)
+                        enter_dir(br, e->name);
+                }
+            } else if (scan == 0x4B) {
+                go_up(br);
+            } else if (ascii == '.') {
+                br->show_dotfiles = !br->show_dotfiles;
+                list_dir(br);
+            } else if (scan == 0x48) {
+                br->cur--;
+                ensure_visible(br);
+            } else if (scan == 0x50) {
+                br->cur++;
+                ensure_visible(br);
+            }
+        }
+
+        if (!br)
+            continue;
+
+        break;
+    }
+
     gfx_close(&g);
-    free(br);
     return 0;
 }

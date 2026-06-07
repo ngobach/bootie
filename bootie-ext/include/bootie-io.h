@@ -107,4 +107,48 @@ static inline int bt_fs_type(void)
     return filesystem_type;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Drive enumeration                                                  */
+/* ------------------------------------------------------------------ */
+
+#define BT_DRV_MAX   128
+#define BT_PART_MAX  16
+
+struct bt_drive_info {
+    char name[24];
+};
+
+static inline int bt_drive_enum(struct bt_drive_info *drives, int max) {
+    int count = 0;
+
+    for (unsigned int drive = 0; drive < BT_DRV_MAX && count < max; drive++) {
+        for (unsigned int part = 0; part < BT_PART_MAX && count < max; part++) {
+            char pdev[24];
+            unsigned int dd = drive;
+            unsigned int pp = part;
+            char *q = pdev;
+
+            *q++ = '('; *q++ = 'h'; *q++ = 'd';
+            if (dd >= 100) { *q++ = '0' + dd / 100; dd %= 100; }
+            if (dd >= 10 || drive >= 100) { *q++ = '0' + dd / 10; dd %= 10; }
+            *q++ = '0' + dd;
+            *q++ = ',';
+            if (pp >= 10) { *q++ = '0' + pp / 10; pp %= 10; }
+            *q++ = '0' + pp;
+            *q++ = ')'; *q = '\0';
+
+            bt_drive_set_dev(pdev);
+            errnum = ERR_NONE;
+            bt_drive_open_dev();
+
+            if (errnum == ERR_NONE) {
+                strcpy(drives[count].name, pdev);
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
 #endif /* BOOTIE_IO_H */
