@@ -319,8 +319,6 @@ static void draw(const struct browser *br, struct gfx *g,
             buf[len + 1] = '\0';
             draw_str(g, x, y + 2, buf, 100, 200, 255, 1);
         } else if (e->bootable) {
-            int len = strlen(buf);
-            strcpy(buf + len, "  [BOOT]");
             draw_str(g, x, y + 2, buf, 255, 200, 50, 1);
         } else {
             draw_str(g, x, y + 2, buf, 200, 200, 200, 1);
