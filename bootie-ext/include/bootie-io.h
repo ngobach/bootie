@@ -89,6 +89,22 @@ static inline void bt_file_close(void)
 }
 
 static inline unsigned long long bt_file_size(void)  { return filesize; }
+
+static inline unsigned long long bt_file_get_size(const char *path)
+{
+    char cmd_arg[512];
+    sprintf(cmd_arg, "--length=0 %s", path);
+
+#if defined(__i386__)
+    volatile unsigned long long *p_filesize = (volatile unsigned long long *)0x8290;
+#else
+    volatile unsigned long long *p_filesize = (volatile unsigned long long *)IMG(0x8290);
+#endif
+
+    *p_filesize = 0;
+    builtin_cmd("cat", cmd_arg, BUILTIN_CMDLINE);
+    return *p_filesize;
+}
 static inline unsigned long long bt_file_pos(void)   { return filepos; }
 static inline void bt_file_set_pos(unsigned long long p) { filepos = p; }
 static inline unsigned long long bt_file_max(void)   { return filemax; }

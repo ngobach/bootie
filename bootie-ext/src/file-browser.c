@@ -230,19 +230,7 @@ static void load_selected_size(struct browser *br) {
     }
     fullpath[plen] = '\0';
 
-    char cmd_arg[PATH_MAX * 2 + 16];
-    sprintf(cmd_arg, "--length=0 %s", fullpath);
-
-#if defined(__i386__)
-    volatile unsigned long long *p_filesize = (volatile unsigned long long *)0x8290;
-#else
-    volatile unsigned long long *p_filesize = (volatile unsigned long long *)IMG(0x8290);
-#endif
-
-    *p_filesize = 0;
-    builtin_cmd("cat", cmd_arg, BUILTIN_CMDLINE);
-
-    unsigned long long size = *p_filesize;
+    unsigned long long size = bt_file_get_size(fullpath);
     if (size > 0) {
         e->size = size;
     } else {
