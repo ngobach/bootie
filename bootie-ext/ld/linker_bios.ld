@@ -45,8 +45,7 @@ SECTIONS
         _edata = .;
     }
     .grub_sig : {
-        LONG(0x03051805);
-        LONG(0xBCBAA7BA);
+        QUAD(0xBCBAA7BA03051805);
     }
     __BSS_START = .;
     __bss_start = .;
