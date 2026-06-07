@@ -354,7 +354,7 @@ int gmain(int argc, char *argv[], int flags) {
     const char *prompt = "Press any key to start...";
 
     // Align title and prompt relative to the playfield border to keep it centered visually
-    draw_str(&g, x_off + (grid_w - 17 * 6 * 2) / 2, y_off + grid_h / 3, title, 0, 220, 220, 2);
+    draw_str(&g, x_off + (grid_w - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3, title, 0, 220, 220, 2);
     draw_str(&g, x_off + (grid_w - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
 
     while (!gfx_checkkey(&g)) {

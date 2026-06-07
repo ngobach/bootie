@@ -70,7 +70,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     /* Redraw border and text on top of starfield to avoid clipping */
     draw_border(&g, x_off, y_off);
-    draw_str(&g, (W - 16 * 6 * 2) / 2, y_off + grid_h / 3, title, 50, 220, 50,
+    draw_str(&g, (W - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3, title, 50, 220, 50,
              2);
     draw_str(&g, (W - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200,
              1);
