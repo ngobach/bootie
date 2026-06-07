@@ -34,8 +34,13 @@ extern int gmain(int argc, char *argv[], int flags);
 
 int main(char *arg, int flags) {
   /* Zero BSS section */
+#if defined(__i386__)
   char *bss = (char *)&__BSS_START;
   char *bss_end = (char *)&__BSS_END;
+#else
+  char *bss = __BSS_START;
+  char *bss_end = __BSS_END;
+#endif
   while (bss < bss_end) {
     *bss++ = 0;
   }

@@ -382,33 +382,36 @@ static inline int gfx_checkkey(struct gfx *ctx) {
     return 1;
 
   efi_system_table_t *st = grub_efi_system_table;
-  if (!st || !st->con_in)
+  if (!st || !st->con_in || !st->boot_services)
     return 0;
 
-  efi_input_key_t key;
-  efi_status_t status = st->con_in->read_key_stroke(st->con_in, &key);
-  if (status == 0) { // EFI_SUCCESS
-    int code = 0;
-    if (key.scan_code == 0) {
-      code = key.unicode_char;
-    } else {
-      // Map UEFI scan codes to BIOS codes expected by the game
-      if (key.scan_code == 1)
-        code = 0x4800; // Up
-      else if (key.scan_code == 2)
-        code = 0x5000; // Down
-      else if (key.scan_code == 3)
-        code = 0x4D00; // Right
-      else if (key.scan_code == 4)
-        code = 0x4B00; // Left
-      else if (key.scan_code == 23)
-        code = 27; // ESC
-      else
-        code = key.scan_code << 8;
+  efi_status_t status = st->boot_services->check_event(st->con_in->wait_for_key);
+  if (status == 0) { // EFI_SUCCESS (event is signaled, key is ready)
+    efi_input_key_t key;
+    status = st->con_in->read_key_stroke(st->con_in, &key);
+    if (status == 0) {
+      int code = 0;
+      if (key.scan_code == 0) {
+        code = key.unicode_char;
+      } else {
+        // Map UEFI scan codes to BIOS codes expected by the game
+        if (key.scan_code == 1)
+          code = 0x4800; // Up
+        else if (key.scan_code == 2)
+          code = 0x5000; // Down
+        else if (key.scan_code == 3)
+          code = 0x4D00; // Right
+        else if (key.scan_code == 4)
+          code = 0x4B00; // Left
+        else if (key.scan_code == 23)
+          code = 27; // ESC
+        else
+          code = key.scan_code << 8;
+      }
+      ctx->buffered_key = code;
+      ctx->has_key = 1;
+      return 1;
     }
-    ctx->buffered_key = code;
-    ctx->has_key = 1;
-    return 1;
   }
   return 0;
 }
