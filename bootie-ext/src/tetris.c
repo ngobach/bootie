@@ -22,6 +22,9 @@ struct color {
     uint8_t r, g, b;
 };
 
+/* Global high score saved between runs in the same session */
+static int session_high_score = 0;
+
 /* The 7 classic Tetrimino shapes */
 static const struct point SHAPES[7][4] = {
     { {-1, 0}, {0, 0}, {1, 0}, {2, 0} },   // 0: I
@@ -162,21 +165,25 @@ static void draw_info_panel(struct gfx *g, int x_off, int y_off, int grid_w,
 
     // High Score
     draw_str(g, px, y_off + 130, "HIGH SCORE", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 145, 120, 8, 10, 10, 15);
     sprintf(buf, "%d", high_score);
     draw_str(g, px, y_off + 145, buf, 255, 220, 50, 1);
 
     // Score
     draw_str(g, px, y_off + 185, "SCORE", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 200, 120, 8, 10, 10, 15);
     sprintf(buf, "%d", score);
     draw_str(g, px, y_off + 200, buf, 255, 255, 255, 1);
 
     // Level
     draw_str(g, px, y_off + 240, "LEVEL", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 255, 120, 8, 10, 10, 15);
     sprintf(buf, "%d", level);
     draw_str(g, px, y_off + 255, buf, 255, 255, 255, 1);
 
     // Lines
     draw_str(g, px, y_off + 295, "LINES", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 310, 120, 8, 10, 10, 15);
     sprintf(buf, "%d", lines);
     draw_str(g, px, y_off + 310, buf, 255, 255, 255, 1);
 }
@@ -253,30 +260,65 @@ static void merge_piece(const struct piece *p, uint8_t board[BOARD_ROWS][BOARD_C
     }
 }
 
-static int clear_lines(uint8_t board[BOARD_ROWS][BOARD_COLS]) {
-    int cleared = 0;
-    for (int r = BOARD_ROWS - 1; r >= 0; r--) {
-        int full = 1;
-        for (int c = 0; c < BOARD_COLS; c++) {
-            if (board[r][c] == 0) {
-                full = 0;
-                break;
+static void animate_line_clear(struct gfx *g, uint8_t board[BOARD_ROWS][BOARD_COLS],
+                               const int full_lines[BOARD_ROWS], int x_off, int y_off,
+                               int grid_w, int grid_h, int score, int level, int lines,
+                               int next_shape) {
+    // We clear from center columns (4, 5) outward to edges (0, 9)
+    for (int step = 0; step < 5; step++) {
+        int col1 = 4 - step;
+        int col2 = 5 + step;
+
+        // Clear these columns in the full rows
+        for (int r = 0; r < BOARD_ROWS; r++) {
+            if (full_lines[r]) {
+                board[r][col1] = 0;
+                board[r][col2] = 0;
             }
         }
-        if (full) {
-            cleared++;
-            for (int y = r; y > 0; y--) {
-                for (int c = 0; c < BOARD_COLS; c++) {
-                    board[y][c] = board[y - 1][c];
+
+        // Redraw play arena
+        fill_rect(g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
+
+        // Draw board blocks
+        for (int r = 0; r < BOARD_ROWS; r++) {
+            for (int c = 0; c < BOARD_COLS; c++) {
+                if (board[r][c] > 0) {
+                    draw_block(g, c, r, board[r][c], 0, x_off, y_off);
                 }
             }
-            for (int c = 0; c < BOARD_COLS; c++) {
-                board[0][c] = 0;
-            }
-            r++; // Check same row index again after shift down
+        }
+
+        // Draw UI elements to keep layout updated during animation
+        draw_border(g, x_off, y_off, grid_w, grid_h);
+        draw_next_box(g, x_off, y_off, grid_w, next_shape);
+        draw_info_panel(g, x_off, y_off, grid_w, score, level, lines, session_high_score);
+
+        gfx_delay_ms(g, 60); // Delay for animation timing (5 * 60ms = 300ms total clear animation)
+    }
+}
+
+static void shift_cleared_lines(uint8_t board[BOARD_ROWS][BOARD_COLS], const int full_lines[BOARD_ROWS]) {
+    uint8_t temp_board[BOARD_ROWS][BOARD_COLS];
+    for (int r = 0; r < BOARD_ROWS; r++) {
+        for (int c = 0; c < BOARD_COLS; c++) {
+            temp_board[r][c] = 0;
         }
     }
-    return cleared;
+    int write_y = BOARD_ROWS - 1;
+    for (int read_y = BOARD_ROWS - 1; read_y >= 0; read_y--) {
+        if (!full_lines[read_y]) {
+            for (int c = 0; c < BOARD_COLS; c++) {
+                temp_board[write_y][c] = board[read_y][c];
+            }
+            write_y--;
+        }
+    }
+    for (int r = 0; r < BOARD_ROWS; r++) {
+        for (int c = 0; c < BOARD_COLS; c++) {
+            board[r][c] = temp_board[r][c];
+        }
+    }
 }
 
 static int get_gravity_delay(int level) {
@@ -285,9 +327,6 @@ static int get_gravity_delay(int level) {
     int delays[11] = {800, 800, 700, 600, 500, 400, 300, 220, 150, 100, 70};
     return delays[level];
 }
-
-/* Global high score saved between runs in the same session */
-static int session_high_score = 0;
 
 int gmain(int argc, char *argv[], int flags) {
     (void)argc;
@@ -415,9 +454,31 @@ int gmain(int argc, char *argv[], int flags) {
                     lock_timer = 0;
                     merge_piece(&active_piece, board);
 
-                    // Check and clear lines
-                    int cleared = clear_lines(board);
+                    // Check for full lines
+                    int full_lines[BOARD_ROWS];
+                    int cleared = 0;
+                    for (int r = 0; r < BOARD_ROWS; r++) {
+                        int full = 1;
+                        for (int c = 0; c < BOARD_COLS; c++) {
+                            if (board[r][c] == 0) {
+                                full = 0;
+                                break;
+                            }
+                        }
+                        if (full) {
+                            full_lines[r] = 1;
+                            cleared++;
+                        } else {
+                            full_lines[r] = 0;
+                        }
+                    }
+
                     if (cleared > 0) {
+                        // Play block dissolving animation from center outward
+                        animate_line_clear(&g, board, full_lines, x_off, y_off, grid_w, grid_h,
+                                           score, level, lines, next_shape);
+                        // Shift blocks down
+                        shift_cleared_lines(board, full_lines);
                         score += line_scores[cleared] * level;
                         lines += cleared;
                         level = lines / 10 + 1;
@@ -467,7 +528,7 @@ int gmain(int argc, char *argv[], int flags) {
             for (int r = 0; r < BOARD_ROWS; r++) {
                 for (int c = 0; c < BOARD_COLS; c++) {
                     if (board[r][c] > 0) {
-                        draw_block(&g, c, r, board[r][c] - 1, 0, x_off, y_off);
+                        draw_block(&g, c, r, board[r][c], 0, x_off, y_off);
                     }
                 }
             }
