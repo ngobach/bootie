@@ -97,8 +97,17 @@ static inline unsigned long long bt_file_get_size(const char *path)
     volatile unsigned long long *p_filesize = (volatile unsigned long long *)IMG(0x8290);
 #endif
 
+    /* Use the official GRUB4DOS null-sink idiom: any value in (0, 0x800]
+     * causes _putchar() to return early without writing anything.
+     * (char_io.c: `if ((unsigned int)putchar_hooked > 0x800) *putchar_hooked++ = c`)
+     * This is how GRUB4DOS itself suppresses screen output (stage2.c:2667). */
+    uintptr_t _saved_ph = putchar_hooked;
+    putchar_hooked = 1;   /* suppress: nonzero but ≤ 0x800 → no write */
+
     *p_filesize = 0;
     builtin_cmd("cat", cmd_arg, BUILTIN_CMDLINE);
+
+    putchar_hooked = _saved_ph;
     return *p_filesize;
 }
 static inline unsigned long long bt_file_pos(void)   { return filepos; }
