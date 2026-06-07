@@ -164,18 +164,26 @@ static int list_dir(struct browser *br) {
         struct entry *e = &br->entries[i];
         if (e->is_dir) continue;
 
-        char fullpath[PATH_MAX];
+        char fullpath[PATH_MAX * 2];
         strcpy(fullpath, br->cwd);
         int plen = strlen(fullpath);
         if (plen > 0 && fullpath[plen - 1] != '/') {
             fullpath[plen++] = '/';
             fullpath[plen] = '\0';
         }
-        strcpy(fullpath + plen, e->name);
+        const char *src = e->name;
+        while (*src) {
+            if (*src == ' ' || *src == '"' || *src == '\\')
+                fullpath[plen++] = '\\';
+            fullpath[plen++] = *src++;
+        }
+        fullpath[plen] = '\0';
 
         if (bt_file_open(fullpath) == 0) {
             e->is_dir = 1;
             e->bootable = 0;
+            bt_file_close();
+        } else {
             bt_file_close();
         }
     }
@@ -328,24 +336,43 @@ static void enter_dir(struct browser *br, const char *name) {
     list_dir(br);
 }
 
+static int handle_boot(const char *drive, const char *path) {
+    char cmd[PATH_MAX + 128];
+    sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
+            drive, path);
+    return run_line(cmd, 0);
+}
+
 static void boot_file(const struct browser *br, struct gfx *g,
                       int px, int py, int cw, int ch) {
     const struct entry *e = &br->entries[br->cur];
     if (!e->bootable) return;
 
-    char path[PATH_MAX];
+    char path[PATH_MAX * 2];
     strcpy(path, br->cwd);
-    int len = strlen(path);
-    if (len > 0 && path[len - 1] != '/') {
-        path[len++] = '/';
-        path[len] = '\0';
+    int plen = strlen(path);
+    if (plen > 0 && path[plen - 1] != '/') {
+        path[plen++] = '/';
+        path[plen] = '\0';
     }
-    strcpy(path + len, e->name);
+    const char *src = e->name;
+    while (*src) {
+        if (*src == ' ' || *src == '"' || *src == '\\')
+            path[plen++] = '\\';
+        path[plen++] = *src++;
+    }
+    path[plen] = '\0';
 
     fill_rect(g, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 40, 20, 20);
     draw_str(g, px + 8, py + ch - FOOTER_H * 2 + 2, "Booting...", 255, 200, 50, 1);
     draw_str(g, px + 8, py + ch - FOOTER_H + 2, path, 200, 200, 200, 1);
-    gfx_getkey(g);
+
+    int ret = handle_boot(br->device, path);
+    if (ret != 0) {
+        fill_rect(g, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20);
+        draw_str(g, px + 8, py + ch - FOOTER_H * 2 + 2, "Boot failed", 255, 50, 50, 1);
+        gfx_getkey(g);
+    }
 }
 
 int gmain(int argc, char *argv[], int flags) {
