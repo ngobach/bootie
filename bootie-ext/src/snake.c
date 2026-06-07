@@ -66,6 +66,7 @@ int gmain(int argc, char *argv[], int flags) {
   const char *prompt = "Press any key to start...";
 
   while (!gfx_checkkey(&g)) {
+    fill_rect(&g, 0, 0, W, H, 10, 10, 15);
     update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 1);
 
     /* Redraw border and text on top of starfield to avoid clipping */
@@ -197,7 +198,8 @@ int gmain(int argc, char *argv[], int flags) {
       }
 
       /* Draw the frame */
-      /* 1. Animate background starfield outside play area */
+      /* 1. Clear entire background and animate starfield */
+      fill_rect(&g, 0, 0, W, H, 10, 10, 15);
       update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 0);
 
       /* 2. Clear play arena */
@@ -242,7 +244,8 @@ int gmain(int argc, char *argv[], int flags) {
 
     int exit_requested = 0;
     while (1) {
-      /* Animate starfield in the background */
+      /* Clear background and animate starfield */
+      fill_rect(&g, 0, 0, W, H, 10, 10, 15);
       update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 1);
 
       /* Redraw game over items on top of starfield */
@@ -368,18 +371,7 @@ static void update_starfield(struct gfx *ctx, struct star *stars, int count,
   uint32_t H = gfx_height(ctx);
 
   for (int i = 0; i < count; i++) {
-    /* 1. Erase old star */
-    if (stars[i].prev_px >= 0 && stars[i].prev_px + stars[i].prev_size <= (int)W &&
-        stars[i].prev_py >= 0 && stars[i].prev_py + stars[i].prev_size <= (int)H) {
-      if (stars[i].prev_size == 2) {
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px + 1, stars[i].prev_py, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py + 1, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px + 1, stars[i].prev_py + 1, 10, 10, 15);
-      } else {
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py, 10, 10, 15);
-      }
-    }
+    /* 1. Erase is handled by the caller clearing the background */
 
     /* 2. Move star closer */
     stars[i].z -= 20;
