@@ -471,11 +471,10 @@ int gmain(int argc, char *argv[], int flags) {
                 br->cwd[0] = '\0';
                 br->device[0] = '\0';
                 break;
-            } else if (ascii == 'b' || ascii == 'B') {
+            } else if (ascii == 0x0D || scan == 0x4D) {
                 if (br->cur < br->count && br->entries[br->cur].bootable)
                     boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
-            } else if (ascii == 0x0D || scan == 0x4D) {
-                if (br->cur < br->count) {
+                else if (br->cur < br->count) {
                     struct entry *e = &br->entries[br->cur];
                     if (strcmp(e->name, "..") == 0) {
                         go_up(br);
