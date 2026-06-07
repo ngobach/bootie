@@ -120,6 +120,8 @@ struct bt_drive_info {
 
 static inline int bt_drive_enum(struct bt_drive_info *drives, int max) {
     int count = 0;
+    unsigned long save_drv = saved_drive;
+    unsigned long save_part = saved_partition;
 
     for (unsigned int drive = 0; drive < BT_DRV_MAX && count < max; drive++) {
         for (unsigned int part = 0; part < BT_PART_MAX && count < max; part++) {
@@ -148,6 +150,8 @@ static inline int bt_drive_enum(struct bt_drive_info *drives, int max) {
         }
     }
 
+    saved_drive = save_drv;
+    saved_partition = save_part;
     return count;
 }
 

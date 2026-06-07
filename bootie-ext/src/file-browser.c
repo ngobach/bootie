@@ -327,6 +327,9 @@ int gmain(int argc, char *argv[], int flags) {
     if (argc >= 2) {
         char *rest = bt_drive_set_dev(argv[1]);
         if (rest) {
+            bt_drive_open_dev();
+            saved_drive = current_drive;
+            saved_partition = current_partition;
             strcpy(start_device, argv[1]);
             br = malloc(sizeof(struct browser));
             if (br) {
@@ -361,6 +364,9 @@ int gmain(int argc, char *argv[], int flags) {
 
                 strcpy(start_device, drives[sel].name);
                 bt_drive_set_dev(start_device);
+                bt_drive_open_dev();
+                saved_drive = current_drive;
+                saved_partition = current_partition;
 
                 br = malloc(sizeof(struct browser));
                 if (!br) continue;
