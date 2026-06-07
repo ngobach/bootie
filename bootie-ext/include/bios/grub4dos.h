@@ -230,7 +230,7 @@ devread (unsigned long drive, unsigned long sector, unsigned long byte_offset, u
  * int
  * devwrite (unsigned long sector, unsigned long sector_count, char *buf)
  */
-#define devwrite ((int (*)devwrite (unsigned long long sector, unsigned long long sector_len, unsigned long long buf))((*(int **)0x8300)[33]))
+#define devwrite ((int (*)(unsigned long long sector, unsigned long long sector_len, unsigned long long buf))((*(int **)0x8300)[33]))
 #define next_partition ((int (*)(void))((*(int **)0x8300)[34]))
 #define open_device ((int (*)(void))((*(int **)0x8300)[35]))
 #define real_open_partition ((int (*)(int))((*(int **)0x8300)[36]))

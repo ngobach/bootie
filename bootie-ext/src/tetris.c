@@ -1,5 +1,5 @@
 #include <bootie.h>
-#include <gfx.h>
+#include <bootie-gfx.h>
 #include <stdint.h>
 
 #define BOARD_COLS 10

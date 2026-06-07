@@ -1,5 +1,5 @@
-#ifndef GFX_H
-#define GFX_H
+#ifndef BOOTIE_GFX_H
+#define BOOTIE_GFX_H
 
 #if defined(__i386__)
   #include <bios/gfx.h>
@@ -7,4 +7,4 @@
   #include <uefi/gfx.h>
 #endif
 
-#endif /* GFX_H */
+#endif /* BOOTIE_GFX_H */

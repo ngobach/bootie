@@ -1,0 +1,110 @@
+#ifndef BOOTIE_IO_H
+#define BOOTIE_IO_H
+
+/* ========================================================================
+ * Generic Drive & File API – backed by GRUB4DOS System Functions
+ *
+ * Thin static-inline wrappers around the raw GRUB4DOS function-pointer
+ * table entries.  These eliminate the need for user code to worry about
+ * calling-convention vs. direct-memory differences between BIOS and UEFI.
+ * ======================================================================== */
+
+/* ------------------------------------------------------------------ */
+/*  Drive Management                                                   */
+/* ------------------------------------------------------------------ */
+
+static inline unsigned int  bt_drive_cur(void)          { return current_drive; }
+static inline void          bt_drive_set_cur(unsigned int d)  { current_drive = d; }
+static inline unsigned int  bt_drive_part(void)         { return current_partition; }
+static inline void          bt_drive_set_part(unsigned int p) { current_partition = p; }
+static inline unsigned long long bt_drive_boot(void)   { return boot_drive; }
+static inline unsigned long long bt_drive_inst_part(void) { return install_partition; }
+static inline unsigned long long bt_drive_part_start(void) { return part_start; }
+static inline unsigned long long bt_drive_part_len(void)   { return part_length; }
+
+/* ------------------------------------------------------------------ */
+/*  Partition / Device enumeration                                     */
+/* ------------------------------------------------------------------ */
+
+static inline int    bt_drive_next_part(void)            { return next_partition(); }
+static inline int    bt_drive_open_dev(void)             { return open_device(); }
+static inline int    bt_drive_open_part(int flags)       { return real_open_partition(flags); }
+static inline char * bt_drive_set_dev(char *s)           { return set_device(s); }
+
+/* ------------------------------------------------------------------ */
+/*  Device I/O – operates on the *current* device                      */
+/* ------------------------------------------------------------------ */
+
+static inline int bt_drive_read(unsigned long long sector,
+                                unsigned long long offset,
+                                unsigned long long len,
+                                void *buf)
+{
+    return devread(sector, offset, len, (uintptr_t)buf, GRUB_READ);
+}
+
+static inline int bt_drive_write(unsigned long long sector,
+                                 unsigned long long len,
+                                 const void *buf)
+{
+    return devwrite(sector, len, (uintptr_t)buf);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Raw disk I/O – specifies drive explicitly                          */
+/* ------------------------------------------------------------------ */
+
+static inline int bt_drive_raw_read(unsigned int drive,
+                                    unsigned long long sector,
+                                    unsigned long long len,
+                                    void *buf)
+{
+    return rawread(drive, sector, 0, len, (uintptr_t)buf, GRUB_READ);
+}
+
+static inline int bt_drive_raw_write(unsigned int drive,
+                                     unsigned long long sector,
+                                     const void *buf)
+{
+    return rawwrite(drive, (unsigned long)sector, (char *)buf);
+}
+
+/* ------------------------------------------------------------------ */
+/*  File I/O                                                           */
+/* ------------------------------------------------------------------ */
+
+static inline int bt_file_open(const char *path)
+{
+    return open((char *)path);
+}
+
+static inline unsigned long long bt_file_read(void *buf, unsigned long long len)
+{
+    return read((uintptr_t)buf, len, 0);
+}
+
+static inline void bt_file_close(void)
+{
+    close();
+}
+
+static inline unsigned long long bt_file_size(void)  { return filesize; }
+static inline unsigned long long bt_file_pos(void)   { return filepos; }
+static inline void bt_file_set_pos(unsigned long long p) { filepos = p; }
+static inline unsigned long long bt_file_max(void)   { return filemax; }
+
+/* ------------------------------------------------------------------ */
+/*  Directory & Filesystem                                             */
+/* ------------------------------------------------------------------ */
+
+static inline int bt_dir_list(const char *path)
+{
+    return grub_dir((char *)path);
+}
+
+static inline int bt_fs_type(void)
+{
+    return filesystem_type;
+}
+
+#endif /* BOOTIE_IO_H */

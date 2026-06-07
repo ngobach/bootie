@@ -6,7 +6,7 @@
  */
 #include <bootie.h>
 #include <stdint.h>
-#include <gfx.h>
+#include <bootie-gfx.h>
 
 /* ------------------------------------------------------------------ */
 /*  Main graphics demo                                                  */
