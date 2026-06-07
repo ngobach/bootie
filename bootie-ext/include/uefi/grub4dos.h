@@ -299,6 +299,9 @@ typedef enum
 #define open_device ((int (*)(void))(SYSFUN(35)))
 #define real_open_partition ((int (*)(int))(SYSFUN(36)))
 #define set_device ((char *(*)(char *))(SYSFUN(37)))
+/* Built-in command flags */
+#define BUILTIN_CMDLINE		0x1
+
 #define run_line ((int (*)(char *heap, int flags))(SYSFUN(38)))
 #define vdisk_install ((efi_status_t (*)(int drive, int partition))(SYSFUN(39)))
 #define parse_string ((int (*)(char *))(SYSFUN(41)))

@@ -235,6 +235,9 @@ devread (unsigned long drive, unsigned long sector, unsigned long byte_offset, u
 #define open_device ((int (*)(void))((*(int **)0x8300)[35]))
 #define real_open_partition ((int (*)(int))((*(int **)0x8300)[36]))
 #define set_device ((char *(*)(char *))((*(int **)0x8300)[37]))
+/* Built-in command flags */
+#define BUILTIN_CMDLINE		0x1
+
 #define run_line ((int (*)(char *heap, int flags))((*(int **)0x8300)[38]))
 #define parse_string ((int (*)(char *))((*(int **)0x8300)[41]))
 #define hexdump ((void (*)(unsigned long long,char*,int))((*(int **)0x8300)[42]))

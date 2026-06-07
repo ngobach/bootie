@@ -340,13 +340,18 @@ static int handle_boot(const char *drive, const char *path) {
     char cmd[PATH_MAX + 128];
     sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
             drive, path);
-    return run_line(cmd, 0);
+    int r = run_line(cmd, BUILTIN_CMDLINE);
+    if (errnum)
+        return errnum;
+    return r;
 }
 
 static void boot_file(const struct browser *br, struct gfx *g,
                       int px, int py, int cw, int ch) {
     const struct entry *e = &br->entries[br->cur];
-    if (!e->bootable) return;
+    if (!e->bootable) {
+        return;
+    }
 
     char path[PATH_MAX * 2];
     strcpy(path, br->cwd);
