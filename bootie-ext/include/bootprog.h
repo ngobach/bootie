@@ -5,14 +5,24 @@
 
 #if defined(__i386__)
   #include <bios/grub4dos.h>
-  #include <bios/grubprog.h>
+  /* Linker symbols defining the BSS segment boundaries.
+     In 32-bit BIOS mode, they are declared as standard extern variables. Their
+     addresses are retrieved using the address-of operator (&__BSS_START) in
+     bootprog.h. */
+  extern int __BSS_END;
+  extern int __BSS_START;
 #else
   #include <uefi/grub4dos.h>
   #include <uefi/uefi.h>
 
   static grub_size_t g4e_data = 0;
 
-  #include <uefi/grubprog.h>
+  /* Linker symbols defining the BSS segment boundaries.
+     We declare them as hidden character arrays so that GCC compiles position-independent,
+     RIP-relative address calculations (using 'lea') instead of absolute address loads
+     or GOT dereferencing. */
+  __attribute__((visibility("hidden"))) extern char __BSS_END[];
+  __attribute__((visibility("hidden"))) extern char __BSS_START[];
 #endif
 
 static uint32_t rand_seed = 12345;
