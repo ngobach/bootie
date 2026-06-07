@@ -69,10 +69,6 @@ static inline int bt_drive_raw_write(unsigned int drive,
     return rawwrite(drive, (unsigned long)sector, (char *)buf);
 }
 
-/* ------------------------------------------------------------------ */
-/*  File I/O                                                           */
-/* ------------------------------------------------------------------ */
-
 static inline int bt_file_open(const char *path)
 {
     return open((char *)path);
@@ -80,7 +76,7 @@ static inline int bt_file_open(const char *path)
 
 static inline unsigned long long bt_file_read(void *buf, unsigned long long len)
 {
-    return read((uintptr_t)buf, len, 0);
+    return read((uintptr_t)buf, len, GRUB_READ);
 }
 
 static inline void bt_file_close(void)
