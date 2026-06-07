@@ -15,8 +15,9 @@
 #define CANVAS_W 800
 #define CANVAS_H 600
 
-static const char *bootable_ext[] = {
-    ".iso", ".img", ".ima", ".vhd", ".vhdx", ".wim", ".efi", NULL
+#define NUM_BOOT_EXT 7
+static const char bootable_ext[NUM_BOOT_EXT][8] = {
+    ".iso", ".img", ".ima", ".vhd", ".vhdx", ".wim", ".efi"
 };
 
 struct entry {
@@ -39,9 +40,10 @@ struct browser {
 
 static int has_boot_ext(const char *name) {
     int len = strlen(name);
-    for (int i = 0; bootable_ext[i]; i++) {
-        int elen = strlen(bootable_ext[i]);
-        if (len >= elen && strncmpx(name + len - elen, bootable_ext[i], elen, 1) == 0)
+    for (int i = 0; i < NUM_BOOT_EXT; i++) {
+        const char *ext = bootable_ext[i];
+        int elen = strlen(ext);
+        if (len >= elen && strnicmp(name + len - elen, ext, elen) == 0)
             return 1;
     }
     return 0;
