@@ -32,7 +32,7 @@ SECTIONS
         LONG(__bss_start);
         LONG(ADDR(.bss));
         LONG(end);
-        QUAD(0x646e655f6e69616d); /* "main_end" */
+        QUAD(0x646e655f69666575); /* "uefi_end" */
         LONG(0);
         LONG(0);
         LONG(0);
