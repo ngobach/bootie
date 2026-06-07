@@ -2,7 +2,7 @@
 
 This document provides a comprehensive developer reference for the unified system variables, function tables, and structures exposed by the **GRUB4DOS** and **GRUB4EFI** bootloaders. 
 
-External modules compiled with `bootprog.h` run bare-metal without standard runtime libraries. Instead, they interact with the host bootloader environment by mapping function pointer macros to the system dispatch table at fixed offset arrays.
+External modules compiled with `bootie.h` run bare-metal without standard runtime libraries. Instead, they interact with the host bootloader environment by mapping function pointer macros to the system dispatch table at fixed offset arrays.
 
 ---
 
@@ -165,8 +165,8 @@ The entry point `main` function must always remain the **very first function** d
 *   **Why**: The build toolchain compiles the file top-to-bottom. If other functions are defined before `main`, they will be placed at offset `0` in the output flat binary, which will cause GRUB4DOS to execute the wrong function when the module starts.
 
 ### 2. No Data Section Pollution (BSS Placement)
-Avoid defining global variables *after* `#include <bootprog.h>`.
-*   **Why**: GRUB4DOS executable binaries require a specific 8-byte magic signature (`05 18 05 03 ba a7 ba bc`) placed at the very end of the executable. Global or static variables declared after the `#include <bootprog.h>` line are emitted into the data or BSS sections and get appended to the end of the flat binary, pushing them past the signature. This invalidates the executable format, causing `"Invalid or unsupported executable format"` errors.
+Avoid defining global variables *after* `#include <bootie.h>`.
+*   **Why**: GRUB4DOS executable binaries require a specific 8-byte magic signature (`05 18 05 03 ba a7 ba bc`) placed at the very end of the executable. Global or static variables declared after the `#include <bootie.h>` line are emitted into the data or BSS sections and get appended to the end of the flat binary, pushing them past the signature. This invalidates the executable format, causing `"Invalid or unsupported executable format"` errors.
 
 ### 3. File and Console Output Redirection
 You cannot redirect or hook console/directory outputs by hooking the system function table at index `62` (the standard directory completion output callback).

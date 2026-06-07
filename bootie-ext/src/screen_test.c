@@ -4,7 +4,7 @@
  * Tests VBE mode detection, linear framebuffer pixel writes,
  * and a basic font renderer using a built-in 5x7 bitmap font.
  */
-#include <bootprog.h>
+#include <bootie.h>
 #include <stdint.h>
 #include <gfx.h>
 

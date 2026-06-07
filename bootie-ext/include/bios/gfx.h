@@ -1,7 +1,7 @@
 #ifndef BIOS_GFX_H
 #define BIOS_GFX_H
 
-#include <bootprog.h>
+#include <bootie.h>
 #include <stdint.h>
 
 /* ------------------------------------------------------------------ */

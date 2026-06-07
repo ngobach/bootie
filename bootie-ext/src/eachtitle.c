@@ -1,4 +1,4 @@
-#include <bootprog.h>
+#include <bootie.h>
 
 #if defined(__i386__)
 #define platform_size_t unsigned long
@@ -11,7 +11,7 @@ static void set_putchar_hook(void *buf);
 static void restore_putchar_hook(platform_size_t val);
 static int glob_match(const char *pat, const char *str);
 
-// Entry point gmain() will be called by main() in bootprog.h.
+// Entry point gmain() will be called by main() in bootie.h.
 int gmain(int argc, char *argv[], int flags) {
 
   // Validate arguments (we expect "eachtitle" + 3 arguments, so argc must be >= 4)

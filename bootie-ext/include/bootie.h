@@ -1,5 +1,5 @@
-#ifndef BOOTPROG_H
-#define BOOTPROG_H
+#ifndef BOOTIE_H
+#define BOOTIE_H
 
 #include <stdint.h>
 
@@ -8,7 +8,7 @@
   /* Linker symbols defining the BSS segment boundaries.
      In 32-bit BIOS mode, they are declared as standard extern variables. Their
      addresses are retrieved using the address-of operator (&__BSS_START) in
-     bootprog.h. */
+     bootie.h. */
   extern int __BSS_END;
   extern int __BSS_START;
 #else
@@ -91,4 +91,4 @@ int main(char *arg, int flags) {
   return gmain(argc, argv, flags);
 }
 
-#endif /* BOOTPROG_H */
+#endif /* BOOTIE_H */

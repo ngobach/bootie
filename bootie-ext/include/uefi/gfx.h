@@ -1,7 +1,7 @@
 #ifndef UEFI_GFX_H
 #define UEFI_GFX_H
 
-#include <bootprog.h>
+#include <bootie.h>
 #include <stdint.h>
 
 /* ------------------------------------------------------------------ */

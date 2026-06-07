@@ -1,4 +1,4 @@
-#include <bootprog.h>
+#include <bootie.h>
 #include <gfx.h>
 #include <stdint.h>
 static const char frames[12][64][64] = {

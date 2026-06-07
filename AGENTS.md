@@ -53,7 +53,7 @@ Declare BSS boundaries as hidden symbols in the headers to guarantee RIP-relativ
 __attribute__((visibility("hidden"))) extern char __BSS_START[];
 __attribute__((visibility("hidden"))) extern char __BSS_END[];
 ```
-Zeroing loop in `main` (see [bootprog.h](file:///Users/bachnx/Projects/super-rescue-disk/bootie-ext/include/bootprog.h#L35-L46)):
+Zeroing loop in `main` (see [bootie.h](file:///Users/bachnx/Projects/super-rescue-disk/bootie-ext/include/bootie.h#L45-L56)):
 ```c
 char *bss = __BSS_START;
 char *bss_end = __BSS_END;
