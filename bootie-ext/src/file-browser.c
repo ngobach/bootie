@@ -25,6 +25,7 @@ struct entry {
     int is_dir;
     int bootable;
     int is_drive;
+    unsigned long long size;
 };
 
 struct browser {
@@ -37,6 +38,14 @@ struct browser {
     int view_rows;
     int show_dotfiles;
 };
+
+static void safe_strncpy(char *dest, const char *src, int n) {
+    int i;
+    for (i = 0; i < n && src[i] != '\0'; i++) {
+        dest[i] = src[i];
+    }
+    dest[i] = '\0';
+}
 
 static int has_boot_ext(const char *name) {
     int len = strlen(name);
@@ -88,6 +97,7 @@ static int list_dir(struct browser *br) {
             e->is_dir = 0;
             e->bootable = 0;
             e->is_drive = 1;
+            e->size = 0;
         }
         sort_entries(br->entries, br->count);
         return 0;
@@ -125,6 +135,7 @@ static int list_dir(struct browser *br) {
         e->is_dir = 1;
         e->bootable = 0;
         e->is_drive = 0;
+        e->size = 0;
     }
 
     char *p = buf;
@@ -157,6 +168,7 @@ static int list_dir(struct browser *br) {
             e->is_dir = is_dir;
             e->bootable = !is_dir && has_boot_ext(name);
             e->is_drive = 0;
+            e->size = 0;
         }
     }
 
@@ -184,8 +196,10 @@ static int list_dir(struct browser *br) {
         if (bt_file_open(fullpath) == 0) {
             e->is_dir = 1;
             e->bootable = 0;
+            e->size = 0;
             bt_file_close();
         } else {
+            e->size = bt_file_size();
             bt_file_close();
         }
     }
@@ -252,11 +266,20 @@ static void draw(const struct browser *br, struct gfx *g,
         const struct entry *e = &br->entries[i];
 
         if (i == br->cur)
-            fill_rect(g, px, y, cw, LINE_H, 50, 50, 120);
+            fill_rect(g, px + 2, y, 472, LINE_H, 50, 50, 120);
 
-        char buf[NAME_MAX + 16];
+        char buf[NAME_MAX + 32];
         buf[0] = ' ';
-        strcpy(buf + 1, e->name);
+        
+        char trunc_name[NAME_MAX];
+        int max_left_chars = 52;
+        if (strlen(e->name) > max_left_chars) {
+            safe_strncpy(trunc_name, e->name, max_left_chars - 3);
+            strcpy(trunc_name + max_left_chars - 3, "...");
+        } else {
+            strcpy(trunc_name, e->name);
+        }
+        strcpy(buf + 1, trunc_name);
 
         if (e->is_drive) {
             int len = strlen(buf);
@@ -276,6 +299,131 @@ static void draw(const struct browser *br, struct gfx *g,
         }
 
         y += LINE_H;
+    }
+
+    // Right Column Info Panel
+    int rx = px + 476;
+    int ry = py + HEADER_H;
+    int rw = cw - 476 - 8;
+    int rh = ch - HEADER_H - FOOTER_H - 8;
+
+    // Draw vertical dividing line
+    fill_rect(g, rx, ry, 1, rh, 80, 80, 120);
+
+    // Draw info card
+    int card_x = rx + 12;
+    int card_y = ry + 12;
+    int card_w = rw - 24;
+    int card_h = rh - 24;
+
+    fill_rect(g, card_x, card_y, card_w, card_h, 25, 25, 45);
+    fill_rect(g, card_x, card_y, card_w, 1, 60, 60, 90);
+    fill_rect(g, card_x, card_y + card_h - 1, card_w, 1, 60, 60, 90);
+    fill_rect(g, card_x, card_y, 1, card_h, 60, 60, 90);
+    fill_rect(g, card_x + card_w - 1, card_y, 1, card_h, 60, 60, 90);
+
+    if (br->cur >= 0 && br->cur < br->count) {
+        const struct entry *e = &br->entries[br->cur];
+        int tx = card_x + 12;
+        int ty = card_y + 12;
+
+        if (e->is_drive) {
+            draw_str(g, tx, ty, "DRIVE INFO", 100, 255, 100, 1);
+            ty += 24;
+            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            ty += 16;
+            draw_str(g, tx + 8, ty, e->name, 255, 255, 255, 1);
+            ty += 24;
+            draw_str(g, tx, ty, "Type: Hardware Drive", 180, 180, 200, 1);
+            ty += 32;
+            draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+            ty += 16;
+            draw_str(g, tx + 8, ty, "Press [Enter] to open drive.", 200, 200, 200, 1);
+        } else if (e->is_dir) {
+            draw_str(g, tx, ty, "FOLDER INFO", 100, 200, 255, 1);
+            ty += 24;
+            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            ty += 16;
+            char short_name[32];
+            int max_chars = (card_w - 24) / 6;
+            if (max_chars > 31) max_chars = 31;
+            int name_len = strlen(e->name);
+            if (name_len > max_chars) {
+                safe_strncpy(short_name, e->name, max_chars - 3);
+                strcpy(short_name + max_chars - 3, "...");
+            } else {
+                strcpy(short_name, e->name);
+            }
+            draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
+            ty += 24;
+            draw_str(g, tx, ty, "Type: Directory", 180, 180, 200, 1);
+            ty += 32;
+            draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+            ty += 16;
+            if (strcmp(e->name, "..") == 0) {
+                draw_str(g, tx + 8, ty, "Press [Enter] to go up a level.", 200, 200, 200, 1);
+            } else {
+                draw_str(g, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 1);
+            }
+        } else {
+            if (e->bootable) {
+                draw_str(g, tx, ty, "BOOTABLE FILE", 255, 200, 50, 1);
+            } else {
+                draw_str(g, tx, ty, "FILE INFO", 180, 180, 200, 1);
+            }
+            ty += 24;
+            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            ty += 16;
+            char short_name[32];
+            int max_chars = (card_w - 24) / 6;
+            if (max_chars > 31) max_chars = 31;
+            int name_len = strlen(e->name);
+            if (name_len > max_chars) {
+                safe_strncpy(short_name, e->name, max_chars - 3);
+                strcpy(short_name + max_chars - 3, "...");
+            } else {
+                strcpy(short_name, e->name);
+            }
+            draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
+            ty += 24;
+
+            draw_str(g, tx, ty, "Size:", 180, 180, 200, 1);
+            ty += 16;
+            char size_str[32];
+            if (e->size >= 1024 * 1024 * 1024) {
+                int gb = e->size / (1024 * 1024 * 1024);
+                int mb = (e->size % (1024 * 1024 * 1024)) / (1024 * 1024 * 10);
+                sprintf(size_str, "%d.%02d GB", gb, mb);
+            } else if (e->size >= 1024 * 1024) {
+                int mb = e->size / (1024 * 1024);
+                int kb = (e->size % (1024 * 1024)) / (1024 * 10);
+                sprintf(size_str, "%d.%02d MB", mb, kb);
+            } else if (e->size >= 1024) {
+                int kb = e->size / 1024;
+                int b = (e->size % 1024) / 10;
+                sprintf(size_str, "%d.%02d KB", kb, b);
+            } else {
+                sprintf(size_str, "%d bytes", (int)e->size);
+            }
+            draw_str(g, tx + 8, ty, size_str, 200, 255, 200, 1);
+            ty += 24;
+
+            draw_str(g, tx, ty, "Status:", 180, 180, 200, 1);
+            ty += 16;
+            if (e->bootable) {
+                draw_str(g, tx + 8, ty, "Bootable [YES]", 100, 255, 100, 1);
+                ty += 24;
+                draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+                ty += 16;
+                draw_str(g, tx + 8, ty, "Press [Enter] or [B] to boot.", 200, 200, 200, 1);
+            } else {
+                draw_str(g, tx + 8, ty, "Non-bootable [NO]", 255, 100, 100, 1);
+                ty += 24;
+                draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+                ty += 16;
+                draw_str(g, tx + 8, ty, "No direct boot script.", 150, 150, 150, 1);
+            }
+        }
     }
 
     fill_rect(g, px, py + ch - FOOTER_H, cw, FOOTER_H, 30, 30, 60);
