@@ -173,7 +173,6 @@ static int list_dir(struct browser *br) {
     }
 
     free(buf);
-
     for (int i = 0; i < br->count; i++) {
         struct entry *e = &br->entries[i];
         if (e->is_dir) continue;
@@ -199,7 +198,6 @@ static int list_dir(struct browser *br) {
             e->size = 0;
             bt_file_close();
         } else {
-            e->size = bt_file_size();
             bt_file_close();
         }
     }
@@ -208,6 +206,48 @@ static int list_dir(struct browser *br) {
         sort_entries(br->entries + 1, br->count - 1);
 
     return 0;
+}
+
+static void load_selected_size(struct browser *br) {
+    if (br->cur < 0 || br->cur >= br->count) return;
+    struct entry *e = &br->entries[br->cur];
+    if (e->is_dir || e->is_drive || e->size > 0 || e->size == (unsigned long long)-1) return;
+
+    char fullpath[PATH_MAX * 2];
+    strcpy(fullpath, br->device);
+    int plen = strlen(fullpath);
+    strcpy(fullpath + plen, br->cwd);
+    plen = strlen(fullpath);
+    if (plen > 0 && fullpath[plen - 1] != '/') {
+        fullpath[plen++] = '/';
+        fullpath[plen] = '\0';
+    }
+    const char *src = e->name;
+    while (*src) {
+        if (*src == ' ' || *src == '"' || *src == '\\')
+            fullpath[plen++] = '\\';
+        fullpath[plen++] = *src++;
+    }
+    fullpath[plen] = '\0';
+
+    char cmd_arg[PATH_MAX * 2 + 16];
+    sprintf(cmd_arg, "--length=0 %s", fullpath);
+
+#if defined(__i386__)
+    volatile unsigned long long *p_filesize = (volatile unsigned long long *)0x8290;
+#else
+    volatile unsigned long long *p_filesize = (volatile unsigned long long *)IMG(0x8290);
+#endif
+
+    *p_filesize = 0;
+    builtin_cmd("cat", cmd_arg, BUILTIN_CMDLINE);
+
+    unsigned long long size = *p_filesize;
+    if (size > 0) {
+        e->size = size;
+    } else {
+        e->size = (unsigned long long)-1;
+    }
 }
 
 static void ensure_visible(struct browser *br) {
@@ -390,7 +430,9 @@ static void draw(const struct browser *br, struct gfx *g,
             draw_str(g, tx, ty, "Size:", 180, 180, 200, 1);
             ty += 16;
             char size_str[32];
-            if (e->size >= 1024 * 1024 * 1024) {
+            if (e->size == (unsigned long long)-1 || e->size == 0) {
+                strcpy(size_str, "0 bytes");
+            } else if (e->size >= 1024 * 1024 * 1024) {
                 int gb = e->size / (1024 * 1024 * 1024);
                 int mb = (e->size % (1024 * 1024 * 1024)) / (1024 * 1024 * 10);
                 sprintf(size_str, "%d.%02d GB", gb, mb);
@@ -606,6 +648,7 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         while (1) {
+            load_selected_size(br);
             draw(br, &g, pad_x, pad_y, canvas_w, canvas_h);
 
             int key = gfx_getkey(&g);
