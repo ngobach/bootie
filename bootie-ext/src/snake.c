@@ -62,7 +62,7 @@ int gmain(int argc, char *argv[], int flags) {
   fill_rect(&g, 0, 0, W, H, 10, 10, 15);
   draw_border(&g, x_off, y_off);
 
-  const char *title = "Bare-metal Snake";
+  const char *title = "Snake";
   const char *prompt = "Press any key to start...";
 
   while (!gfx_checkkey(&g)) {

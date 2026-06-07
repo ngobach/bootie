@@ -350,7 +350,7 @@ int gmain(int argc, char *argv[], int flags) {
     fill_rect(&g, 0, 0, W, H, 10, 10, 15);
     draw_border(&g, x_off, y_off, grid_w, grid_h);
 
-    const char *title = "Bare-metal Tetris";
+    const char *title = "Tetris";
     const char *prompt = "Press any key to start...";
 
     // Align title and prompt relative to the playfield border to keep it centered visually
