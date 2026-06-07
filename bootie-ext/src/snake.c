@@ -112,6 +112,7 @@ int gmain(int argc, char *argv[], int flags) {
     place_food(&food, snake, snake_len);
 
     /* Main Game Loop */
+    int logic_accumulator = 0;
     while (!game_over) {
       /* Input processing */
       while (gfx_checkkey(&g)) {
@@ -137,57 +138,62 @@ int gmain(int argc, char *argv[], int flags) {
         }
       }
 
-      /* Apply next direction */
-      dx = ndx;
-      dy = ndy;
+      logic_accumulator += 25;
+      if (logic_accumulator >= speed_delay) {
+        logic_accumulator = 0;
 
-      /* Compute new head position */
-      struct point new_head;
-      new_head.x = snake[0].x + dx;
-      new_head.y = snake[0].y + dy;
+        /* Apply next direction */
+        dx = ndx;
+        dy = ndy;
 
-      /* Check wall collision */
-      if (new_head.x < 0 || new_head.x >= GRID_COLS || new_head.y < 0 ||
-          new_head.y >= GRID_ROWS) {
-        game_over = 1;
-        break;
-      }
+        /* Compute new head position */
+        struct point new_head;
+        new_head.x = snake[0].x + dx;
+        new_head.y = snake[0].y + dy;
 
-      /* Check self collision */
-      for (int i = 0; i < snake_len; i++) {
-        if (new_head.x == snake[i].x && new_head.y == snake[i].y) {
+        /* Check wall collision */
+        if (new_head.x < 0 || new_head.x >= GRID_COLS || new_head.y < 0 ||
+            new_head.y >= GRID_ROWS) {
           game_over = 1;
           break;
         }
-      }
-      if (game_over)
-        break;
 
-      /* Check food consumption */
-      if (new_head.x == food.x && new_head.y == food.y) {
-        /* Grow the snake */
-        if (snake_len < MAX_SNAKE) {
-          snake_len++;
+        /* Check self collision */
+        for (int i = 0; i < snake_len; i++) {
+          if (new_head.x == snake[i].x && new_head.y == snake[i].y) {
+            game_over = 1;
+            break;
+          }
         }
-        /* Shift and insert new head */
-        for (int i = snake_len - 1; i > 0; i--) {
-          snake[i] = snake[i - 1];
-        }
-        snake[0] = new_head;
+        if (game_over)
+          break;
 
-        score += 10;
-        place_food(&food, snake, snake_len);
+        /* Check food consumption */
+        if (new_head.x == food.x && new_head.y == food.y) {
+          /* Grow the snake */
+          if (snake_len < MAX_SNAKE) {
+            snake_len++;
+          }
+          /* Shift and insert new head */
+          for (int i = snake_len - 1; i > 0; i--) {
+            snake[i] = snake[i - 1];
+          }
+          snake[0] = new_head;
 
-        /* Speed up slightly */
-        if (speed_delay > 60) {
-          speed_delay -= 2;
+          score += 10;
+          place_food(&food, snake, snake_len);
+
+          /* Speed up slightly */
+          if (speed_delay > 60) {
+            speed_delay -= 2;
+          }
+        } else {
+          /* Standard movement */
+          for (int i = snake_len - 1; i > 0; i--) {
+            snake[i] = snake[i - 1];
+          }
+          snake[0] = new_head;
         }
-      } else {
-        /* Standard movement */
-        for (int i = snake_len - 1; i > 0; i--) {
-          snake[i] = snake[i - 1];
-        }
-        snake[0] = new_head;
       }
 
       /* Draw the frame */
@@ -221,8 +227,8 @@ int gmain(int argc, char *argv[], int flags) {
       draw_str(&g, (W - 10 * 6) / 2, (y_off - 10) / 2, score_str, 240, 240, 255,
                1);
 
-      /* Tick delay */
-      gfx_delay_ms(&g, speed_delay);
+      /* Tick delay - Constant 40 FPS */
+      gfx_delay_ms(&g, 25);
     }
 
     /* Game Over Screen */
@@ -276,7 +282,8 @@ int gmain(int argc, char *argv[], int flags) {
 /* Find a coordinate that is not covered by the snake body */
 static void place_food(struct point *food, const struct point *snake, int len) {
   int valid = 0;
-  while (!valid) {
+  int attempts = 0;
+  while (attempts < 200) {
     food->x = next_rand() % GRID_COLS;
     food->y = next_rand() % GRID_ROWS;
 
@@ -286,6 +293,31 @@ static void place_food(struct point *food, const struct point *snake, int len) {
         valid = 0;
         break;
       }
+    }
+    if (valid) {
+      return;
+    }
+    attempts++;
+  }
+
+  /* Fallback: Linear scan starting from a random cell */
+  int start_cell = next_rand() % (GRID_COLS * GRID_ROWS);
+  for (int offset = 0; offset < GRID_COLS * GRID_ROWS; offset++) {
+    int cell = (start_cell + offset) % (GRID_COLS * GRID_ROWS);
+    int cx = cell % GRID_COLS;
+    int cy = cell / GRID_COLS;
+
+    valid = 1;
+    for (int i = 0; i < len; i++) {
+      if (cx == snake[i].x && cy == snake[i].y) {
+        valid = 0;
+        break;
+      }
+    }
+    if (valid) {
+      food->x = cx;
+      food->y = cy;
+      return;
     }
   }
 }
@@ -337,8 +369,8 @@ static void update_starfield(struct gfx *ctx, struct star *stars, int count,
 
   for (int i = 0; i < count; i++) {
     /* 1. Erase old star */
-    if (stars[i].prev_px >= 0 && stars[i].prev_px < (int)W &&
-        stars[i].prev_py >= 0 && stars[i].prev_py < (int)H) {
+    if (stars[i].prev_px >= 0 && stars[i].prev_px + stars[i].prev_size <= (int)W &&
+        stars[i].prev_py >= 0 && stars[i].prev_py + stars[i].prev_size <= (int)H) {
       if (stars[i].prev_size == 2) {
         put_pixel(ctx, stars[i].prev_px, stars[i].prev_py, 10, 10, 15);
         put_pixel(ctx, stars[i].prev_px + 1, stars[i].prev_py, 10, 10, 15);
@@ -365,7 +397,8 @@ static void update_starfield(struct gfx *ctx, struct star *stars, int count,
     int py = (int)H / 2 + (stars[i].y * 256) / stars[i].z;
 
     /* 4. Reset if off-screen (ensures stars stay dense and visible) */
-    if (px < 0 || px >= (int)W || py < 0 || py >= (int)H) {
+    int max_size = (stars[i].z < 250) ? 2 : 1;
+    if (px < 0 || px + max_size > (int)W || py < 0 || py + max_size > (int)H) {
       stars[i].x = ((int32_t)next_rand() % 2000) - 1000;
       stars[i].y = ((int32_t)next_rand() % 2000) - 1000;
       stars[i].z = 1000;
