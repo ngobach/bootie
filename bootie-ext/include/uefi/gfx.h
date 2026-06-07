@@ -62,7 +62,6 @@ struct gfx {
   uint8_t bshift;
   int has_key;
   int buffered_key;
-  uint32_t tsc_freq_khz; /* TSC ticks per millisecond (calibrated at init) */
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
@@ -358,26 +357,6 @@ static inline int gfx_init(struct gfx *ctx) {
 
   ctx->has_key = 0;
   ctx->buffered_key = 0;
-
-  /* Disable the UEFI watchdog timer so it doesn't reset the system */
-  if (st->boot_services->set_watchdog_timer)
-    st->boot_services->set_watchdog_timer(0, 0, 0, NULL);
-
-  /* Disable GRUB4DOS external timer to prevent callbacks during gameplay */
-  timer = 0;
-
-  /* Calibrate TSC: measure ticks in a short stall() call */
-  ctx->tsc_freq_khz = 0;
-  {
-    uint32_t lo1, hi1, lo2, hi2;
-    __asm__ volatile("rdtsc" : "=a"(lo1), "=d"(hi1));
-    st->boot_services->stall(1000); /* 1 ms */
-    __asm__ volatile("rdtsc" : "=a"(lo2), "=d"(hi2));
-    uint64_t t1 = ((uint64_t)hi1 << 32) | lo1;
-    uint64_t t2 = ((uint64_t)hi2 << 32) | lo2;
-    ctx->tsc_freq_khz = (uint32_t)(t2 - t1); /* ticks per ms */
-  }
-
   return 1;
 }
 
@@ -391,25 +370,10 @@ static inline void gfx_close(struct gfx *ctx) {
 }
 
 static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
-  if (ctx->tsc_freq_khz > 0) {
-    uint32_t lo1, hi1;
-    __asm__ volatile("rdtsc" : "=a"(lo1), "=d"(hi1));
-    uint64_t start = ((uint64_t)hi1 << 32) | lo1;
-    uint64_t target = start + (uint64_t)ms * ctx->tsc_freq_khz;
-    for (;;) {
-      uint32_t lo2, hi2;
-      __asm__ volatile("rdtsc" : "=a"(lo2), "=d"(hi2));
-      uint64_t now = ((uint64_t)hi2 << 32) | lo2;
-      if (now >= target)
-        break;
-      __asm__ volatile("pause");
-    }
-  } else {
-    /* Fallback to stall if TSC calibration failed */
-    efi_system_table_t *st = grub_efi_system_table;
-    if (st && st->boot_services) {
-      st->boot_services->stall(ms * 1000);
-    }
+  (void)ctx;
+  efi_system_table_t *st = grub_efi_system_table;
+  if (st && st->boot_services) {
+    st->boot_services->stall(ms * 1000);
   }
 }
 
