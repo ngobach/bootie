@@ -412,12 +412,46 @@ static void draw_str(struct gfx *ctx, uint32_t cx, uint32_t cy, const char *s,
 }
 
 /* ------------------------------------------------------------------ */
-/*  Delay (BIOS timer tick ≈ 55 ms)                                    */
+/*  High-resolution delay using CPU TSC (rdtsc)                        */
 /* ------------------------------------------------------------------ */
+static uint64_t tsc_per_ms;
+
+static void tsc_init(void) {
+    if (tsc_per_ms) return;
+
+    unsigned long tick;
+    uint32_t lo, hi;
+
+    /* Wait for PIT tick to change so we start at a known boundary */
+    tick = *(volatile unsigned long *)0x46c;
+    while (*(volatile unsigned long *)0x46c == tick) {}
+
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    uint64_t start = ((uint64_t)hi << 32) | lo;
+    tick = *(volatile unsigned long *)0x46c;
+
+    /* Wait for 5 PIT ticks (~275 ms) for stable calibration */
+    while ((*(volatile unsigned long *)0x46c - tick) < 5) {}
+
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    uint64_t end = ((uint64_t)hi << 32) | lo;
+
+    tsc_per_ms = (end - start) / 275;
+    if (!tsc_per_ms) tsc_per_ms = 1;
+}
+
 static void delay_ms(unsigned int ms) {
-    unsigned int ticks = (ms + 54) / 55;
-    unsigned long start = *(volatile unsigned long *)0x46c;
-    while ((*(volatile unsigned long *)0x46c - start) < ticks) {}
+    if (!ms) return;
+    tsc_init();
+
+    uint32_t lo, hi;
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    uint64_t deadline = (((uint64_t)hi << 32) | lo) + (uint64_t)ms * tsc_per_ms;
+
+    while (1) {
+        __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+        if ((((uint64_t)hi << 32) | lo) >= deadline) break;
+    }
 }
 
 /* ------------------------------------------------------------------ */
