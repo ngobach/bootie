@@ -2,6 +2,15 @@ ENTRY(main)
 PROVIDE(_start = main);
 SECTIONS
 {
+    /* Discard sections that would create orphan PHDRs the native ld rejects */
+    /DISCARD/ : {
+        *(.note.gnu.property)
+        *(.note.gnu.build-id)
+        *(.note.GNU-stack)
+        *(.eh_frame)
+        *(.eh_frame_hdr)
+    }
+
     . = 0;
     .text : {
         *(.text.startup)

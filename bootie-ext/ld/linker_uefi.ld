@@ -2,6 +2,14 @@ ENTRY(main)
 PROVIDE(_start = main);
 SECTIONS
 {
+    /DISCARD/ : {
+        *(.note.gnu.property)
+        *(.note.gnu.build-id)
+        *(.note.GNU-stack)
+        *(.eh_frame)
+        *(.eh_frame_hdr)
+    }
+
     . = 0;
     .text : {
         *(.text.startup)

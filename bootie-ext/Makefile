@@ -1,5 +1,7 @@
-CC      := x86_64-elf-gcc
-OBJCOPY := x86_64-elf-objcopy
+# Auto-detect cross-compiler (x86_64-elf-*) or fall back to native
+CROSS_PREFIX := x86_64-elf-
+CC      := $(or $(shell command -v $(CROSS_PREFIX)gcc 2>/dev/null),gcc)
+OBJCOPY := $(or $(shell command -v $(CROSS_PREFIX)objcopy 2>/dev/null),objcopy)
 RM      := rm -f
 MKDIR   := mkdir -p
 

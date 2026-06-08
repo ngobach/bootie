@@ -9,11 +9,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install native GCC (host is x86_64, -m32 for BIOS target)
+      - name: Install native toolchain (x86_64 host, -m32 for BIOS target)
         run: |
           sudo apt-get update && sudo apt-get install -y gcc gcc-multilib binutils
-          sudo ln -sf $(which gcc) /usr/local/bin/x86_64-elf-gcc
-          sudo ln -sf $(which objcopy) /usr/local/bin/x86_64-elf-objcopy
 
       - name: Set up Go
         uses: actions/setup-go@v4
