@@ -560,10 +560,18 @@ static inline void gfx_backbuffer_end(struct gfx *g) {
         uint8_t *dst = g->real_fb;
         const uint8_t *src = (const uint8_t *)g->backbuf;
 
-        __asm__ volatile("rep movsb"
-                         : "+S"(src), "+D"(dst), "+c"(sz)
+        /* Bulk copy via rep movsl (4× faster than movsb on WC framebuffer) */
+        uint32_t dwords = sz >> 2;
+        __asm__ volatile("rep movsl"
+                         : "+S"(src), "+D"(dst), "+c"(dwords)
                          :
                          : "memory");
+        uint32_t rem = sz & 3;
+        if (rem)
+            __asm__ volatile("rep movsb"
+                             : "+S"(src), "+D"(dst), "+c"(rem)
+                             :
+                             : "memory");
         g->fb = g->real_fb;
     }
 }
