@@ -64,6 +64,7 @@ struct gfx {
   int buffered_key;
   uint8_t *real_fb;
   void *backbuf;
+  void *gop;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
@@ -373,6 +374,7 @@ static inline int gfx_init(struct gfx *ctx) {
   ctx->buffered_key = 0;
   ctx->real_fb = NULL;
   ctx->backbuf = NULL;
+  ctx->gop = gop;
   return 1;
 }
 
@@ -459,17 +461,38 @@ static inline void gfx_backbuffer_begin(struct gfx *g) {
 
 /* Blit backbuffer to the real framebuffer and restore fb pointer */
 static inline void gfx_backbuffer_end(struct gfx *g) {
-  if (g->backbuf && g->real_fb) {
+  if (!g->backbuf || !g->real_fb)
+    return;
+
+  /* Prefer GOP Blt when pixel layout matches BLT_PIXEL (BGRx) */
+  if (g->gop && g->bshift == 0 && g->gshift == 8 && g->rshift == 16) {
+    efi_graphics_output_protocol_t *gop =
+        (efi_graphics_output_protocol_t *)g->gop;
+    if (gop->Blt) {
+      typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
+                                           uint32_t, uint32_t, uint32_t,
+                                           uint32_t, uint32_t, uint32_t,
+                                           uint32_t);
+      ((blt_t)gop->Blt)(gop, g->backbuf, 2 /*EfiBltBufferToVideo*/,
+                        0, 0, 0, 0, g->width, g->height, g->pitch);
+      g->fb = g->real_fb;
+      return;
+    }
+  }
+
+  /* CPU fallback (only when ENABLE_UEFI_SLOW_BLIT is defined) */
+#ifdef ENABLE_UEFI_SLOW_BLIT
+  {
     uint32_t sz = g->pitch * g->height;
     uint8_t *dst = g->real_fb;
     const uint8_t *src = (const uint8_t *)g->backbuf;
-
     __asm__ volatile("rep movsb"
                      : "+S"(src), "+D"(dst), "+c"(sz)
                      :
                      : "memory");
-    g->fb = g->real_fb;
   }
+#endif
+  g->fb = g->real_fb;
 }
 
 #endif /* UEFI_GFX_H */
