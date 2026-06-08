@@ -129,15 +129,6 @@ static int list_dir(struct browser *br) {
     br->top = 0;
     br->cur = 0;
 
-    {
-        struct entry *e = &br->entries[br->count++];
-        strcpy(e->name, "..");
-        e->is_dir = 1;
-        e->bootable = 0;
-        e->is_drive = 0;
-        e->size = 0;
-    }
-
     char *p = buf;
     while (*p && br->count < MAX_ENTRIES) {
         while (*p == ' ') p++;
@@ -203,7 +194,7 @@ static int list_dir(struct browser *br) {
     }
 
     if (br->count > 1)
-        sort_entries(br->entries + 1, br->count - 1);
+        sort_entries(br->entries, br->count);
 
     return 0;
 }
@@ -386,11 +377,7 @@ static void draw(const struct browser *br, struct gfx *g,
             ty += 32;
             draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
             ty += 16;
-            if (strcmp(e->name, "..") == 0) {
-                draw_str(g, tx + 8, ty, "Press [Enter] to go up a level.", 200, 200, 200, 1);
-            } else {
-                draw_str(g, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 1);
-            }
+            draw_str(g, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 1);
         } else {
             if (e->bootable) {
                 draw_str(g, tx, ty, "BOOTABLE FILE", 255, 200, 50, 1);
@@ -498,7 +485,7 @@ static void go_up(struct browser *br) {
 static void enter_dir(struct browser *br, const char *name) {
     int len = strlen(br->cwd);
 
-    if (len > 0 && br->cwd[len - 1] != '/') {
+    if (len > 0 && len + 1 < PATH_MAX && br->cwd[len - 1] != '/') {
         br->cwd[len++] = '/';
         br->cwd[len] = '\0';
     }
@@ -506,7 +493,7 @@ static void enter_dir(struct browser *br, const char *name) {
     strcpy(br->cwd + len, name);
 
     len = strlen(br->cwd);
-    if (len > 0 && br->cwd[len - 1] != '/') {
+    if (len > 0 && len + 1 < PATH_MAX && br->cwd[len - 1] != '/') {
         br->cwd[len++] = '/';
         br->cwd[len] = '\0';
     }
@@ -597,11 +584,29 @@ int gmain(int argc, char *argv[], int flags) {
                 strcpy(br->cwd, rest);
             else
                 strcpy(br->cwd, "/");
+        } else if (argv[1][0] == '/') {
+            char dev[24];
+            unsigned int grub_drive = current_drive >= 0x80 ? current_drive - 0x80 : current_drive;
+            sprintf(dev, "(hd%u,0)", grub_drive);
+            bt_drive_set_dev(dev);
+            bt_drive_open_dev();
+            saved_drive = current_drive;
+            saved_partition = current_partition;
+            strcpy(br->device, dev);
+            strcpy(br->cwd, argv[1]);
         } else {
             br->cwd[0] = '\0';
         }
     } else {
         br->cwd[0] = '\0';
+    }
+
+    {
+        int clen = strlen(br->cwd);
+        if (clen > 0 && clen + 1 < PATH_MAX && br->cwd[clen - 1] != '/') {
+            br->cwd[clen++] = '/';
+            br->cwd[clen] = '\0';
+        }
     }
 
     while (1) {
@@ -655,9 +660,7 @@ int gmain(int argc, char *argv[], int flags) {
                     boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
                 else if (br->cur < br->count) {
                     struct entry *e = &br->entries[br->cur];
-                    if (strcmp(e->name, "..") == 0) {
-                        go_up(br);
-                    } else if (e->is_dir) {
+                    if (e->is_dir) {
                         enter_dir(br, e->name);
                     } else if (e->is_drive) {
                         bt_drive_set_dev(e->name);

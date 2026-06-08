@@ -83,10 +83,27 @@ int main(char *arg, int flags) {
 #endif
   seed_rand(seed);
 
-  int argc = 1;
-  char *argv[2];
-  argv[0] = "bootprog";
-  argv[1] = 0;
+  char *argv[16];
+  int argc = 0;
+  argv[argc++] = "bootprog";
+  char *p = arg;
+  if (!p) { argv[argc] = 0; return gmain(argc, argv, flags); }
+  while (*p) {
+      while (*p == ' ') p++;
+      if (!*p) break;
+      if (*p == '"') {
+          p++;
+          argv[argc++] = p;
+          while (*p && *p != '"') p++;
+          if (*p) *p++ = '\0';
+      } else {
+          argv[argc++] = p;
+          while (*p && *p != ' ') p++;
+          if (*p) *p++ = '\0';
+      }
+      if (argc >= 15) break;
+  }
+  argv[argc] = 0;
 
   return gmain(argc, argv, flags);
 }
