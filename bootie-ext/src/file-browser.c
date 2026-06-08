@@ -1,6 +1,7 @@
 #include <bootie.h>
 #include <bootie-io.h>
 #include <bootie-gfx.h>
+#include <bootie-icons.h>
 #include <stdint.h>
 
 #define MAX_ENTRIES 512
@@ -9,7 +10,7 @@
 #define BUF_CAP 131072
 #define MAX_DRIVES 32
 
-#define LINE_H 16
+#define LINE_H 20
 #define HEADER_H 60
 #define FOOTER_H 16
 #define CANVAS_W 800
@@ -287,32 +288,44 @@ static void draw(const struct browser *br, struct gfx *g,
         if (i == br->cur)
             fill_rect(g, px + 2, y, 472, LINE_H, 50, 50, 120);
 
-        char buf[NAME_MAX + 32];
-        buf[0] = ' ';
-        
+        /* Draw icon (centered vertically within row) */
+        int icon_y = y + (LINE_H - 16) / 2;
+        if (e->is_drive) {
+            gfx_draw_icon_16(g, x, icon_y, ICON_DISC, 100, 255, 100);
+        } else if (e->is_dir) {
+            gfx_draw_icon_16(g, x, icon_y, ICON_FOLDER, 100, 200, 255);
+        } else if (e->bootable) {
+            gfx_draw_icon_16(g, x, icon_y, ICON_DISC, 255, 200, 50);
+        } else {
+            gfx_draw_icon_16(g, x, icon_y, ICON_FILE, 160, 160, 180);
+        }
+
+        int tx = x + 20;
+        int text_y = y + (LINE_H - 7) / 2;
         char trunc_name[NAME_MAX];
-        int max_left_chars = 52;
-        if (strlen(e->name) > max_left_chars) {
-            safe_strncpy(trunc_name, e->name, max_left_chars - 3);
-            strcpy(trunc_name + max_left_chars - 3, "...");
+        int max_chars = 48;
+        if (strlen(e->name) > max_chars) {
+            safe_strncpy(trunc_name, e->name, max_chars - 3);
+            strcpy(trunc_name + max_chars - 3, "...");
         } else {
             strcpy(trunc_name, e->name);
         }
-        strcpy(buf + 1, trunc_name);
 
         if (e->is_drive) {
+            char buf[NAME_MAX + 32];
+            strcpy(buf, trunc_name);
             int len = strlen(buf);
             strcpy(buf + len, "  [DRIVE]");
-            draw_str(g, x, y + 2, buf, 100, 255, 100, 1);
+            draw_str(g, tx, text_y, buf, 100, 255, 100, 1);
         } else if (e->is_dir) {
-            int len = strlen(buf);
-            buf[len] = '/';
-            buf[len + 1] = '\0';
-            draw_str(g, x, y + 2, buf, 100, 200, 255, 1);
+            int len = strlen(trunc_name);
+            trunc_name[len] = '/';
+            trunc_name[len + 1] = '\0';
+            draw_str(g, tx, text_y, trunc_name, 100, 200, 255, 1);
         } else if (e->bootable) {
-            draw_str(g, x, y + 2, buf, 255, 200, 50, 1);
+            draw_str(g, tx, text_y, trunc_name, 255, 200, 50, 1);
         } else {
-            draw_str(g, x, y + 2, buf, 200, 200, 200, 1);
+            draw_str(g, tx, text_y, trunc_name, 200, 200, 200, 1);
         }
 
         y += LINE_H;
