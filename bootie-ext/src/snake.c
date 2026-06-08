@@ -172,6 +172,7 @@ int gmain(int argc, char *argv[], int flags) {
       }
 
       /* Draw the frame */
+      gfx_backbuffer_begin(&g);
       /* 1. Clear play arena */
       fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
 
@@ -198,6 +199,7 @@ int gmain(int argc, char *argv[], int flags) {
       fill_rect(&g, 0, 0, W, y_off - 4, 10, 10, 15);
       draw_str(&g, (W - 10 * 6) / 2, (y_off - 10) / 2, score_str, 240, 240, 255,
                1);
+      gfx_backbuffer_end(&g);
 
       /* Tick delay - Constant 40 FPS */
       gfx_delay_ms(&g, 25);
@@ -214,6 +216,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     int exit_requested = 0;
     while (1) {
+      gfx_backbuffer_begin(&g);
       draw_border(&g, x_off, y_off);
       draw_str(&g, (W - 9 * 6 * 2) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 2);
@@ -221,6 +224,7 @@ int gmain(int argc, char *argv[], int flags) {
                240, 240, 255, 1);
       draw_str(&g, (W - 35 * 6) / 2, y_off + grid_h * 2 / 3, restart_prompt,
                180, 180, 180, 1);
+      gfx_backbuffer_end(&g);
 
       if (gfx_checkkey(&g)) {
         int key = gfx_getkey(&g);

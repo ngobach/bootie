@@ -881,7 +881,9 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         /* Render frame */
+        gfx_backbuffer_begin(&g);
         draw_nyan_frame(&g, frames[current_frame], x_off, y_off, scale);
+        gfx_backbuffer_end(&g);
 
         current_frame = (current_frame + 1) % 12;
 

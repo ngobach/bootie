@@ -503,6 +503,7 @@ int gmain(int argc, char *argv[], int flags) {
             }
 
             /* --- Rendering Frame --- */
+            gfx_backbuffer_begin(&g);
             // Clear play arena
             fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
 
@@ -537,6 +538,7 @@ int gmain(int argc, char *argv[], int flags) {
             draw_border(&g, x_off, y_off, grid_w, grid_h);
             draw_next_box(&g, x_off, y_off, grid_w, next_shape);
             draw_info_panel(&g, x_off, y_off, grid_w, score, level, lines, session_high_score);
+            gfx_backbuffer_end(&g);
 
             gfx_delay_ms(&g, 25); // ~40 FPS tick rate
         }
