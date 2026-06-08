@@ -412,45 +412,36 @@ static void draw_str(struct gfx *ctx, uint32_t cx, uint32_t cy, const char *s,
 }
 
 /* ------------------------------------------------------------------ */
-/*  High-resolution delay using CPU TSC (rdtsc)                        */
+/*  Delay using PIT channel 2 (8253/8254)                              */
 /* ------------------------------------------------------------------ */
-static uint64_t tsc_per_ms;
-
-static void tsc_init(void) {
-    if (tsc_per_ms) return;
-
-    unsigned long tick;
-    uint32_t lo, hi;
-
-    /* Wait for PIT tick to change so we start at a known boundary */
-    tick = *(volatile unsigned long *)0x46c;
-    while (*(volatile unsigned long *)0x46c == tick) {}
-
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    uint64_t start = ((uint64_t)hi << 32) | lo;
-    tick = *(volatile unsigned long *)0x46c;
-
-    /* Wait for 5 PIT ticks (~275 ms) for stable calibration */
-    while ((*(volatile unsigned long *)0x46c - tick) < 5) {}
-
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    uint64_t end = ((uint64_t)hi << 32) | lo;
-
-    tsc_per_ms = (end - start) / 275;
-    if (!tsc_per_ms) tsc_per_ms = 1;
-}
-
 static void delay_ms(unsigned int ms) {
     if (!ms) return;
-    tsc_init();
 
-    uint32_t lo, hi;
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    uint64_t deadline = (((uint64_t)hi << 32) | lo) + (uint64_t)ms * tsc_per_ms;
+    /* Enable PIT channel 2 gate (bit 0 of port 0x61 = Timer 2 gate) */
+    uint8_t tmp;
+    __asm__ volatile("inb %%dx, %%al" : "=a"(tmp) : "d"((uint16_t)0x61));
+    __asm__ volatile("outb %%al, %%dx" : : "a"((uint8_t)(tmp | 1)), "d"((uint16_t)0x61));
 
-    while (1) {
-        __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-        if ((((uint64_t)hi << 32) | lo) >= deadline) break;
+    /* Break into chunks ≤ 50 ms (PIT max ≈ 54.9 ms at 1.193182 MHz) */
+    while (ms) {
+        unsigned int chunk = ms > 50 ? 50 : ms;
+        uint32_t count = (uint32_t)chunk * 1193182U / 1000U;
+        if (count < 2) count = 2;
+
+        /* Program PIT channel 2: mode 0, LSB then MSB, binary */
+        __asm__ volatile("outb %%al, %%dx" : : "a"((uint8_t)0xB0), "d"((uint16_t)0x43));
+        __asm__ volatile("outb %%al, %%dx" : : "a"((uint8_t)(count)), "d"((uint16_t)0x42));
+        __asm__ volatile("outb %%al, %%dx" : : "a"((uint8_t)(count >> 8)), "d"((uint16_t)0x42));
+
+        /* Poll until counter reaches 0 */
+        uint8_t lo, hi;
+        do {
+            __asm__ volatile("outb %%al, %%dx" : : "a"((uint8_t)0x82), "d"((uint16_t)0x43));
+            __asm__ volatile("inb %%dx, %%al" : "=a"(lo) : "d"((uint16_t)0x42));
+            __asm__ volatile("inb %%dx, %%al" : "=a"(hi) : "d"((uint16_t)0x42));
+        } while (lo | hi);
+
+        ms -= chunk;
     }
 }
 
