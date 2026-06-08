@@ -43,7 +43,7 @@ static const struct color SHAPE_COLORS[8] = {
     {160, 0, 220},   // 3: T - Purple
     {0, 220, 0},     // 4: S - Green
     {220, 0, 0},     // 5: Z - Red
-    {0, 0, 220},     // 6: J - Blue
+    {40, 80, 255},   // 6: J - Blue
     {220, 120, 0}    // 7: L - Orange
 };
 
