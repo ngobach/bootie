@@ -254,7 +254,7 @@ static void draw(const struct browser *br, struct gfx *g,
     fill_rect(g, px + cw - 1, py, 1, ch, 80, 80, 120);
 
     const char *title = (br->cwd[0] == '\0') ? "Select Drive" : "File Browser";
-    draw_str(g, px + 8, py + 4, title, 200, 200, 255, 2);
+    draw_str(g, px + 8, py + 12, title, 200, 200, 255, 2);
 
     if (br->cwd[0] == '\0') {
         draw_str(g, px + 8, py + 38, "Drives", 180, 180, 220, 1);
@@ -658,7 +658,7 @@ int gmain(int argc, char *argv[], int flags) {
                 br->cwd[0] = '\0';
                 br->device[0] = '\0';
                 break;
-            } else if (ascii == 0x0D || scan == 0x4D) {
+            } else if (ascii == 0x0D) {
                 if (br->cur < br->count && br->entries[br->cur].bootable)
                     boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
                 else if (br->cur < br->count) {
@@ -675,6 +675,24 @@ int gmain(int argc, char *argv[], int flags) {
                         break;
                     }
                 }
+            } else if (scan == 0x4D) {
+                if (br->cur < br->count) {
+                    struct entry *e = &br->entries[br->cur];
+                    if (e->is_dir) {
+                        enter_dir(br, e->name);
+                    } else if (e->is_drive) {
+                        bt_drive_set_dev(e->name);
+                        bt_drive_open_dev();
+                        saved_drive = current_drive;
+                        saved_partition = current_partition;
+                        strcpy(br->device, e->name);
+                        strcpy(br->cwd, "/");
+                        break;
+                    }
+                }
+            } else if (ascii == 'b' || ascii == 'B') {
+                if (br->cur < br->count && br->entries[br->cur].bootable)
+                    boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
             } else if (scan == 0x4B) {
                 go_up(br);
             } else if (ascii == '.') {
