@@ -548,7 +548,7 @@ static inline void gfx_backbuffer_begin(struct gfx *g) {
         uint32_t sz = g->pitch * g->height;
         g->backbuf = malloc(sz);
         if (g->backbuf)
-            memset(g->backbuf, 0, sz);
+            memmove(g->backbuf, g->real_fb, sz);
     }
     g->fb = g->backbuf;
 }

@@ -455,8 +455,27 @@ static inline void gfx_backbuffer_begin(struct gfx *g) {
     g->real_fb = g->fb;
     uint32_t sz = g->pitch * g->height;
     g->backbuf = malloc(sz);
-    if (g->backbuf)
-      memset(g->backbuf, 0, sz);
+    if (g->backbuf) {
+      /* Preserve current screen into backbuffer (one-time copy).
+         Use GOP Blt (EfiBltVideoToBltBuffer) for WC framebuffer if
+         pixel format matches BLT_PIXEL (BGRx). */
+      int copied = 0;
+      if (g->gop && g->bshift == 0 && g->gshift == 8 && g->rshift == 16) {
+        efi_graphics_output_protocol_t *gop =
+            (efi_graphics_output_protocol_t *)g->gop;
+        if (gop->Blt) {
+          typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
+                                               uint32_t, uint32_t, uint32_t,
+                                               uint32_t, uint32_t, uint32_t,
+                                               uint32_t);
+          if (((blt_t)gop->Blt)(gop, g->backbuf, 1 /*EfiBltVideoToBltBuffer*/,
+                                0, 0, 0, 0, g->width, g->height, g->pitch) == 0)
+            copied = 1;
+        }
+      }
+      if (!copied)
+        memmove(g->backbuf, g->real_fb, sz);
+    }
   }
   g->fb = g->backbuf;
 }
