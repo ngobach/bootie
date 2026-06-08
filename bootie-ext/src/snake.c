@@ -6,20 +6,9 @@
 #define GRID_ROWS 30
 #define CELL_SIZE 12
 #define MAX_SNAKE 512
-#define MAX_STARS 80
-
 struct point {
   int x;
   int y;
-};
-
-struct star {
-  int32_t x;
-  int32_t y;
-  int32_t z;
-  int prev_px;
-  int prev_py;
-  int prev_size;
 };
 
 /* Forward declarations of helper functions */
@@ -28,10 +17,6 @@ static void place_food(struct point *food, const struct point *snake, int len);
 static void draw_cell(struct gfx *ctx, int cx, int cy, uint8_t r, uint8_t g,
                       uint8_t b, int x_off, int y_off);
 static void draw_border(struct gfx *ctx, int x_off, int y_off);
-static void init_starfield(struct star *stars, int count);
-static void update_starfield(struct gfx *ctx, struct star *stars, int count,
-                             int x_off, int y_off, int grid_w, int grid_h,
-                             int start_screen);
 
 /* Main game execution loop (must be the first function defined in the C file)
  */
@@ -54,27 +39,17 @@ int gmain(int argc, char *argv[], int flags) {
   int x_off = (W - grid_w) / 2;
   int y_off = (H - grid_h) / 2 + 10;
 
-  /* Initialize starfield background */
-  struct star stars[MAX_STARS];
-  init_starfield(stars, MAX_STARS);
-
   /* Start screen */
   fill_rect(&g, 0, 0, W, H, 10, 10, 15);
   draw_border(&g, x_off, y_off);
 
   const char *title = "Snake";
   const char *prompt = "Press any key to start...";
+  draw_str(&g, (W - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3,
+           title, 50, 220, 50, 2);
+  draw_str(&g, (W - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
 
   while (!gfx_checkkey(&g)) {
-    update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 1);
-
-    /* Redraw border and text on top of starfield to avoid clipping */
-    draw_border(&g, x_off, y_off);
-    draw_str(&g, (W - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3, title, 50, 220, 50,
-             2);
-    draw_str(&g, (W - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200,
-             1);
-
     gfx_delay_ms(&g, 25);
   }
   gfx_getkey(&g); /* consume the pressed key */
@@ -197,10 +172,7 @@ int gmain(int argc, char *argv[], int flags) {
       }
 
       /* Draw the frame */
-      /* 1. Animate background starfield outside play area */
-      update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 0);
-
-      /* 2. Clear play arena */
+      /* 1. Clear play arena */
       fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
 
       /* 3. Draw Food */
@@ -242,10 +214,6 @@ int gmain(int argc, char *argv[], int flags) {
 
     int exit_requested = 0;
     while (1) {
-      /* Animate starfield in the background */
-      update_starfield(&g, stars, MAX_STARS, x_off, y_off, grid_w, grid_h, 1);
-
-      /* Redraw game over items on top of starfield */
       draw_border(&g, x_off, y_off);
       draw_str(&g, (W - 9 * 6 * 2) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 2);
@@ -347,97 +315,4 @@ static void draw_border(struct gfx *ctx, int x_off, int y_off) {
             grid_h + border_t * 2, 100, 100, 150);
 }
 
-/* Initialize star positions and depth values */
-static void init_starfield(struct star *stars, int count) {
-  for (int i = 0; i < count; i++) {
-    stars[i].x = ((int32_t)next_rand() % 2000) - 1000;
-    stars[i].y = ((int32_t)next_rand() % 2000) - 1000;
-    stars[i].z = ((int32_t)next_rand() % 999) + 1;
-    stars[i].prev_px = -1;
-    stars[i].prev_py = -1;
-    stars[i].prev_size = 1;
-  }
-}
 
-/* Update positions, project to 2D screen space, erase old pixels and draw stars
- */
-static void update_starfield(struct gfx *ctx, struct star *stars, int count,
-                             int x_off, int y_off, int grid_w, int grid_h,
-                             int start_screen) {
-  uint32_t W = gfx_width(ctx);
-  uint32_t H = gfx_height(ctx);
-
-  for (int i = 0; i < count; i++) {
-    /* 1. Erase old star */
-    if (stars[i].prev_px >= 0 && stars[i].prev_px + stars[i].prev_size <= (int)W &&
-        stars[i].prev_py >= 0 && stars[i].prev_py + stars[i].prev_size <= (int)H) {
-      if (stars[i].prev_size == 2) {
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px + 1, stars[i].prev_py, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py + 1, 10, 10, 15);
-        put_pixel(ctx, stars[i].prev_px + 1, stars[i].prev_py + 1, 10, 10, 15);
-      } else {
-        put_pixel(ctx, stars[i].prev_px, stars[i].prev_py, 10, 10, 15);
-      }
-    }
-
-    /* 2. Move star closer */
-    stars[i].z -= 20;
-    if (stars[i].z <= 0) {
-      stars[i].x = ((int32_t)next_rand() % 2000) - 1000;
-      stars[i].y = ((int32_t)next_rand() % 2000) - 1000;
-      stars[i].z = 1000;
-      stars[i].prev_px = -1;
-      stars[i].prev_py = -1;
-      continue;
-    }
-
-    /* 3. Project coordinates */
-    int px = (int)W / 2 + (stars[i].x * 256) / stars[i].z;
-    int py = (int)H / 2 + (stars[i].y * 256) / stars[i].z;
-
-    /* 4. Reset if off-screen (ensures stars stay dense and visible) */
-    int max_size = (stars[i].z < 250) ? 2 : 1;
-    if (px < 0 || px + max_size > (int)W || py < 0 || py + max_size > (int)H) {
-      stars[i].x = ((int32_t)next_rand() % 2000) - 1000;
-      stars[i].y = ((int32_t)next_rand() % 2000) - 1000;
-      stars[i].z = 1000;
-      stars[i].prev_px = -1;
-      stars[i].prev_py = -1;
-      continue;
-    }
-
-    /* 5. Draw if allowed */
-    int in_arena = (px >= x_off && px < x_off + grid_w && py >= y_off &&
-                    py < y_off + grid_h);
-
-    /* On start screen, stars are visible everywhere. During gameplay, keep them
-     * outside the arena */
-    if (start_screen || !in_arena) {
-      int brightness = 255 - (stars[i].z * 180) / 1000;
-      if (brightness < 80)
-        brightness = 80;
-      if (brightness > 255)
-        brightness = 255;
-
-      /* Closer stars are drawn as 2x2 blocks for enhanced visibility and depth
-       */
-      int size = (stars[i].z < 250) ? 2 : 1;
-
-      if (size == 2) {
-        put_pixel(ctx, px, py, brightness, brightness, brightness);
-        put_pixel(ctx, px + 1, py, brightness, brightness, brightness);
-        put_pixel(ctx, px, py + 1, brightness, brightness, brightness);
-        put_pixel(ctx, px + 1, py + 1, brightness, brightness, brightness);
-      } else {
-        put_pixel(ctx, px, py, brightness, brightness, brightness);
-      }
-      stars[i].prev_px = px;
-      stars[i].prev_py = py;
-      stars[i].prev_size = size;
-    } else {
-      stars[i].prev_px = -1;
-      stars[i].prev_py = -1;
-    }
-  }
-}
