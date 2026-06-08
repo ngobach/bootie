@@ -313,16 +313,7 @@ static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
         for (uint32_t row = y; row < y_end; row++) {
             uint32_t *p = (uint32_t *)(ctx->fb + row * ctx->pitch) + x;
             uint32_t count = x_end - x;
-            while (count >= 8) {
-                p[0] = color; p[1] = color; p[2] = color; p[3] = color;
-                p[4] = color; p[5] = color; p[6] = color; p[7] = color;
-                p += 8;
-                count -= 8;
-            }
-            while (count > 0) {
-                *p++ = color;
-                count--;
-            }
+            __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(count) : "a"(color) : "memory");
         }
     } else if (ctx->bpp == 3) {
         uint8_t b0 = color & 0xFF;
@@ -331,11 +322,16 @@ static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
         for (uint32_t row = y; row < y_end; row++) {
             uint8_t *p = ctx->fb + row * ctx->pitch + x * 3;
             uint32_t count = x_end - x;
-            for (uint32_t col = 0; col < count; col++) {
-                p[0] = b0;
-                p[1] = b1;
-                p[2] = b2;
-                p += 3;
+            while (count >= 4) {
+                p[0] = b0; p[1] = b1; p[2] = b2;
+                p[3] = b0; p[4] = b1; p[5] = b2;
+                p[6] = b0; p[7] = b1; p[8] = b2;
+                p[9] = b0; p[10] = b1; p[11] = b2;
+                p += 12; count -= 4;
+            }
+            while (count > 0) {
+                p[0] = b0; p[1] = b1; p[2] = b2;
+                p += 3; count--;
             }
         }
     } else if (ctx->bpp == 2) {
@@ -343,16 +339,7 @@ static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
         for (uint32_t row = y; row < y_end; row++) {
             uint16_t *p = (uint16_t *)(ctx->fb + row * ctx->pitch) + x;
             uint32_t count = x_end - x;
-            while (count >= 8) {
-                p[0] = c16; p[1] = c16; p[2] = c16; p[3] = c16;
-                p[4] = c16; p[5] = c16; p[6] = c16; p[7] = c16;
-                p += 8;
-                count -= 8;
-            }
-            while (count > 0) {
-                *p++ = c16;
-                count--;
-            }
+            __asm__ __volatile__("rep stosw" : "+D"(p), "+c"(count) : "a"(c16) : "memory");
         }
     }
 }
@@ -362,14 +349,51 @@ static void draw_char(struct gfx *ctx, uint32_t cx, uint32_t cy, char ch,
                       uint8_t r, uint8_t g, uint8_t b, uint32_t scale) {
     if (ch < 0x20 || ch > 0x7E) ch = '?';
     const uint8_t *glyph = font5x7[ch - 0x20];
-    for (uint32_t col = 0; col < 5; col++) {
-        for (uint32_t row = 0; row < 7; row++) {
-            if (glyph[col] & (1 << row)) {
-                for (uint32_t sy = 0; sy < scale; sy++)
-                    for (uint32_t sx = 0; sx < scale; sx++)
-                        put_pixel(ctx, cx + col*scale + sx,
-                                  cy + row*scale + sy,
-                                  r, g, b);
+    uint32_t color = ((uint32_t)r << ctx->rshift) |
+                     ((uint32_t)g << ctx->gshift) |
+                     ((uint32_t)b << ctx->bshift);
+
+    if (ctx->bpp == 4) {
+        for (uint32_t col = 0; col < 5; col++) {
+            for (uint32_t row = 0; row < 7; row++) {
+                if (!(glyph[col] & (1 << row))) continue;
+                uint32_t px = cx + col * scale;
+                uint32_t py = cy + row * scale;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    uint32_t *dst = (uint32_t *)(ctx->fb + (py + sy) * ctx->pitch) + px;
+                    for (uint32_t sx = 0; sx < scale; sx++) dst[sx] = color;
+                }
+            }
+        }
+    } else if (ctx->bpp == 3) {
+        uint8_t b0 = color & 0xFF;
+        uint8_t b1 = (color >> 8) & 0xFF;
+        uint8_t b2 = (color >> 16) & 0xFF;
+        for (uint32_t col = 0; col < 5; col++) {
+            for (uint32_t row = 0; row < 7; row++) {
+                if (!(glyph[col] & (1 << row))) continue;
+                uint32_t px = cx + col * scale;
+                uint32_t py = cy + row * scale;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    uint8_t *dst = ctx->fb + (py + sy) * ctx->pitch + px * 3;
+                    for (uint32_t sx = 0; sx < scale; sx++) {
+                        dst[0] = b0; dst[1] = b1; dst[2] = b2;
+                        dst += 3;
+                    }
+                }
+            }
+        }
+    } else if (ctx->bpp == 2) {
+        uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+        for (uint32_t col = 0; col < 5; col++) {
+            for (uint32_t row = 0; row < 7; row++) {
+                if (!(glyph[col] & (1 << row))) continue;
+                uint32_t px = cx + col * scale;
+                uint32_t py = cy + row * scale;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    uint16_t *dst = (uint16_t *)(ctx->fb + (py + sy) * ctx->pitch) + px;
+                    for (uint32_t sx = 0; sx < scale; sx++) dst[sx] = c16;
+                }
             }
         }
     }
