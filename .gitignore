@@ -6,5 +6,6 @@ build/
 bootie-go/bootie
 bootie-go/bootie-gui
 /bootie-ext/mod/
+/bootie-go/resources/data-part/mod/
 *.o
 *.mod

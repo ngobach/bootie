@@ -3,7 +3,7 @@
 insmod /autoiso
 if not "%@UEFI%"=="" set moddir=/mod/uefi
 if "%@UEFI%"=="" set moddir=/mod/bios
-insmod %moddir%/eachtitle
+insmod %moddir%/file-browser
 
 timeout 60
 color red/black
@@ -17,7 +17,7 @@ title ----
 pause
 
 title Browse ISOs (/ISO)
-autoiso :make_menu
+file-browser /ISO/
 boot
 
 iftitle [find /grubfm_multiarch.iso] Grub File Manager (/grubfm_multiarch.iso)

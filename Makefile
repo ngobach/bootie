@@ -21,12 +21,21 @@ GUI_WINDOWS := $(BUILD_DIR)/bootie-gui-windows.exe
 # Default target — build all platform binaries
 default: all
 
+# Bootie-ext modules
+MOD_DEST := $(BOOTIE_GO_DIR)/resources/data-part/mod
+
+# Build and copy bootie-ext modules
+mod:
+	$(MAKE) -C bootie-ext
+	rm -rf $(MOD_DEST)
+	cp -r bootie-ext/mod $(MOD_DEST)
+
 # Clean build artifacts
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) $(MOD_DEST)
 
 # Prepare build directory
-build:
+build: mod
 	mkdir -p $(BUILD_DIR)
 
 # Build macOS (Darwin) executables
@@ -54,4 +63,4 @@ $(GUI_WINDOWS): build
 all: $(CLI_DARWIN) $(GUI_DARWIN) $(CLI_LINUX) $(GUI_LINUX) $(CLI_WINDOWS) $(GUI_WINDOWS)
 
 # Declare phony targets to avoid conflicts with same-named files
-.PHONY: default clean build all
+.PHONY: default clean build all mod
