@@ -640,7 +640,10 @@ int gmain(int argc, char *argv[], int flags) {
 
         while (1) {
             load_selected_size(br);
+
+            gfx_backbuffer_begin(&g);
             draw(br, &g, pad_x, pad_y, canvas_w, canvas_h);
+            gfx_backbuffer_end(&g);
 
             int key = gfx_getkey(&g);
             int scan = (key >> 8) & 0xFF;

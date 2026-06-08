@@ -91,6 +91,8 @@ struct gfx {
     uint8_t   rshift;
     uint8_t   gshift;
     uint8_t   bshift;
+    uint8_t  *real_fb;
+    void     *backbuf;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) {
@@ -490,11 +492,13 @@ static inline int gfx_init(struct gfx *ctx) {
 
     /* determine channel shifts from VBE colour mask info */
     ctx->rshift = best_mi.LinRedFieldPosition   ? best_mi.LinRedFieldPosition
-                                              : best_mi.RedFieldPosition;
+                                               : best_mi.RedFieldPosition;
     ctx->gshift = best_mi.LinGreenFieldPosition ? best_mi.LinGreenFieldPosition
-                                              : best_mi.GreenFieldPosition;
+                                               : best_mi.GreenFieldPosition;
     ctx->bshift = best_mi.LinBlueFieldPosition  ? best_mi.LinBlueFieldPosition
-                                              : best_mi.BlueFieldPosition;
+                                               : best_mi.BlueFieldPosition;
+    ctx->real_fb = NULL;
+    ctx->backbuf = NULL;
 
     printf("fb=0x%08X pitch=%u bpp=%u rgb_shifts=(%u,%u,%u)\n",
            (unsigned int)ctx->fb, (unsigned int)ctx->pitch, (unsigned int)ctx->bpp,
@@ -504,7 +508,10 @@ static inline int gfx_init(struct gfx *ctx) {
 }
 
 static inline void gfx_close(struct gfx *ctx) {
-    (void)ctx;
+    if (ctx->backbuf) {
+        free(ctx->backbuf);
+        ctx->backbuf = NULL;
+    }
     /* --- restore text mode --- */
     if (graphics_inited) {
         if (current_term->STARTUP)
@@ -528,6 +535,35 @@ static inline int gfx_getkey(struct gfx *ctx) {
 static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
     (void)ctx;
     delay_ms(ms);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Backbuffer helpers — transparent double-buffering for consumers    */
+/* ------------------------------------------------------------------ */
+
+/* Switch drawing target to the backbuffer, allocating it on first use */
+static inline void gfx_backbuffer_begin(struct gfx *g) {
+    if (!g->backbuf) {
+        g->real_fb = g->fb;
+        uint32_t sz = g->pitch * g->height;
+        g->backbuf = malloc(sz);
+    }
+    g->fb = g->backbuf;
+}
+
+/* Blit backbuffer to the real framebuffer and restore fb pointer */
+static inline void gfx_backbuffer_end(struct gfx *g) {
+    if (g->backbuf && g->real_fb) {
+        uint32_t sz = g->pitch * g->height;
+        uint8_t *dst = g->real_fb;
+        const uint8_t *src = (const uint8_t *)g->backbuf;
+
+        __asm__ volatile("rep movsb"
+                         : "+S"(src), "+D"(dst), "+c"(sz)
+                         :
+                         : "memory");
+        g->fb = g->real_fb;
+    }
 }
 
 #endif /* BIOS_GFX_H */

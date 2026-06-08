@@ -62,6 +62,8 @@ struct gfx {
   uint8_t bshift;
   int has_key;
   int buffered_key;
+  uint8_t *real_fb;
+  void *backbuf;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
@@ -369,11 +371,16 @@ static inline int gfx_init(struct gfx *ctx) {
 
   ctx->has_key = 0;
   ctx->buffered_key = 0;
+  ctx->real_fb = NULL;
+  ctx->backbuf = NULL;
   return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
-  (void)ctx;
+  if (ctx->backbuf) {
+    free(ctx->backbuf);
+    ctx->backbuf = NULL;
+  }
   if (graphics_inited) {
     if (current_term->STARTUP)
       ((int (*)(int))current_term->STARTUP)(0);
@@ -434,6 +441,35 @@ static inline int gfx_getkey(struct gfx *ctx) {
   }
   ctx->has_key = 0;
   return ctx->buffered_key;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Backbuffer helpers — transparent double-buffering for consumers    */
+/* ------------------------------------------------------------------ */
+
+/* Switch drawing target to the backbuffer, allocating it on first use */
+static inline void gfx_backbuffer_begin(struct gfx *g) {
+  if (!g->backbuf) {
+    g->real_fb = g->fb;
+    uint32_t sz = g->pitch * g->height;
+    g->backbuf = malloc(sz);
+  }
+  g->fb = g->backbuf;
+}
+
+/* Blit backbuffer to the real framebuffer and restore fb pointer */
+static inline void gfx_backbuffer_end(struct gfx *g) {
+  if (g->backbuf && g->real_fb) {
+    uint32_t sz = g->pitch * g->height;
+    uint8_t *dst = g->real_fb;
+    const uint8_t *src = (const uint8_t *)g->backbuf;
+
+    __asm__ volatile("rep movsb"
+                     : "+S"(src), "+D"(dst), "+c"(sz)
+                     :
+                     : "memory");
+    g->fb = g->real_fb;
+  }
 }
 
 #endif /* UEFI_GFX_H */
