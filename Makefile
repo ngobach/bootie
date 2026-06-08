@@ -30,12 +30,18 @@ mod:
 	rm -rf $(MOD_DEST)
 	cp -r bootie-ext/mod $(MOD_DEST)
 
+# Copy bootie-ext modules to the build directory
+copy-mod: mod
+	mkdir -p $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)/mod
+	cp -r bootie-ext/mod $(BUILD_DIR)/mod
+
 # Clean build artifacts
 clean:
 	rm -rf $(BUILD_DIR) $(MOD_DEST)
 
 # Prepare build directory
-build: mod
+build: copy-mod
 	mkdir -p $(BUILD_DIR)
 
 # Build macOS (Darwin) executables
@@ -63,4 +69,4 @@ $(GUI_WINDOWS): build
 all: $(CLI_DARWIN) $(GUI_DARWIN) $(CLI_LINUX) $(GUI_LINUX) $(CLI_WINDOWS) $(GUI_WINDOWS)
 
 # Declare phony targets to avoid conflicts with same-named files
-.PHONY: default clean build all mod
+.PHONY: default clean build all mod copy-mod
