@@ -5,18 +5,31 @@ OBJCOPY := $(or $(shell command -v $(CROSS_PREFIX)objcopy 2>/dev/null),objcopy)
 RM      := rm -f
 MKDIR   := mkdir -p
 
+# Optional TrueType font to embed (path to a .ttf file).
+# When set, the font is converted to a C array and compiled into every module.
+TTF_FONT ?= fonts/SpaceGrotesk-Regular.ttf
+FONT_HEADER := include/font-ttf.h
+
+# If the TTF font exists, generate the font header and enable TTF rendering
+FONT_CFLAGS :=
+ifneq ($(wildcard $(TTF_FONT)),)
+FONT_CFLAGS := -DBOOTIE_FONT_AVAILABLE
+endif
+
 # When using a native Linux gcc, -fPIE implies -pie which makes the linker
 # generate PT_PHDR / PT_GNU_RELRO program headers that the custom linker
 # script does not cover.  Suppress them with --no-dynamic-linker and norelro.
 CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-tree-loop-distribute-patterns \
                -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE \
-               -Wl,--no-dynamic-linker -Wl,-z,norelro
+               -Wl,--no-dynamic-linker -Wl,-z,norelro \
+               -Ilibs/schrift $(FONT_CFLAGS)
 
-CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-sse -mno-red-zone -nostdlib \
+CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
-               -Wl,--no-dynamic-linker -Wl,-z,norelro
+               -Wl,--no-dynamic-linker -Wl,-z,norelro \
+               -Ilibs/schrift $(FONT_CFLAGS)
 
 # Collect all top-level C sources
 SOURCES := $(wildcard src/*.c)
@@ -25,7 +38,7 @@ NAMES   := $(patsubst src/%.c,%,$(SOURCES))
 BIOS_TARGETS := $(patsubst %,mod/bios/%,$(NAMES))
 UEFI_TARGETS := $(patsubst %,mod/uefi/%,$(NAMES))
 
-.PHONY: all bios uefi clean
+.PHONY: all bios uefi clean font-header
 
 all: bios uefi
 
@@ -34,9 +47,23 @@ bios: $(BIOS_TARGETS)
 uefi: $(UEFI_TARGETS)
 
 # ------------------------------------------------------------------
-# Generic BIOS module build (all targets except screen_test)
+# Generate font header from TTF
 # ------------------------------------------------------------------
-mod/bios/%: src/%.c
+font-header: $(FONT_HEADER)
+
+ifneq ($(wildcard $(TTF_FONT)),)
+$(FONT_HEADER): $(TTF_FONT) scripts/ttf_to_c.py
+	python3 scripts/ttf_to_c.py "$(TTF_FONT)" "$(FONT_HEADER)"
+else
+$(FONT_HEADER):
+	@echo "No TTF font found at $(TTF_FONT); building without TrueType support."
+	@echo "Set TTF_FONT=path/to/font.ttf to enable TrueType rendering."
+endif
+
+# ------------------------------------------------------------------
+# Generic BIOS module build
+# ------------------------------------------------------------------
+mod/bios/%: src/%.c $(FONT_HEADER)
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
@@ -45,14 +72,12 @@ mod/bios/%: src/%.c
 # ------------------------------------------------------------------
 # Generic UEFI module build
 # ------------------------------------------------------------------
-mod/uefi/%: src/%.c
+mod/uefi/%: src/%.c $(FONT_HEADER)
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 	$(RM) $@.o
 
 # ------------------------------------------------------------------
-
-# ------------------------------------------------------------------
 clean:
-	rm -rf mod
+	rm -rf mod $(FONT_HEADER)

@@ -10,9 +10,9 @@
 #define BUF_CAP 131072
 #define MAX_DRIVES 32
 
-#define LINE_H 20
-#define HEADER_H 60
-#define FOOTER_H 16
+#define LINE_H 22
+#define HEADER_H 72
+#define FOOTER_H 20
 #define CANVAS_W 800
 #define CANVAS_H 600
 
@@ -258,18 +258,18 @@ static void draw(const struct browser *br, struct gfx *g,
     draw_str(g, px + 8, py + 12, title, 200, 200, 255, 2);
 
     if (br->cwd[0] == '\0') {
-        draw_str(g, px + 8, py + 38, "Drives", 180, 180, 220, 1);
+        draw_str(g, px + 8, py + 46, "Drives", 180, 180, 220, 1);
     } else if (br->device[0]) {
         char fullpath[PATH_MAX + 24];
         int dlen = strlen(br->device);
         strcpy(fullpath, br->device);
         strcpy(fullpath + dlen, br->cwd);
-        draw_str(g, px + 8, py + 38, fullpath, 180, 180, 220, 1);
+        draw_str(g, px + 8, py + 46, fullpath, 180, 180, 220, 1);
     } else {
-        draw_str(g, px + 8, py + 38, br->cwd, 180, 180, 220, 1);
+        draw_str(g, px + 8, py + 46, br->cwd, 180, 180, 220, 1);
     }
 
-    fill_rect(g, px, py + 56, cw, 1, 80, 80, 120);
+    fill_rect(g, px, py + 70, cw, 1, 80, 80, 120);
 
     int x = px + 8;
     int y = py + HEADER_H;
@@ -301,7 +301,7 @@ static void draw(const struct browser *br, struct gfx *g,
         }
 
         int tx = x + 20;
-        int text_y = y + (LINE_H - 7) / 2;
+        int text_y = y + 2;
         char trunc_name[NAME_MAX];
         int max_chars = 48;
         if (strlen(e->name) > max_chars) {
@@ -359,21 +359,21 @@ static void draw(const struct browser *br, struct gfx *g,
 
         if (e->is_drive) {
             draw_str(g, tx, ty, "DRIVE INFO", 100, 255, 100, 1);
-            ty += 24;
+            ty += 28;
             draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             draw_str(g, tx + 8, ty, e->name, 255, 255, 255, 1);
-            ty += 24;
+            ty += 28;
             draw_str(g, tx, ty, "Type: Hardware Drive", 180, 180, 200, 1);
-            ty += 32;
+            ty += 36;
             draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             draw_str(g, tx + 8, ty, "Press [Enter] to open drive.", 200, 200, 200, 1);
         } else if (e->is_dir) {
             draw_str(g, tx, ty, "FOLDER INFO", 100, 200, 255, 1);
-            ty += 24;
+            ty += 28;
             draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             char short_name[32];
             int max_chars = (card_w - 24) / 6;
             if (max_chars > 31) max_chars = 31;
@@ -385,11 +385,11 @@ static void draw(const struct browser *br, struct gfx *g,
                 strcpy(short_name, e->name);
             }
             draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
-            ty += 24;
+            ty += 28;
             draw_str(g, tx, ty, "Type: Directory", 180, 180, 200, 1);
-            ty += 32;
+            ty += 36;
             draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             draw_str(g, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 1);
         } else {
             if (e->bootable) {
@@ -397,9 +397,9 @@ static void draw(const struct browser *br, struct gfx *g,
             } else {
                 draw_str(g, tx, ty, "FILE INFO", 180, 180, 200, 1);
             }
-            ty += 24;
+            ty += 28;
             draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             char short_name[32];
             int max_chars = (card_w - 24) / 6;
             if (max_chars > 31) max_chars = 31;
@@ -411,10 +411,10 @@ static void draw(const struct browser *br, struct gfx *g,
                 strcpy(short_name, e->name);
             }
             draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
-            ty += 24;
+            ty += 28;
 
             draw_str(g, tx, ty, "Size:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             char size_str[32];
             if (e->size == (unsigned long long)-1 || e->size == 0) {
                 strcpy(size_str, "0 bytes");
@@ -434,21 +434,21 @@ static void draw(const struct browser *br, struct gfx *g,
                 sprintf(size_str, "%d bytes", (int)e->size);
             }
             draw_str(g, tx + 8, ty, size_str, 200, 255, 200, 1);
-            ty += 24;
+            ty += 28;
 
             draw_str(g, tx, ty, "Status:", 180, 180, 200, 1);
-            ty += 16;
+            ty += 22;
             if (e->bootable) {
                 draw_str(g, tx + 8, ty, "Bootable [YES]", 100, 255, 100, 1);
-                ty += 24;
+                ty += 28;
                 draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
-                ty += 16;
+                ty += 22;
                 draw_str(g, tx + 8, ty, "Press [Enter] or [B] to boot.", 200, 200, 200, 1);
             } else {
                 draw_str(g, tx + 8, ty, "Non-bootable [NO]", 255, 100, 100, 1);
-                ty += 24;
+                ty += 28;
                 draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
-                ty += 16;
+                ty += 22;
                 draw_str(g, tx + 8, ty, "No direct boot script.", 150, 150, 150, 1);
             }
         }
@@ -563,6 +563,7 @@ int gmain(int argc, char *argv[], int flags) {
     if (!gfx_init(&g)) {
         return 1;
     }
+    gfx_font_load();
 
     uint32_t fw = g.width;
     uint32_t fh = g.height;
@@ -635,14 +636,14 @@ int gmain(int argc, char *argv[], int flags) {
         if (list_dir(br) != 0) {
             fill_rect(&g, 0, 0, g.width, g.height, 15, 15, 30);
             if (br->cwd[0] == '\0') {
-                draw_str(&g, pad_x + 8, pad_y + canvas_h / 2 - 7,
+                draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                          "No drives found", 255, 50, 50, 2);
                 gfx_getkey(&g);
                 free(br);
                 gfx_close(&g);
                 return 1;
             }
-            draw_str(&g, pad_x + 8, pad_y + canvas_h / 2 - 7,
+            draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "Cannot list directory", 255, 50, 50, 2);
             gfx_getkey(&g);
             br->cwd[0] = '\0';
@@ -652,7 +653,7 @@ int gmain(int argc, char *argv[], int flags) {
 
         if (br->cwd[0] == '\0' && br->count == 0) {
             fill_rect(&g, 0, 0, g.width, g.height, 15, 15, 30);
-            draw_str(&g, pad_x + 8, pad_y + canvas_h / 2 - 7,
+            draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "No drives found", 255, 50, 50, 2);
             gfx_getkey(&g);
             free(br);

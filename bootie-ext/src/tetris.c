@@ -121,7 +121,7 @@ static void draw_next_box(struct gfx *g, int x_off, int y_off, int grid_w, int n
     int bw = 5 * CELL_SIZE;
     int bh = 5 * CELL_SIZE;
 
-    draw_str(g, bx + (bw - 4 * 6) / 2, by - 14, "NEXT", 200, 200, 255, 1);
+    draw_str(g, bx + (bw - gfx_text_width("NEXT", 16)) / 2, by - 24, "NEXT", 200, 200, 255, 1);
 
     // Box neon border
     fill_rect(g, bx - 2, by - 2, bw + 4, 2, 0, 120, 240);
@@ -161,31 +161,26 @@ static void draw_next_box(struct gfx *g, int x_off, int y_off, int grid_w, int n
 static void draw_info_panel(struct gfx *g, int x_off, int y_off, int grid_w,
                             int score, int level, int lines, int high_score) {
     int px = x_off + grid_w + 20;
-    char buf[32];
 
     // High Score
     draw_str(g, px, y_off + 130, "HIGH SCORE", 200, 200, 255, 1);
-    fill_rect(g, px, y_off + 145, 120, 8, 10, 10, 15);
-    sprintf(buf, "%d", high_score);
-    draw_str(g, px, y_off + 145, buf, 255, 220, 50, 1);
+    fill_rect(g, px, y_off + 152, 120, 22, 10, 10, 15);
+    draw_strf(g, px, y_off + 152, 255, 220, 50, 1, "%d", high_score);
 
     // Score
-    draw_str(g, px, y_off + 185, "SCORE", 200, 200, 255, 1);
-    fill_rect(g, px, y_off + 200, 120, 8, 10, 10, 15);
-    sprintf(buf, "%d", score);
-    draw_str(g, px, y_off + 200, buf, 255, 255, 255, 1);
+    draw_str(g, px, y_off + 190, "SCORE", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 212, 120, 22, 10, 10, 15);
+    draw_strf(g, px, y_off + 212, 255, 255, 255, 1, "%d", score);
 
     // Level
-    draw_str(g, px, y_off + 240, "LEVEL", 200, 200, 255, 1);
-    fill_rect(g, px, y_off + 255, 120, 8, 10, 10, 15);
-    sprintf(buf, "%d", level);
-    draw_str(g, px, y_off + 255, buf, 255, 255, 255, 1);
+    draw_str(g, px, y_off + 250, "LEVEL", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 272, 120, 22, 10, 10, 15);
+    draw_strf(g, px, y_off + 272, 255, 255, 255, 1, "%d", level);
 
     // Lines
-    draw_str(g, px, y_off + 295, "LINES", 200, 200, 255, 1);
-    fill_rect(g, px, y_off + 310, 120, 8, 10, 10, 15);
-    sprintf(buf, "%d", lines);
-    draw_str(g, px, y_off + 310, buf, 255, 255, 255, 1);
+    draw_str(g, px, y_off + 310, "LINES", 200, 200, 255, 1);
+    fill_rect(g, px, y_off + 332, 120, 22, 10, 10, 15);
+    draw_strf(g, px, y_off + 332, 255, 255, 255, 1, "%d", lines);
 }
 
 /* Gameplay mechanics helpers */
@@ -337,6 +332,7 @@ int gmain(int argc, char *argv[], int flags) {
     if (!gfx_init(&g)) {
         return 0;
     }
+    gfx_font_load();
 
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
@@ -354,8 +350,8 @@ int gmain(int argc, char *argv[], int flags) {
     const char *prompt = "Press any key to start...";
 
     // Align title and prompt relative to the playfield border to keep it centered visually
-    draw_str(&g, x_off + (grid_w - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3, title, 0, 220, 220, 2);
-    draw_str(&g, x_off + (grid_w - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(title, SCALE_PX(2))) / 2, y_off + grid_h / 3, title, 0, 220, 220, 2);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(prompt, SCALE_PX(1))) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
 
     while (!gfx_checkkey(&g)) {
         gfx_delay_ms(&g, 25);
@@ -548,13 +544,12 @@ int gmain(int argc, char *argv[], int flags) {
         draw_border(&g, x_off, y_off, grid_w, grid_h);
 
         const char *go_title = "GAME OVER";
-        char go_score[64];
-        sprintf(go_score, "Score: %d", score);
         const char *restart_prompt = "SPACE to Restart, ESC to Exit";
 
-        draw_str(&g, x_off + (grid_w - 9 * 6 * 2) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 2);
-        draw_str(&g, x_off + (grid_w - strlen(go_score) * 6) / 2, y_off + grid_h / 2, go_score, 255, 255, 255, 1);
-        draw_str(&g, x_off + (grid_w - 29 * 6) / 2, y_off + 2 * grid_h / 3, restart_prompt, 200, 200, 200, 1);
+        draw_str(&g, x_off + (grid_w - gfx_text_width(go_title, SCALE_PX(2))) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 2);
+        draw_strf(&g, x_off + (grid_w - gfx_text_width("Score: 99999", SCALE_PX(1))) / 2, y_off + grid_h / 2,
+                  255, 255, 255, 1, "Score: %d", score);
+        draw_str(&g, x_off + (grid_w - gfx_text_width(restart_prompt, SCALE_PX(1))) / 2, y_off + 2 * grid_h / 3, restart_prompt, 200, 200, 200, 1);
 
         int exit_requested = 0;
         while (1) {

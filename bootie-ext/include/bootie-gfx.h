@@ -33,4 +33,8 @@ static inline void gfx_draw_icon_16(struct gfx *ctx, int x, int y,
     }
 }
 
+/* Include TTF font rendering (overrides draw_str with a TTF-aware macro
+   when a font is loaded via gfx_font_load()). */
+#include <bootie-font.h>
+
 #endif /* BOOTIE_GFX_H */

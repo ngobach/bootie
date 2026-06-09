@@ -45,10 +45,8 @@ static void draw_demo(struct gfx *g) {
     /* --- centred title banner --- */
     const char *title = "Bootie-ext VBE Test";
     uint32_t scale   = 3;
-    uint32_t char_w  = (5 + 1) * scale;
-    uint32_t str_len = 0;
-    for (const char *p = title; *p; p++) str_len++;
-    uint32_t tx = (W > str_len * char_w) ? (W - str_len * char_w) / 2 : 0;
+    uint32_t tx = (W > gfx_text_width(title, SCALE_PX(scale))) ?
+                  (W - gfx_text_width(title, SCALE_PX(scale))) / 2 : 0;
     uint32_t ty = H / 4;
     /* shadow */
     draw_str(g, tx + 2, ty + 2, title, 10, 10, 40, scale);
@@ -57,16 +55,13 @@ static void draw_demo(struct gfx *g) {
 
     /* --- sub-title --- */
     const char *sub = "Press any key to exit";
-    uint32_t slen = 0;
-    for (const char *p = sub; *p; p++) slen++;
-    uint32_t sx2 = (W > slen * (5+1)*2) ? (W - slen * (5+1)*2) / 2 : 0;
-    draw_str(g, sx2, ty + 7*scale + 8, sub, 160, 180, 200, 2);
+    uint32_t sx2 = (W > gfx_text_width(sub, SCALE_PX(2))) ?
+                   (W - gfx_text_width(sub, SCALE_PX(2))) / 2 : 0;
+    draw_str(g, sx2, ty + SCALE_PX(scale) + 8, sub, 160, 180, 200, 2);
 
     /* --- resolution info line --- */
-    char info[64];
-    sprintf(info, "Mode: %dx%d bpp=%d", (int)W, (int)H, (int)(g->bpp * 8));
-
-    draw_str(g, 8, 8, info, 120, 200, 100, 1);
+    draw_strf(g, 8, 8, 120, 200, 100, 1, "Mode: %dx%d bpp=%d",
+              (int)W, (int)H, (int)(g->bpp * 8));
 
     /* --- simple border --- */
     uint32_t bw = 3;
@@ -88,6 +83,7 @@ int gmain(int argc, char *argv[], int flags) {
     if (!gfx_init(&g)) {
         return 0;
     }
+    gfx_font_load();
 
     /* --- draw the demo --- */
     draw_demo(&g);

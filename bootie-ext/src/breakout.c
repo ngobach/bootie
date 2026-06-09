@@ -36,6 +36,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     struct gfx g;
     if (!gfx_init(&g)) return 0;
+    gfx_font_load();
 
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
@@ -70,9 +71,9 @@ int gmain(int argc, char *argv[], int flags) {
     const char *title = "BREAKOUT";
     const char *ctrl = "LEFT/RIGHT or A/D to move";
     const char *prompt = "Press any key to start...";
-    draw_str(&g, (wnd_l + wnd_r - (int)strlen(title) * 6 * 2) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 2);
-    draw_str(&g, (wnd_l + wnd_r - (int)strlen(ctrl) * 6) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 10, ctrl, 200, 200, 200, 1);
-    draw_str(&g, (wnd_l + wnd_r - (int)strlen(prompt) * 6) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 20, prompt, 200, 200, 200, 1);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(title, SCALE_PX(2))) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 2);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(ctrl, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 1);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(prompt, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 1);
     while (!gfx_checkkey(&g)) gfx_delay_ms(&g, 25);
     gfx_getkey(&g);
 
@@ -269,19 +270,14 @@ int gmain(int argc, char *argv[], int flags) {
             fill_rect(&g, ball_x - BALL_SZ / 2, ball_y - BALL_SZ / 2, BALL_SZ, BALL_SZ, 255, 255, 255);
 
             /* Score & Lives */
-            char buf[32];
             /* Clear and draw title bar above the window */
             fill_rect(&g, 0, 0, W, wnd_t - BORDER_T, 10, 10, 15);
-            draw_str(&g, 10, (wnd_t - BORDER_T - 8) / 2, "SCORE", 200, 200, 255, 1);
-            sprintf(buf, "%d", score);
-            draw_str(&g, 10, (wnd_t - BORDER_T - 8) / 2 + 10, buf, 255, 255, 255, 1);
-
-            draw_str(&g, W - 80, (wnd_t - BORDER_T - 8) / 2, "LIVES", 200, 200, 255, 1);
-            sprintf(buf, "%d", lives);
-            draw_str(&g, W - 80, (wnd_t - BORDER_T - 8) / 2 + 10, buf, 255, 255, 255, 1);
+            int top_label_y = (wnd_t - 20) / 2;
+            draw_strf(&g, 10, top_label_y, 200, 200, 255, 1, "SCORE: %d", score);
+            draw_strf(&g, W - 100, top_label_y, 200, 200, 255, 1, "LIVES: %d", lives);
 
             if (serving) {
-                draw_str(&g, (wnd_l + wnd_r - (int)strlen("SPACE to launch") * 6) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 1);
+                draw_str(&g, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", SCALE_PX(1))) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 1);
             }
 
             gfx_backbuffer_end(&g);
@@ -301,17 +297,16 @@ int gmain(int argc, char *argv[], int flags) {
                   wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150);
 
         const char *go_title = "GAME OVER";
-        char go_msg[64];
-        if (lives <= 0) {
-            sprintf(go_msg, "Score: %d", score);
-        } else {
-            sprintf(go_msg, "You Win! Score: %d", score);
-        }
         const char *restart = "SPACE to Play Again, ESC to Exit";
 
-        draw_str(&g, (wnd_l + wnd_r - (int)strlen(go_title) * 6 * 2) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 2);
-        draw_str(&g, (wnd_l + wnd_r - (int)strlen(go_msg) * 6) / 2, wnd_t + (wnd_b - wnd_t) / 2, go_msg, 255, 255, 255, 1);
-        draw_str(&g, (wnd_l + wnd_r - (int)strlen(restart) * 6) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 1);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(go_title, SCALE_PX(2))) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 2);
+        if (lives <= 0)
+            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("Score: 99999", SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+                      255, 255, 255, 1, "Score: %d", score);
+        else
+            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("You Win! Score: 99999", SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+                      255, 255, 255, 1, "You Win! Score: %d", score);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(restart, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 1);
 
         int exit_req = 0;
         while (1) {

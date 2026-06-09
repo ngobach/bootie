@@ -11,6 +11,8 @@ struct point {
   int y;
 };
 
+static int session_high_score = 0;
+
 /* Forward declarations of helper functions */
 
 static void place_food(struct point *food, const struct point *snake, int len);
@@ -29,6 +31,7 @@ int gmain(int argc, char *argv[], int flags) {
   if (!gfx_init(&g)) {
     return 0;
   }
+  gfx_font_load();
 
   uint32_t W = gfx_width(&g);
   uint32_t H = gfx_height(&g);
@@ -45,9 +48,9 @@ int gmain(int argc, char *argv[], int flags) {
 
   const char *title = "Snake";
   const char *prompt = "Press any key to start...";
-  draw_str(&g, (W - (int)strlen(title) * 6 * 2) / 2, y_off + grid_h / 3,
+  draw_str(&g, (W - gfx_text_width(title, SCALE_PX(2))) / 2, y_off + grid_h / 3,
            title, 50, 220, 50, 2);
-  draw_str(&g, (W - 25 * 6) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
+  draw_str(&g, (W - gfx_text_width(prompt, SCALE_PX(1))) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
 
   while (!gfx_checkkey(&g)) {
     gfx_delay_ms(&g, 25);
@@ -156,6 +159,8 @@ int gmain(int argc, char *argv[], int flags) {
           snake[0] = new_head;
 
           score += 10;
+          if (score > session_high_score)
+              session_high_score = score;
           place_food(&food, snake, snake_len);
 
           /* Speed up slightly */
@@ -193,12 +198,14 @@ int gmain(int argc, char *argv[], int flags) {
       /* 5. Draw Border & Score */
       draw_border(&g, x_off, y_off);
 
-      char score_str[32];
-      sprintf(score_str, "SCORE: %d", score);
       /* Clear score area at the top */
       fill_rect(&g, 0, 0, W, y_off - 4, 10, 10, 15);
-      draw_str(&g, (W - 10 * 6) / 2, (y_off - 10) / 2, score_str, 240, 240, 255,
-               1);
+      if (session_high_score > 0)
+          draw_strf(&g, (W - gfx_text_width("SCORE: 9999    HI: 99999", SCALE_PX(1))) / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+                    "SCORE: %d    HI: %d", score, session_high_score);
+      else
+          draw_strf(&g, (W - gfx_text_width("SCORE: 9999", SCALE_PX(1))) / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+                    "SCORE: %d", score);
       gfx_backbuffer_end(&g);
 
       /* Tick delay - Constant 40 FPS */
@@ -210,19 +217,21 @@ int gmain(int argc, char *argv[], int flags) {
     draw_border(&g, x_off, y_off);
 
     const char *go_title = "GAME OVER";
-    char go_score[64];
-    sprintf(go_score, "Final Score: %d", score);
     const char *restart_prompt = "Press SPACE to Restart, ESC to Exit";
 
     int exit_requested = 0;
     while (1) {
       gfx_backbuffer_begin(&g);
       draw_border(&g, x_off, y_off);
-      draw_str(&g, (W - 9 * 6 * 2) / 2, y_off + grid_h / 3, go_title, 220, 50,
+      draw_str(&g, (W - gfx_text_width(go_title, SCALE_PX(2))) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 2);
-      draw_str(&g, (W - strlen(go_score) * 6) / 2, y_off + grid_h / 2, go_score,
-               240, 240, 255, 1);
-      draw_str(&g, (W - 35 * 6) / 2, y_off + grid_h * 2 / 3, restart_prompt,
+      if (score >= session_high_score && score > 0)
+          draw_strf(&g, (W - gfx_text_width("New High Score: 99999!", SCALE_PX(1))) / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+                    "New High Score: %d!", score);
+      else
+          draw_strf(&g, (W - gfx_text_width("Score: 99999    High Score: 99999", SCALE_PX(1))) / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+                    "Score: %d    High Score: %d", score, session_high_score);
+      draw_str(&g, (W - gfx_text_width(restart_prompt, SCALE_PX(1))) / 2, y_off + grid_h * 2 / 3, restart_prompt,
                180, 180, 180, 1);
       gfx_backbuffer_end(&g);
 
