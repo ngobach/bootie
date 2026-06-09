@@ -3,7 +3,9 @@
 if not "%@UEFI%"=="" set moddir=/mod/uefi
 if "%@UEFI%"=="" set moddir=/mod/bios
 
-timeout 60
+if "%firstboot%"=="" set firstboot=1 ;; %moddir%/file-browser /ISO
+
+timeout 3
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
 default 2
