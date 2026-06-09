@@ -162,6 +162,10 @@ static void draw_info_panel(struct gfx *g, int x_off, int y_off, int grid_w,
                             int score, int level, int lines, int high_score) {
     int px = x_off + grid_w + 20;
 
+    // Clear the info panel area before drawing (callers like animate_line_clear
+    // don't clear the full frame first, so this prevents text-on-text artifacts).
+    fill_rect(g, px, y_off + 110, 200, 260, 10, 10, 15);
+
     // High Score
     draw_str(g, px, y_off + 130, "HIGH SCORE", 200, 200, 255, 1);
     fill_rect(g, px, y_off + 152, 120, 22, 10, 10, 15);
@@ -500,6 +504,8 @@ int gmain(int argc, char *argv[], int flags) {
 
             /* --- Rendering Frame --- */
             gfx_backbuffer_begin(&g);
+            // Clear entire frame to remove previous frame's side-panel text artifacts
+            fill_rect(&g, 0, 0, W, H, 10, 10, 15);
             // Clear play arena
             fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
 
