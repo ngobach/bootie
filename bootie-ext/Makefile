@@ -10,6 +10,10 @@ MKDIR   := mkdir -p
 TTF_FONT ?= fonts/SpaceGrotesk-Regular.ttf
 FONT_HEADER := include/font-ttf.h
 
+# Icon pack: 16x16 PNGs are converted to a C header at build time.
+ICON_DIR  := icons
+ICON_HEADER := include/bootie-icons.h
+
 # When using a native Linux gcc, -fPIE implies -pie which makes the linker
 # generate PT_PHDR / PT_GNU_RELRO program headers that the custom linker
 # script does not cover.  Suppress them with --no-dynamic-linker and norelro.
@@ -17,13 +21,13 @@ CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-tree-loop-distribute-patterns \
                -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro \
-               -Ilibs/schrift
+               -Ilibs/schrift -Ilibs/lodepng
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro \
-               -Ilibs/schrift
+               -Ilibs/schrift -Ilibs/lodepng
 
 # Collect all top-level C sources
 SOURCES := $(wildcard src/*.c)
@@ -32,7 +36,7 @@ NAMES   := $(patsubst src/%.c,%,$(SOURCES))
 BIOS_TARGETS := $(patsubst %,mod/bios/%,$(NAMES))
 UEFI_TARGETS := $(patsubst %,mod/uefi/%,$(NAMES))
 
-.PHONY: all bios uefi clean font-header
+.PHONY: all bios uefi clean font-header icon-header
 
 all: bios uefi
 
@@ -55,9 +59,15 @@ $(FONT_HEADER):
 endif
 
 # ------------------------------------------------------------------
+# Generate icon header from 16x16 RGBA PNGs in $(ICON_DIR)
+# ------------------------------------------------------------------
+$(ICON_HEADER): $(wildcard $(ICON_DIR)/*.png) scripts/icons_to_c.py
+	python3 scripts/icons_to_c.py "$(ICON_DIR)" "$(ICON_HEADER)"
+
+# ------------------------------------------------------------------
 # Generic BIOS module build
 # ------------------------------------------------------------------
-mod/bios/%: src/%.c $(FONT_HEADER)
+mod/bios/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
@@ -66,7 +76,7 @@ mod/bios/%: src/%.c $(FONT_HEADER)
 # ------------------------------------------------------------------
 # Generic UEFI module build
 # ------------------------------------------------------------------
-mod/uefi/%: src/%.c $(FONT_HEADER)
+mod/uefi/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
 	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
@@ -74,4 +84,4 @@ mod/uefi/%: src/%.c $(FONT_HEADER)
 
 # ------------------------------------------------------------------
 clean:
-	rm -rf mod $(FONT_HEADER)
+	rm -rf mod $(FONT_HEADER) $(ICON_HEADER)

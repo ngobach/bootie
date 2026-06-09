@@ -2,6 +2,7 @@
 #include <bootie-io.h>
 #include <bootie-gfx.h>
 #include <bootie-icons.h>
+#include <bootie-img.h>
 #include <stdint.h>
 
 #define MAX_ENTRIES 512
@@ -38,6 +39,10 @@ struct browser {
     int cur;
     int view_rows;
     int show_dotfiles;
+    struct gfx_image icon_disc;
+    struct gfx_image icon_file;
+    struct gfx_image icon_folder;
+    struct gfx_image icon_boot;
 };
 
 static void safe_strncpy(char *dest, const char *src, int n) {
@@ -244,7 +249,7 @@ static void ensure_visible(struct browser *br) {
         br->top = br->cur - br->view_rows + 1;
 }
 
-static void draw(const struct browser *br, struct gfx *g,
+static void draw(struct browser *br, struct gfx *g,
                  int px, int py, int cw, int ch) {
     fill_rect(g, 0, 0, g->width, g->height, 15, 15, 30);
     fill_rect(g, px, py, cw, ch, 15, 15, 30);
@@ -290,14 +295,18 @@ static void draw(const struct browser *br, struct gfx *g,
 
         /* Draw icon (centered vertically within row) */
         int icon_y = y + (LINE_H - 16) / 2;
-        if (e->is_drive) {
-            gfx_draw_icon_16(g, x, icon_y, ICON_DISC, 100, 255, 100);
-        } else if (e->is_dir) {
-            gfx_draw_icon_16(g, x, icon_y, ICON_FOLDER, 100, 200, 255);
-        } else if (e->bootable) {
-            gfx_draw_icon_16(g, x, icon_y, ICON_DISC, 255, 200, 50);
-        } else {
-            gfx_draw_icon_16(g, x, icon_y, ICON_FILE, 160, 160, 180);
+        if (e->is_drive && br->icon_disc.pixels) {
+            gfx_draw_image(g, x, icon_y, br->icon_disc.pixels,
+                           br->icon_disc.w, br->icon_disc.h);
+        } else if (e->is_dir && br->icon_folder.pixels) {
+            gfx_draw_image(g, x, icon_y, br->icon_folder.pixels,
+                           br->icon_folder.w, br->icon_folder.h);
+        } else if (e->bootable && br->icon_boot.pixels) {
+            gfx_draw_image(g, x, icon_y, br->icon_boot.pixels,
+                           br->icon_boot.w, br->icon_boot.h);
+        } else if (br->icon_file.pixels) {
+            gfx_draw_image(g, x, icon_y, br->icon_file.pixels,
+                           br->icon_file.w, br->icon_file.h);
         }
 
         int tx = x + 20;
@@ -580,6 +589,10 @@ int gmain(int argc, char *argv[], int flags) {
     br->view_rows = (canvas_h - HEADER_H - FOOTER_H) / LINE_H;
     br->show_dotfiles = 0;
     br->device[0] = '\0';
+    gfx_png_decode(ICON_DISC_PNG, sizeof(ICON_DISC_PNG), &br->icon_disc);
+    gfx_png_decode(ICON_FILE_PNG, sizeof(ICON_FILE_PNG), &br->icon_file);
+    gfx_png_decode(ICON_FOLDER_PNG, sizeof(ICON_FOLDER_PNG), &br->icon_folder);
+    gfx_png_decode(ICON_BOOT_PNG, sizeof(ICON_BOOT_PNG), &br->icon_boot);
 
     if (argc >= 2) {
         char *rest = bt_drive_set_dev(argv[1]);
@@ -639,6 +652,10 @@ int gmain(int argc, char *argv[], int flags) {
                 draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                          "No drives found", 255, 50, 50, 2);
                 gfx_getkey(&g);
+                gfx_png_free(&br->icon_disc);
+                gfx_png_free(&br->icon_file);
+                gfx_png_free(&br->icon_folder);
+                gfx_png_free(&br->icon_boot);
                 free(br);
                 gfx_close(&g);
                 return 1;
@@ -656,6 +673,10 @@ int gmain(int argc, char *argv[], int flags) {
             draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "No drives found", 255, 50, 50, 2);
             gfx_getkey(&g);
+            gfx_png_free(&br->icon_disc);
+            gfx_png_free(&br->icon_file);
+            gfx_png_free(&br->icon_folder);
+            gfx_png_free(&br->icon_boot);
             free(br);
             gfx_close(&g);
             return 1;
@@ -674,6 +695,10 @@ int gmain(int argc, char *argv[], int flags) {
 
             if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
                 if (br->cwd[0] == '\0') {
+                    gfx_png_free(&br->icon_disc);
+                    gfx_png_free(&br->icon_file);
+                    gfx_png_free(&br->icon_folder);
+                    gfx_png_free(&br->icon_boot);
                     free(br);
                     gfx_close(&g);
                     return 0;

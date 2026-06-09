@@ -6,6 +6,7 @@ build/
 bootie-go/bootie
 bootie-go/bootie-gui
 /bootie-ext/include/font-ttf.h
+/bootie-ext/include/bootie-icons.h
 /bootie-ext/mod/
 /bootie-go/resources/data-part/mod/
 *.o
