@@ -9,11 +9,7 @@
 
 /* Initialize a memory sprite with an RGBA pixel buffer. */
 static inline void gfx_sprite_init(struct gfx_sprite *s, unsigned w, unsigned h) {
-    s->pixels = (unsigned char *)malloc(w * h * 4);
-    if (s->pixels) {
-        unsigned n = w * h * 4;
-        for (unsigned i = 0; i < n; i++) s->pixels[i] = 0;
-    }
+    s->pixels = (unsigned char *)zalloc(w * h * 4);
     s->w = w;
     s->h = h;
     s->is_screen = 0;
@@ -55,10 +51,10 @@ static inline void composite_pixel(unsigned char *dst,
         return;
     } else {
         int inv = 255 - sa;
-        dst[0] = (sr * sa + dst[0] * inv) / 255;
-        dst[1] = (sg * sa + dst[1] * inv) / 255;
-        dst[2] = (sb * sa + dst[2] * inv) / 255;
-        dst[3] = (255 * sa + dst[3] * inv) / 255;
+        dst[0] = (sr * sa + dst[0] * inv + 128) >> 8;
+        dst[1] = (sg * sa + dst[1] * inv + 128) >> 8;
+        dst[2] = (sb * sa + dst[2] * inv + 128) >> 8;
+        dst[3] = (255 * sa + dst[3] * inv + 128) >> 8;
     }
 }
 
@@ -107,11 +103,20 @@ static inline void gfx_sprite_fill(struct gfx_sprite *dst,
             }
         }
     } else {
-        for (int row = 0; row < h; row++) {
-            unsigned char *p = dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4;
-            for (int col = 0; col < w; col++) {
-                composite_pixel(p, r, g, b, a);
-                p += 4;
+        if (a == 255) {
+            uint32_t color = (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16) | ((uint32_t)255 << 24);
+            for (int row = 0; row < h; row++) {
+                uint32_t *p = (uint32_t *)(dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4);
+                uint32_t n = (uint32_t)w;
+                __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(color) : "memory");
+            }
+        } else {
+            for (int row = 0; row < h; row++) {
+                unsigned char *p = dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4;
+                for (int col = 0; col < w; col++) {
+                    composite_pixel(p, r, g, b, a);
+                    p += 4;
+                }
             }
         }
     }

@@ -80,8 +80,15 @@ int main(char *arg, int flags) {
   char *bss = __BSS_START;
   char *bss_end = __BSS_END;
 #endif
-  while (bss < bss_end) {
-    *bss++ = 0;
+  {
+    unsigned long len = (unsigned long)(bss_end - bss);
+    unsigned char *p = bss;
+    unsigned long n = len >> 2;
+    if (n)
+        __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
+    n = len & 3;
+    if (n)
+        __asm__ __volatile__("rep stosb" : "+D"(p), "+c"(n) : "a"(0) : "memory");
   }
 
 #if !defined(__i386__)

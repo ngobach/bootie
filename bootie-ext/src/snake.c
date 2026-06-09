@@ -222,6 +222,7 @@ int gmain(int argc, char *argv[], int flags) {
     int exit_requested = 0;
     while (1) {
       gfx_backbuffer_begin(&g);
+      fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
       draw_border(&g, x_off, y_off);
       draw_str(&g, (W - gfx_text_width(go_title, SCALE_PX(2))) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 2);

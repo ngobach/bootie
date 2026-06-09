@@ -473,8 +473,21 @@ static inline void gfx_backbuffer_begin(struct gfx *g) {
             copied = 1;
         }
       }
-      if (!copied)
-        memmove(g->backbuf, g->real_fb, sz);
+      if (!copied) {
+        uint8_t *dst = g->backbuf;
+        const uint8_t *src = g->real_fb;
+        uint32_t dwords = sz >> 2;
+        __asm__ volatile("rep movsl"
+                         : "+S"(src), "+D"(dst), "+c"(dwords)
+                         :
+                         : "memory");
+        uint32_t rem = sz & 3;
+        if (rem)
+          __asm__ volatile("rep movsb"
+                           : "+S"(src), "+D"(dst), "+c"(rem)
+                           :
+                           : "memory");
+      }
     }
   }
   g->fb = g->backbuf;
@@ -507,10 +520,17 @@ static inline void gfx_backbuffer_end(struct gfx *g) {
     uint32_t sz = g->pitch * g->height;
     uint8_t *dst = g->real_fb;
     const uint8_t *src = (const uint8_t *)g->backbuf;
-    __asm__ volatile("rep movsb"
-                     : "+S"(src), "+D"(dst), "+c"(sz)
+    uint32_t dwords = sz >> 2;
+    __asm__ volatile("rep movsl"
+                     : "+S"(src), "+D"(dst), "+c"(dwords)
                      :
                      : "memory");
+    uint32_t rem = sz & 3;
+    if (rem)
+      __asm__ volatile("rep movsb"
+                       : "+S"(src), "+D"(dst), "+c"(rem)
+                       :
+                       : "memory");
   }
 #endif
   g->fb = g->real_fb;
