@@ -11,8 +11,8 @@
 /* ------------------------------------------------------------------ */
 /*  Font state                                                        */
 /* ------------------------------------------------------------------ */
-static SFT_Font *g_font       = NULL;
-static int       g_font_ready = 0;
+static SFT_Font *g_font;
+static int       g_font_ready;
 
 static inline int gfx_font_load(void)
 {

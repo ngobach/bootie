@@ -11,7 +11,7 @@ struct point {
   int y;
 };
 
-static int session_high_score = 0;
+static int session_high_score;
 
 /* Forward declarations of helper functions */
 

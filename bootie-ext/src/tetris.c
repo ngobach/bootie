@@ -23,7 +23,7 @@ struct color {
 };
 
 /* Global high score saved between runs in the same session */
-static int session_high_score = 0;
+static int session_high_score;
 
 /* The 7 classic Tetrimino shapes */
 static const struct point SHAPES[7][4] = {

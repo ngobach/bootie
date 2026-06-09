@@ -15,7 +15,7 @@
   #include <uefi/grub4dos.h>
   #include <uefi/uefi.h>
 
-  static grub_size_t g4e_data = 0;
+  static grub_size_t g4e_data;
 
   /* Linker symbols defining the BSS segment boundaries.
      We declare them as hidden character arrays so that GCC compiles position-independent,
