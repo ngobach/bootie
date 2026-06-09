@@ -201,10 +201,10 @@ int gmain(int argc, char *argv[], int flags) {
       /* Clear score area at the top */
       fill_rect(&g, 0, 0, W, y_off - 4, 10, 10, 15);
       if (session_high_score > 0)
-          draw_strf(&g, (W - gfx_text_width("SCORE: 9999    HI: 99999", SCALE_PX(1))) / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 1,
                     "SCORE: %d    HI: %d", score, session_high_score);
       else
-          draw_strf(&g, (W - gfx_text_width("SCORE: 9999", SCALE_PX(1))) / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 1,
                     "SCORE: %d", score);
       gfx_backbuffer_end(&g);
 
@@ -227,10 +227,10 @@ int gmain(int argc, char *argv[], int flags) {
       draw_str(&g, (W - gfx_text_width(go_title, SCALE_PX(2))) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 2);
       if (score >= session_high_score && score > 0)
-          draw_strf(&g, (W - gfx_text_width("New High Score: 99999!", SCALE_PX(1))) / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 1,
                     "New High Score: %d!", score);
       else
-          draw_strf(&g, (W - gfx_text_width("Score: 99999    High Score: 99999", SCALE_PX(1))) / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 1,
                     "Score: %d    High Score: %d", score, session_high_score);
       draw_str(&g, (W - gfx_text_width(restart_prompt, SCALE_PX(1))) / 2, y_off + grid_h * 2 / 3, restart_prompt,
                180, 180, 180, 1);

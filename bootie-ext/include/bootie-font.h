@@ -319,4 +319,14 @@ static inline int gfx_text_width(const char *s, int px_size)
     draw_str(ctx, cx, cy, _buf, r, g, b, scale);                      \
 } while (0)
 
+/* Centered variants — compute the pixel width of the *actual* rendered
+   text and subtract half from cx, so cx becomes the center point. */
+#define draw_strf_centered(ctx, cx, cy, r, g, b, scale, fmt, ...) do { \
+    char _buf[256];                                                    \
+    int _w;                                                            \
+    sprintf(_buf, fmt, ##__VA_ARGS__);                                 \
+    _w = gfx_text_width(_buf, SCALE_PX(scale));                        \
+    draw_str(ctx, (int)(cx) - _w / 2, cy, _buf, r, g, b, scale);      \
+} while (0)
+
 #endif /* BOOTIE_FONT_H */
