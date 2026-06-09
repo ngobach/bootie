@@ -10,12 +10,6 @@ MKDIR   := mkdir -p
 TTF_FONT ?= fonts/SpaceGrotesk-Regular.ttf
 FONT_HEADER := include/font-ttf.h
 
-# If the TTF font exists, generate the font header and enable TTF rendering
-FONT_CFLAGS :=
-ifneq ($(wildcard $(TTF_FONT)),)
-FONT_CFLAGS := -DBOOTIE_FONT_AVAILABLE
-endif
-
 # When using a native Linux gcc, -fPIE implies -pie which makes the linker
 # generate PT_PHDR / PT_GNU_RELRO program headers that the custom linker
 # script does not cover.  Suppress them with --no-dynamic-linker and norelro.
@@ -23,13 +17,13 @@ CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-tree-loop-distribute-patterns \
                -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro \
-               -Ilibs/schrift $(FONT_CFLAGS)
+               -Ilibs/schrift
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro \
-               -Ilibs/schrift $(FONT_CFLAGS)
+               -Ilibs/schrift
 
 # Collect all top-level C sources
 SOURCES := $(wildcard src/*.c)

@@ -4,7 +4,7 @@
 #include <bootie-gfx.h>
 #include <schrift.h>
 
-#ifdef BOOTIE_FONT_AVAILABLE
+#if __has_include("font-ttf.h")
 #  include "font-ttf.h"
 #endif
 
@@ -16,7 +16,7 @@ static int       g_font_ready = 0;
 
 static inline int gfx_font_load(void)
 {
-#ifdef BOOTIE_FONT_AVAILABLE
+#if __has_include("font-ttf.h")
     if (g_font)
         sft_freefont(g_font);
     g_font = sft_loadmem(FONT_TTF_DATA, (size_t)FONT_TTF_SIZE);
@@ -25,6 +25,7 @@ static inline int gfx_font_load(void)
     g_font_ready = 1;
     return 0;
 #else
+    (void)sft_loadmem;
     g_font_ready = 0;
     return -1;
 #endif
