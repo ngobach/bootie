@@ -317,11 +317,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
         }
 
         if (e->is_drive) {
-            char buf[NAME_MAX + 32];
-            strcpy(buf, trunc_name);
-            int len = strlen(buf);
-            strcpy(buf + len, "  [DRIVE]");
-            gfx_sprite_draw_str(s, ctx, tx, text_y, buf, 100, 255, 100, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx, text_y, trunc_name, 100, 255, 100, 255, 1);
         } else if (e->is_dir) {
             int len = strlen(trunc_name);
             trunc_name[len] = '/';
