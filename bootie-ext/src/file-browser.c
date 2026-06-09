@@ -39,10 +39,10 @@ struct browser {
     int cur;
     int view_rows;
     int show_dotfiles;
-    struct gfx_image icon_disc;
-    struct gfx_image icon_file;
-    struct gfx_image icon_folder;
-    struct gfx_image icon_boot;
+    struct gfx_sprite icon_disc;
+    struct gfx_sprite icon_file;
+    struct gfx_sprite icon_folder;
+    struct gfx_sprite icon_boot;
 };
 
 static void safe_strncpy(char *dest, const char *src, int n) {
@@ -249,32 +249,32 @@ static void ensure_visible(struct browser *br) {
         br->top = br->cur - br->view_rows + 1;
 }
 
-static void draw(struct browser *br, struct gfx *g,
+static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
                  int px, int py, int cw, int ch) {
-    fill_rect(g, 0, 0, g->width, g->height, 15, 15, 30);
-    fill_rect(g, px, py, cw, ch, 15, 15, 30);
+    gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
+    gfx_sprite_fill(s, px, py, cw, ch, 15, 15, 30, 255);
 
-    fill_rect(g, px, py, cw, 1, 80, 80, 120);
-    fill_rect(g, px, py + ch - 1, cw, 1, 80, 80, 120);
-    fill_rect(g, px, py, 1, ch, 80, 80, 120);
-    fill_rect(g, px + cw - 1, py, 1, ch, 80, 80, 120);
+    gfx_sprite_fill(s, px, py, cw, 1, 80, 80, 120, 255);
+    gfx_sprite_fill(s, px, py + ch - 1, cw, 1, 80, 80, 120, 255);
+    gfx_sprite_fill(s, px, py, 1, ch, 80, 80, 120, 255);
+    gfx_sprite_fill(s, px + cw - 1, py, 1, ch, 80, 80, 120, 255);
 
     const char *title = (br->cwd[0] == '\0') ? "Select Drive" : "File Browser";
-    draw_str(g, px + 8, py + 12, title, 200, 200, 255, 2);
+    gfx_sprite_draw_str(s, ctx, px + 8, py + 12, title, 200, 200, 255, 255, 2);
 
     if (br->cwd[0] == '\0') {
-        draw_str(g, px + 8, py + 46, "Drives", 180, 180, 220, 1);
+        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, "Drives", 180, 180, 220, 255, 1);
     } else if (br->device[0]) {
         char fullpath[PATH_MAX + 24];
         int dlen = strlen(br->device);
         strcpy(fullpath, br->device);
         strcpy(fullpath + dlen, br->cwd);
-        draw_str(g, px + 8, py + 46, fullpath, 180, 180, 220, 1);
+        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, fullpath, 180, 180, 220, 255, 1);
     } else {
-        draw_str(g, px + 8, py + 46, br->cwd, 180, 180, 220, 1);
+        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, br->cwd, 180, 180, 220, 255, 1);
     }
 
-    fill_rect(g, px, py + 70, cw, 1, 80, 80, 120);
+    gfx_sprite_fill(s, px, py + 70, cw, 1, 80, 80, 120, 255);
 
     int x = px + 8;
     int y = py + HEADER_H;
@@ -284,29 +284,25 @@ static void draw(struct browser *br, struct gfx *g,
 
     if (br->count == 0) {
         const char *msg = (br->cwd[0] == '\0') ? "No drives found" : "(empty)";
-        draw_str(g, x, y, msg, 150, 150, 180, 1);
+        gfx_sprite_draw_str(s, ctx, x, y, msg, 150, 150, 180, 255, 1);
     }
 
     for (int i = start; i < end; i++) {
         const struct entry *e = &br->entries[i];
 
         if (i == br->cur)
-            fill_rect(g, px + 2, y, 472, LINE_H, 50, 50, 120);
+            gfx_sprite_fill(s, px + 2, y, 472, LINE_H, 50, 50, 120, 255);
 
         /* Draw icon (centered vertically within row) */
         int icon_y = y + (LINE_H - 16) / 2;
         if (e->is_drive && br->icon_disc.pixels) {
-            gfx_draw_image(g, x, icon_y, br->icon_disc.pixels,
-                           br->icon_disc.w, br->icon_disc.h);
+            gfx_sprite_blit(s, &br->icon_disc, x, icon_y);
         } else if (e->is_dir && br->icon_folder.pixels) {
-            gfx_draw_image(g, x, icon_y, br->icon_folder.pixels,
-                           br->icon_folder.w, br->icon_folder.h);
+            gfx_sprite_blit(s, &br->icon_folder, x, icon_y);
         } else if (e->bootable && br->icon_boot.pixels) {
-            gfx_draw_image(g, x, icon_y, br->icon_boot.pixels,
-                           br->icon_boot.w, br->icon_boot.h);
+            gfx_sprite_blit(s, &br->icon_boot, x, icon_y);
         } else if (br->icon_file.pixels) {
-            gfx_draw_image(g, x, icon_y, br->icon_file.pixels,
-                           br->icon_file.w, br->icon_file.h);
+            gfx_sprite_blit(s, &br->icon_file, x, icon_y);
         }
 
         int tx = x + 20;
@@ -325,16 +321,16 @@ static void draw(struct browser *br, struct gfx *g,
             strcpy(buf, trunc_name);
             int len = strlen(buf);
             strcpy(buf + len, "  [DRIVE]");
-            draw_str(g, tx, text_y, buf, 100, 255, 100, 1);
+            gfx_sprite_draw_str(s, ctx, tx, text_y, buf, 100, 255, 100, 255, 1);
         } else if (e->is_dir) {
             int len = strlen(trunc_name);
             trunc_name[len] = '/';
             trunc_name[len + 1] = '\0';
-            draw_str(g, tx, text_y, trunc_name, 100, 200, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx, text_y, trunc_name, 100, 200, 255, 255, 1);
         } else if (e->bootable) {
-            draw_str(g, tx, text_y, trunc_name, 255, 200, 50, 1);
+            gfx_sprite_draw_str(s, ctx, tx, text_y, trunc_name, 255, 200, 50, 255, 1);
         } else {
-            draw_str(g, tx, text_y, trunc_name, 200, 200, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, text_y, trunc_name, 200, 200, 200, 255, 1);
         }
 
         y += LINE_H;
@@ -347,7 +343,7 @@ static void draw(struct browser *br, struct gfx *g,
     int rh = ch - HEADER_H - FOOTER_H - 8;
 
     // Draw vertical dividing line
-    fill_rect(g, rx, ry, 1, rh, 80, 80, 120);
+    gfx_sprite_fill(s, rx, ry, 1, rh, 80, 80, 120, 255);
 
     // Draw info card
     int card_x = rx + 12;
@@ -355,11 +351,11 @@ static void draw(struct browser *br, struct gfx *g,
     int card_w = rw - 24;
     int card_h = rh - 24;
 
-    fill_rect(g, card_x, card_y, card_w, card_h, 25, 25, 45);
-    fill_rect(g, card_x, card_y, card_w, 1, 60, 60, 90);
-    fill_rect(g, card_x, card_y + card_h - 1, card_w, 1, 60, 60, 90);
-    fill_rect(g, card_x, card_y, 1, card_h, 60, 60, 90);
-    fill_rect(g, card_x + card_w - 1, card_y, 1, card_h, 60, 60, 90);
+    gfx_sprite_fill(s, card_x, card_y, card_w, card_h, 25, 25, 45, 255);
+    gfx_sprite_fill(s, card_x, card_y, card_w, 1, 60, 60, 90, 255);
+    gfx_sprite_fill(s, card_x, card_y + card_h - 1, card_w, 1, 60, 60, 90, 255);
+    gfx_sprite_fill(s, card_x, card_y, 1, card_h, 60, 60, 90, 255);
+    gfx_sprite_fill(s, card_x + card_w - 1, card_y, 1, card_h, 60, 60, 90, 255);
 
     if (br->cur >= 0 && br->cur < br->count) {
         const struct entry *e = &br->entries[br->cur];
@@ -367,21 +363,21 @@ static void draw(struct browser *br, struct gfx *g,
         int ty = card_y + 12;
 
         if (e->is_drive) {
-            draw_str(g, tx, ty, "DRIVE INFO", 100, 255, 100, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "DRIVE INFO", 100, 255, 100, 255, 1);
             ty += 28;
-            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Name:", 180, 180, 200, 255, 1);
             ty += 22;
-            draw_str(g, tx + 8, ty, e->name, 255, 255, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, e->name, 255, 255, 255, 255, 1);
             ty += 28;
-            draw_str(g, tx, ty, "Type: Hardware Drive", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Type: Hardware Drive", 180, 180, 200, 255, 1);
             ty += 36;
-            draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Action:", 180, 180, 200, 255, 1);
             ty += 22;
-            draw_str(g, tx + 8, ty, "Press [Enter] to open drive.", 200, 200, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, "Press [Enter] to open drive.", 200, 200, 200, 255, 1);
         } else if (e->is_dir) {
-            draw_str(g, tx, ty, "FOLDER INFO", 100, 200, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "FOLDER INFO", 100, 200, 255, 255, 1);
             ty += 28;
-            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Name:", 180, 180, 200, 255, 1);
             ty += 22;
             char short_name[32];
             int max_chars = (card_w - 24) / 6;
@@ -393,21 +389,21 @@ static void draw(struct browser *br, struct gfx *g,
             } else {
                 strcpy(short_name, e->name);
             }
-            draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, short_name, 255, 255, 255, 255, 1);
             ty += 28;
-            draw_str(g, tx, ty, "Type: Directory", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Type: Directory", 180, 180, 200, 255, 1);
             ty += 36;
-            draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Action:", 180, 180, 200, 255, 1);
             ty += 22;
-            draw_str(g, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, "Press [Enter] to open directory.", 200, 200, 200, 255, 1);
         } else {
             if (e->bootable) {
-                draw_str(g, tx, ty, "BOOTABLE FILE", 255, 200, 50, 1);
+                gfx_sprite_draw_str(s, ctx, tx, ty, "BOOTABLE FILE", 255, 200, 50, 255, 1);
             } else {
-                draw_str(g, tx, ty, "FILE INFO", 180, 180, 200, 1);
+                gfx_sprite_draw_str(s, ctx, tx, ty, "FILE INFO", 180, 180, 200, 255, 1);
             }
             ty += 28;
-            draw_str(g, tx, ty, "Name:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Name:", 180, 180, 200, 255, 1);
             ty += 22;
             char short_name[32];
             int max_chars = (card_w - 24) / 6;
@@ -419,10 +415,10 @@ static void draw(struct browser *br, struct gfx *g,
             } else {
                 strcpy(short_name, e->name);
             }
-            draw_str(g, tx + 8, ty, short_name, 255, 255, 255, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, short_name, 255, 255, 255, 255, 1);
             ty += 28;
 
-            draw_str(g, tx, ty, "Size:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Size:", 180, 180, 200, 255, 1);
             ty += 22;
             char size_str[32];
             if (e->size == (unsigned long long)-1 || e->size == 0) {
@@ -442,37 +438,37 @@ static void draw(struct browser *br, struct gfx *g,
             } else {
                 sprintf(size_str, "%d bytes", (int)e->size);
             }
-            draw_str(g, tx + 8, ty, size_str, 200, 255, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx + 8, ty, size_str, 200, 255, 200, 255, 1);
             ty += 28;
 
-            draw_str(g, tx, ty, "Status:", 180, 180, 200, 1);
+            gfx_sprite_draw_str(s, ctx, tx, ty, "Status:", 180, 180, 200, 255, 1);
             ty += 22;
             if (e->bootable) {
-                draw_str(g, tx + 8, ty, "Bootable [YES]", 100, 255, 100, 1);
+                gfx_sprite_draw_str(s, ctx, tx + 8, ty, "Bootable [YES]", 100, 255, 100, 255, 1);
                 ty += 28;
-                draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+                gfx_sprite_draw_str(s, ctx, tx, ty, "Action:", 180, 180, 200, 255, 1);
                 ty += 22;
-                draw_str(g, tx + 8, ty, "Press [Enter] or [B] to boot.", 200, 200, 200, 1);
+                gfx_sprite_draw_str(s, ctx, tx + 8, ty, "Press [Enter] or [B] to boot.", 200, 200, 200, 255, 1);
             } else {
-                draw_str(g, tx + 8, ty, "Non-bootable [NO]", 255, 100, 100, 1);
+                gfx_sprite_draw_str(s, ctx, tx + 8, ty, "Non-bootable [NO]", 255, 100, 100, 255, 1);
                 ty += 28;
-                draw_str(g, tx, ty, "Action:", 180, 180, 200, 1);
+                gfx_sprite_draw_str(s, ctx, tx, ty, "Action:", 180, 180, 200, 255, 1);
                 ty += 22;
-                draw_str(g, tx + 8, ty, "No direct boot script.", 150, 150, 150, 1);
+                gfx_sprite_draw_str(s, ctx, tx + 8, ty, "No direct boot script.", 150, 150, 150, 255, 1);
             }
         }
     }
 
-    fill_rect(g, px, py + ch - FOOTER_H, cw, FOOTER_H, 30, 30, 60);
+    gfx_sprite_fill(s, px, py + ch - FOOTER_H, cw, FOOTER_H, 30, 30, 60, 255);
 
     if (br->cwd[0] == '\0') {
-        draw_str(g, x, py + ch - FOOTER_H + 2,
+        gfx_sprite_draw_str(s, ctx, x, py + ch - FOOTER_H + 2,
                  "[^v] Nav  [Enter] Select Drive  [Esc] Quit",
-                 150, 150, 180, 1);
+                 150, 150, 180, 255, 1);
     } else {
-        draw_str(g, x, py + ch - FOOTER_H + 2,
+        gfx_sprite_draw_str(s, ctx, x, py + ch - FOOTER_H + 2,
                  "[^v] Nav  [<-] Up  [->] Open  [B] Boot  [.] Dots  [Esc] Back",
-                 150, 150, 180, 1);
+                 150, 150, 180, 255, 1);
     }
 }
 
@@ -533,8 +529,8 @@ static int handle_boot(const char *drive, const char *path) {
     return r;
 }
 
-static void boot_file(const struct browser *br, struct gfx *g,
-                      int px, int py, int cw, int ch) {
+static void boot_file(const struct browser *br, struct gfx_sprite *s,
+                      struct gfx *ctx, int px, int py, int cw, int ch) {
     const struct entry *e = &br->entries[br->cur];
     if (!e->bootable) {
         return;
@@ -555,15 +551,15 @@ static void boot_file(const struct browser *br, struct gfx *g,
     }
     path[plen] = '\0';
 
-    fill_rect(g, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 40, 20, 20);
-    draw_str(g, px + 8, py + ch - FOOTER_H * 2 + 2, "Booting...", 255, 200, 50, 1);
-    draw_str(g, px + 8, py + ch - FOOTER_H + 2, path, 200, 200, 200, 1);
+    gfx_sprite_fill(s, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 40, 20, 20, 255);
+    gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H * 2 + 2, "Booting...", 255, 200, 50, 255, 1);
+    gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H + 2, path, 200, 200, 200, 255, 1);
 
     int ret = handle_boot(br->device, path);
     if (ret != 0) {
-        fill_rect(g, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20);
-        draw_str(g, px + 8, py + ch - FOOTER_H * 2 + 2, "Boot failed", 255, 50, 50, 1);
-        gfx_getkey(g);
+        gfx_sprite_fill(s, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
+        gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H * 2 + 2, "Boot failed", 255, 50, 50, 255, 1);
+        gfx_getkey(ctx);
     }
 }
 
@@ -593,6 +589,10 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_png_decode(ICON_FILE_PNG, sizeof(ICON_FILE_PNG), &br->icon_file);
     gfx_png_decode(ICON_FOLDER_PNG, sizeof(ICON_FOLDER_PNG), &br->icon_folder);
     gfx_png_decode(ICON_BOOT_PNG, sizeof(ICON_BOOT_PNG), &br->icon_boot);
+
+    struct gfx_sprite screen = gfx_sprite_from_fb(&g);
+    struct gfx_sprite back;
+    gfx_sprite_init(&back, canvas_w, canvas_h);
 
     if (argc >= 2) {
         char *rest = bt_drive_set_dev(argv[1]);
@@ -652,10 +652,11 @@ int gmain(int argc, char *argv[], int flags) {
                 draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                          "No drives found", 255, 50, 50, 2);
                 gfx_getkey(&g);
-                gfx_png_free(&br->icon_disc);
-                gfx_png_free(&br->icon_file);
-                gfx_png_free(&br->icon_folder);
-                gfx_png_free(&br->icon_boot);
+                gfx_sprite_destroy(&back);
+                gfx_sprite_destroy(&br->icon_disc);
+                gfx_sprite_destroy(&br->icon_file);
+                gfx_sprite_destroy(&br->icon_folder);
+                gfx_sprite_destroy(&br->icon_boot);
                 free(br);
                 gfx_close(&g);
                 return 1;
@@ -673,10 +674,11 @@ int gmain(int argc, char *argv[], int flags) {
             draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "No drives found", 255, 50, 50, 2);
             gfx_getkey(&g);
-            gfx_png_free(&br->icon_disc);
-            gfx_png_free(&br->icon_file);
-            gfx_png_free(&br->icon_folder);
-            gfx_png_free(&br->icon_boot);
+            gfx_sprite_destroy(&back);
+            gfx_sprite_destroy(&br->icon_disc);
+            gfx_sprite_destroy(&br->icon_file);
+            gfx_sprite_destroy(&br->icon_folder);
+            gfx_sprite_destroy(&br->icon_boot);
             free(br);
             gfx_close(&g);
             return 1;
@@ -685,9 +687,9 @@ int gmain(int argc, char *argv[], int flags) {
         while (1) {
             load_selected_size(br);
 
-            gfx_backbuffer_begin(&g);
-            draw(br, &g, pad_x, pad_y, canvas_w, canvas_h);
-            gfx_backbuffer_end(&g);
+            gfx_sprite_clear(&back, 15, 15, 30, 255);
+            draw(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
+            gfx_sprite_blit(&screen, &back, pad_x, pad_y);
 
             int key = gfx_getkey(&g);
             int scan = (key >> 8) & 0xFF;
@@ -695,10 +697,11 @@ int gmain(int argc, char *argv[], int flags) {
 
             if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
                 if (br->cwd[0] == '\0') {
-                    gfx_png_free(&br->icon_disc);
-                    gfx_png_free(&br->icon_file);
-                    gfx_png_free(&br->icon_folder);
-                    gfx_png_free(&br->icon_boot);
+                    gfx_sprite_destroy(&back);
+                    gfx_sprite_destroy(&br->icon_disc);
+                    gfx_sprite_destroy(&br->icon_file);
+                    gfx_sprite_destroy(&br->icon_folder);
+                    gfx_sprite_destroy(&br->icon_boot);
                     free(br);
                     gfx_close(&g);
                     return 0;
@@ -708,7 +711,7 @@ int gmain(int argc, char *argv[], int flags) {
                 break;
             } else if (ascii == 0x0D) {
                 if (br->cur < br->count && br->entries[br->cur].bootable)
-                    boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
+                    boot_file(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
                 else if (br->cur < br->count) {
                     struct entry *e = &br->entries[br->cur];
                     if (e->is_dir) {
@@ -740,7 +743,7 @@ int gmain(int argc, char *argv[], int flags) {
                 }
             } else if (ascii == 'b' || ascii == 'B') {
                 if (br->cur < br->count && br->entries[br->cur].bootable)
-                    boot_file(br, &g, pad_x, pad_y, canvas_w, canvas_h);
+                    boot_file(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
             } else if (scan == 0x4B) {
                 go_up(br);
             } else if (ascii == '.') {

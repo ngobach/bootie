@@ -38,32 +38,12 @@ void *lodepng_realloc(void *ptr, size_t new_size) {
     return new_ptr;
 }
 
-/* Decode PNG from memory to 32-bit RGBA pixels into a gfx_image.
+/* Decode PNG from memory into a gfx_sprite (allocates RGBA pixels).
    Returns 0 on success, non-zero error code on failure.
-   Free the image pixels with gfx_png_free() when done. */
+   Free with gfx_sprite_destroy() when done. */
 static inline int gfx_png_decode(const unsigned char *data, size_t data_size,
-                                  struct gfx_image *out) {
+                                  struct gfx_sprite *out) {
     return lodepng_decode32(&out->pixels, &out->w, &out->h, data, data_size);
-}
-
-/* Free pixel buffer allocated by gfx_png_decode() */
-static inline void gfx_png_free(struct gfx_image *img) {
-    free(img->pixels);
-    img->pixels = 0;
-}
-
-/* Blit 32-bit RGBA pixels to framebuffer at (x, y).
-   Pixels with alpha > 128 are drawn; others are skipped. */
-static inline void gfx_draw_image(struct gfx *ctx, int x, int y,
-                                   const unsigned char *pixels,
-                                   unsigned w, unsigned h) {
-    for (unsigned row = 0; row < h; row++) {
-        for (unsigned col = 0; col < w; col++) {
-            const unsigned char *p = pixels + (row * w + col) * 4;
-            if (p[3] > 128)
-                fill_rect(ctx, x + col, y + row, 1, 1, p[0], p[1], p[2]);
-        }
-    }
 }
 
 #endif /* BOOTIE_IMG_H */

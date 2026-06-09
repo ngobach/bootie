@@ -20,13 +20,13 @@ ICON_HEADER := include/bootie-icons.h
 CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-tree-loop-distribute-patterns \
                -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE \
-               -Wl,--no-dynamic-linker -Wl,-z,norelro \
+               -Wl,--no-dynamic-linker -Wl,-z,norelro -Wl,--no-warn-rwx-segments \
                -Ilibs/schrift -Ilibs/lodepng
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
-               -Wl,--no-dynamic-linker -Wl,-z,norelro \
+               -Wl,--no-dynamic-linker -Wl,-z,norelro -Wl,--no-warn-rwx-segments \
                -Ilibs/schrift -Ilibs/lodepng
 
 # Collect all top-level C sources
