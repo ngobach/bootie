@@ -598,14 +598,27 @@ int gmain(int argc, char *argv[], int flags) {
             else
                 strcpy(br->cwd, "/");
         } else if (argv[1][0] == '/') {
-            char dev[24];
-            unsigned int grub_drive = current_drive >= 0x80 ? current_drive - 0x80 : current_drive;
-            sprintf(dev, "(hd%u,0)", grub_drive);
-            bt_drive_set_dev(dev);
+            char cap[128];
+            uintptr_t saved = putchar_hooked;
+            putchar_hooked = (uintptr_t)cap;
+            cap[0] = '\0';
+            run_line("echo %@root%", BUILTIN_CMDLINE);
+            char *end = (char *)putchar_hooked;
+            putchar_hooked = saved;
+            if (end > cap + 127) end = cap + 127;
+            if (end > cap) *end = '\0'; else cap[0] = '\0';
+            char *trim = cap;
+            while (*trim == ' ' || *trim == '\t' || *trim == '\n' || *trim == '\r') trim++;
+            {
+                char *e = trim + strlen(trim);
+                while (e > trim && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r')) e--;
+                *e = '\0';
+            }
+            bt_drive_set_dev(trim);
             bt_drive_open_dev();
             saved_drive = current_drive;
             saved_partition = current_partition;
-            strcpy(br->device, dev);
+            safe_strncpy(br->device, trim, (int)sizeof(br->device));
             strcpy(br->cwd, argv[1]);
         } else {
             br->cwd[0] = '\0';
