@@ -4,7 +4,7 @@
 
 #define TICK_MS     10
 #define BORDER_T    3
-#define WND_W       340
+#define WND_W       380
 #define WND_H       200
 
 int gmain(int argc, char *argv[], int flags) {
@@ -81,12 +81,8 @@ int gmain(int argc, char *argv[], int flags) {
         int text_px = SCALE_PX(scale);
         int tx = (wnd_l + wnd_r - gfx_text_width("00:00:00.00", text_px)) / 2;
         int ty = (wnd_t + wnd_b - text_px) / 2 - 10;
-        if (hrs > 0)
-            draw_strf(&g, tx, ty, 0, 220, 220, scale,
-                      "%d:%02d:%02d.%02d", hrs, mins, secs, centis);
-        else
-            draw_strf(&g, tx, ty, 0, 220, 220, scale,
-                      "%02d:%02d.%02d", mins, secs, centis);
+        draw_strf(&g, tx, ty, 0, 220, 220, scale,
+                  "%02d:%02d:%02d.%02d", hrs, mins, secs, centis);
 
         /* State indicator */
         const char *state;

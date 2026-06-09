@@ -1,16 +1,7 @@
 # Welcome to Bootie
 
-insmod /autoiso
 if not "%@UEFI%"=="" set moddir=/mod/uefi
 if "%@UEFI%"=="" set moddir=/mod/bios
-
-insmod %moddir%/file-browser
-insmod %moddir%/snake
-insmod %moddir%/tetris
-insmod %moddir%/screen_test
-insmod %moddir%/timer
-insmod %moddir%/breakout
-insmod %moddir%/nyan
 
 timeout 60
 color red/black
@@ -24,31 +15,31 @@ title ----
 pause
 
 title Browse ISOs (/ISO)
-file-browser /ISO
+%moddir%/file-browser /ISO
 configfile /menu.lst
 
 title Snake game
-snake
+%moddir%/snake
 configfile /menu.lst
 
 title Tetris game
-tetris
+%moddir%/tetris
 configfile /menu.lst
 
 title Breakout game
-breakout
+%moddir%/breakout
 configfile /menu.lst
 
 title Nyan the cat
-nyan
+%moddir%/nyan
 configfile /menu.lst
 
 title Screen test
-screen_test
+%moddir%/screen_test
 configfile /menu.lst
 
 title Timer
-timer
+%moddir%/timer
 configfile /menu.lst
 
 iftitle [find /grubfm_multiarch.iso] Grub File Manager (/grubfm_multiarch.iso)

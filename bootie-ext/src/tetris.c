@@ -164,7 +164,8 @@ static void draw_info_panel(struct gfx *g, int x_off, int y_off, int grid_w,
 
     // Clear the info panel area before drawing (callers like animate_line_clear
     // don't clear the full frame first, so this prevents text-on-text artifacts).
-    fill_rect(g, px, y_off + 110, 200, 260, 10, 10, 15);
+    // Start 2px below the NEXT box bottom border at y_off+112 to avoid clipping it.
+    fill_rect(g, px, y_off + 114, 200, 260, 10, 10, 15);
 
     // High Score
     draw_str(g, px, y_off + 130, "HIGH SCORE", 200, 200, 255, 1);
