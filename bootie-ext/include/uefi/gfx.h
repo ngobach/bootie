@@ -392,10 +392,7 @@ static inline void gfx_close(struct gfx *ctx) {
 
 static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
   (void)ctx;
-  efi_system_table_t *st = grub_efi_system_table;
-  if (st && st->boot_services) {
-    st->boot_services->stall(ms * 1000);
-  }
+  delay_ms(ms);
 }
 
 static inline int gfx_checkkey(struct gfx *ctx) {
