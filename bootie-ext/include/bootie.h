@@ -40,6 +40,35 @@ static inline uint32_t next_rand(void) {
     return (rand_seed / 65536) % 32768;
 }
 
+/* Run a GRUB4DOS command and capture its output into buf (null-terminated).
+ * Returns the number of bytes written (excluding terminator), or -1 on error.
+ * buf may be NULL to discard output and only check errnum. */
+static inline int bt_eval(const char *cmd, char *buf, int bufsize) {
+    if (buf && bufsize < 1) return -1;
+    errnum = ERR_NONE;
+    uintptr_t saved = putchar_hooked;
+    if (buf)
+        putchar_hooked = (uintptr_t)buf;
+    else
+        putchar_hooked = 1; /* non-zero but ≤ 0x800 → discard (GRUB4DOS idiom) */
+    run_line((char *)cmd, BUILTIN_CMDLINE);
+    char *end = (char *)putchar_hooked;
+    putchar_hooked = saved;
+    if (errnum != ERR_NONE) return -1;
+    if (buf) {
+        int count;
+        if (end > buf && end < buf + bufsize) {
+            *end = '\0';
+            count = (int)(end - buf);
+        } else {
+            buf[bufsize - 1] = '\0';
+            count = bufsize - 1;
+        }
+        return count;
+    }
+    return 0;
+}
+
 extern int gmain(int argc, char *argv[], int flags);
 
 int main(char *arg, int flags) {
