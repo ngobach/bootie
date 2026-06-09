@@ -329,4 +329,68 @@ static inline int gfx_text_width(const char *s, int px_size)
     draw_str(ctx, (int)(cx) - _w / 2, cy, _buf, r, g, b, scale);      \
 } while (0)
 
+/* ------------------------------------------------------------------ */
+/*  draw_str_wrapped — word-wrap text to max_width pixels              */
+/*  Returns the Y coordinate below the last line.                      */
+/*  Usage:  draw_str_wrapped(ctx, x, y, max_width, r, g, b, scale, s) */
+/* ------------------------------------------------------------------ */
+static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
+                                    int max_width,
+                                    uint8_t r, uint8_t g, uint8_t b,
+                                    int scale, const char *text) {
+    if (!text || !text[0]) return y;
+    int px = SCALE_PX(scale);
+    int lh = px + 4;
+    int cy = y;
+    char line[256];
+
+    while (*text) {
+        int n = 0;
+        while (*text) {
+            while (*text == ' ' && n == 0) text++;
+            if (!*text || *text == '\n') break;
+
+            const char *word = text;
+            while (*text && *text != ' ' && *text != '\n') text++;
+            int wlen = text - word;
+            const char *after_word = text;
+            if (*text == ' ') text++;
+
+            int prev = n;
+            if (n > 0) line[n++] = ' ';
+            for (int i = 0; i < wlen; i++) line[n + i] = word[i];
+            n += wlen;
+            line[n] = '\0';
+
+            if (gfx_text_width(line, px) > max_width) {
+                if (prev == 0) {
+                    draw_str(ctx, x, cy, line, r, g, b, scale);
+                    cy += lh;
+                    n = 0;
+                    text = after_word;
+                } else {
+                    line[prev] = '\0';
+                    draw_str(ctx, x, cy, line, r, g, b, scale);
+                    cy += lh;
+                    n = 0;
+                    text = word;
+                }
+                break;
+            }
+        }
+        if (*text == '\n') text++;
+        if (n > 0) {
+            draw_str(ctx, x, cy, line, r, g, b, scale);
+            cy += lh;
+        }
+    }
+    return cy;
+}
+
+#define draw_strf_wrapped(ctx, x, y, max_width, r, g, b, scale, fmt, ...) do { \
+    char _buf[256];                                                       \
+    sprintf(_buf, fmt, ##__VA_ARGS__);                                    \
+    draw_str_wrapped(ctx, x, y, max_width, r, g, b, scale, _buf);        \
+} while (0)
+
 #endif /* BOOTIE_FONT_H */
