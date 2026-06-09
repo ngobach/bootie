@@ -183,3 +183,9 @@ When capturing directory output using `grub_dir` and the `putchar_hooked` redire
 *   `print_a_completion` automatically escapes space characters inside filenames using a backslash (e.g. `\ `).
 *   Your output parser must process these escape sequences correctly to reconstruct the original filenames containing spaces.
 
+---
+
+## 9. Icon Credits
+
+The file-browser icons (`boot.png`, `disc.png`, `file.png`, `folder.png`) are from the **[1ct-pack](https://github.com/1ctinus/1ct-pack)** icon set by [1ctinus](https://github.com/1ctinus), used under its open-source license.
+

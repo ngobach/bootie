@@ -521,8 +521,15 @@ static void enter_dir(struct browser *br, const char *name) {
 
 static int handle_boot(const char *drive, const char *path) {
     char cmd[PATH_MAX + 128];
-    sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
-            drive, path);
+    int plen = strlen(path);
+    if (plen >= 4 && strnicmp(path + plen - 4, ".efi", 4) == 0) {
+        /* EFI files: chainload directly from the device path */
+        sprintf(cmd, "chainloader %s%s ;; boot", drive, path);
+    } else {
+        /* ISO/IMG/etc: map to (0xff) then chainload */
+        sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
+                drive, path);
+    }
     int r = run_line(cmd, BUILTIN_CMDLINE);
     if (errnum)
         return errnum;
