@@ -3,8 +3,6 @@
 if not "%@UEFI%"=="" set moddir=/mod/uefi
 if "%@UEFI%"=="" set moddir=/mod/bios
 
-if "%firstboot%"=="" set firstboot=1 ;; %moddir%/file-browser /ISO
-
 timeout 3
 color red/black
 graphicsmode -1 800 || graphicsmode 0x6A
@@ -18,31 +16,31 @@ pause
 
 title Browse ISOs (/ISO)
 %moddir%/file-browser /ISO
-configfile /menu.lst
+configfile
 
 title Snake game
 %moddir%/snake
-configfile /menu.lst
+configfile
 
 title Tetris game
 %moddir%/tetris
-configfile /menu.lst
+configfile
 
 title Breakout game
 %moddir%/breakout
-configfile /menu.lst
+configfile
 
 title Nyan the cat
 %moddir%/nyan
-configfile /menu.lst
+configfile
 
 title Screen test
 %moddir%/screen_test
-configfile /menu.lst
+configfile
 
 title Timer
 %moddir%/timer
-configfile /menu.lst
+configfile
 
 iftitle [find /grubfm_multiarch.iso] Grub File Manager (/grubfm_multiarch.iso)
 find --set-root /grubfm_multiarch.iso
