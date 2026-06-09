@@ -3,6 +3,7 @@
 
 #include <bootie.h>
 #include <bootie-io.h>
+#include <bootie-ds.h>
 
 typedef struct bt_ini_entry {
     const char *key;
@@ -86,231 +87,90 @@ static inline char *bt_ini_trim_quotes(char *str) {
 /* Frees internal buffers allocated for the parsed representation. */
 static inline void bt_ini_destroy(struct bt_ini *ini) {
     if (ini) {
-        if (ini->buffer) {
-            free(ini->buffer);
-            ini->buffer = NULL;
-        }
+        free(ini->buffer);
+        ini->buffer = NULL;
         if (ini->sections) {
-            free(ini->sections);
-            ini->sections = NULL;
+            for (int i = 0; i < ini->section_count; i++)
+                arrfree(ini->sections[i].entries);
+            arrfree(ini->sections);
         }
         ini->section_count = 0;
     }
 }
 
-/* Parses the INI content from a string. */
+/* Parses the INI content from a string — single pass, stb_ds-backed. */
 static inline int bt_ini_parse(struct bt_ini *ini, const char *content) {
     if (!ini || !content) return -1;
     memset(ini, 0, sizeof(struct bt_ini));
 
     int content_len = strlen(content);
     char *buf = malloc(content_len + 1);
-    if (!buf) {
-        return -1;
-    }
+    if (!buf) return -1;
     strcpy(buf, content);
 
-    /* Pass 1a: Count section headers and determine if there is a global section */
-    int section_header_count = 0;
-    int has_global = 0;
-    
-    const char *p = buf;
-    while (*p) {
-        const char *line_start = p;
-        while (*p && *p != '\n' && *p != '\r') {
-            p++;
-        }
-        int line_len = p - line_start;
-        while (*p == '\n' || *p == '\r') {
-            p++;
-        }
-        
-        const char *line_p = line_start;
-        const char *line_end = line_start + line_len;
-        while (line_p < line_end && bt_ini_isspace((unsigned char)*line_p)) {
-            line_p++;
-        }
-        
-        if (line_p >= line_end || *line_p == ';' || *line_p == '#') {
-            continue;
-        }
-        
-        if (*line_p == '[') {
-            line_p++;
-            const char *close_bracket = line_p;
-            while (close_bracket < line_end && *close_bracket != ']') {
-                close_bracket++;
-            }
-            if (close_bracket < line_end && *close_bracket == ']') {
-                section_header_count++;
-            }
-            continue;
-        }
-        
-        const char *eq = line_p;
-        while (eq < line_end && *eq != '=') {
-            eq++;
-        }
-        if (eq < line_end && *eq == '=') {
-            if (section_header_count == 0) {
-                has_global = 1;
-            }
-        }
-    }
+    ini->buffer = buf;
+    ini->sections = NULL;
 
-    int total_sections = section_header_count + has_global;
-    if (total_sections == 0) {
-        ini->buffer = buf;
-        ini->sections = NULL;
-        ini->section_count = 0;
-        return 0;
-    }
+    bt_ini_section_t *cur_sec = NULL;
 
-    int *entry_counts = zalloc(total_sections * sizeof(int));
-    if (!entry_counts) {
-        free(buf);
-        return -1;
-    }
-
-    /* Pass 1b: Count entries per section */
-    p = buf;
-    int current_section_headers = 0;
-    while (*p) {
-        const char *line_start = p;
-        while (*p && *p != '\n' && *p != '\r') {
-            p++;
-        }
-        int line_len = p - line_start;
-        while (*p == '\n' || *p == '\r') {
-            p++;
-        }
-        
-        const char *line_p = line_start;
-        const char *line_end = line_start + line_len;
-        while (line_p < line_end && bt_ini_isspace((unsigned char)*line_p)) {
-            line_p++;
-        }
-        
-        if (line_p >= line_end || *line_p == ';' || *line_p == '#') {
-            continue;
-        }
-        
-        if (*line_p == '[') {
-            line_p++;
-            const char *close_bracket = line_p;
-            while (close_bracket < line_end && *close_bracket != ']') {
-                close_bracket++;
-            }
-            if (close_bracket < line_end && *close_bracket == ']') {
-                current_section_headers++;
-            }
-            continue;
-        }
-        
-        const char *eq = line_p;
-        while (eq < line_end && *eq != '=') {
-            eq++;
-        }
-        if (eq < line_end && *eq == '=') {
-            int curr_idx = has_global ? current_section_headers : (current_section_headers - 1);
-            if (curr_idx >= 0 && curr_idx < total_sections) {
-                entry_counts[curr_idx]++;
-            }
-        }
-    }
-
-    int total_entries = 0;
-    for (int i = 0; i < total_sections; i++) {
-        total_entries += entry_counts[i];
-    }
-
-    bt_ini_section_t *sections = zalloc(total_sections * sizeof(bt_ini_section_t) + total_entries * sizeof(bt_ini_entry_t));
-    if (!sections) {
-        free(entry_counts);
-        free(buf);
-        return -1;
-    }
-
-    bt_ini_entry_t *flat_entries = (bt_ini_entry_t *)(sections + total_sections);
-    int entry_offset = 0;
-    for (int i = 0; i < total_sections; i++) {
-        sections[i].entries = &flat_entries[entry_offset];
-        sections[i].entry_count = 0;
-        sections[i].name = NULL;
-        entry_offset += entry_counts[i];
-    }
-
-    static const char default_section_name[1] = {0};
-    if (has_global) {
-        sections[0].name = default_section_name;
-    }
-
-    /* Pass 2: Parse in-place and populate structures */
     char *cursor = buf;
-    current_section_headers = 0;
     while (*cursor) {
         char *line_start = cursor;
-        while (*cursor && *cursor != '\n' && *cursor != '\r') {
-            cursor++;
-        }
-        
-        char saved_char = *cursor;
+        while (*cursor && *cursor != '\n' && *cursor != '\r') cursor++;
+
+        char saved = *cursor;
         *cursor = '\0';
-        
+        if (saved) {
+            *cursor = saved;
+            while (*cursor == '\n' || *cursor == '\r') cursor++;
+        }
+
         char *line = bt_ini_trim(line_start);
-        
-        if (saved_char != '\0') {
-            *cursor = saved_char;
-            while (*cursor == '\n' || *cursor == '\r') {
-                cursor++;
-            }
-        }
-        
-        if (line[0] == '\0' || line[0] == ';' || line[0] == '#') {
+        if (line[0] == '\0' || line[0] == ';' || line[0] == '#')
             continue;
-        }
-        
+
         if (line[0] == '[') {
-            char *close_bracket = bt_ini_strchr(line, ']');
-            if (close_bracket) {
-                *close_bracket = '\0';
-                char *sec_name = bt_ini_trim(line + 1);
-                current_section_headers++;
-                int curr_idx = has_global ? current_section_headers : (current_section_headers - 1);
-                if (curr_idx >= 0 && curr_idx < total_sections) {
-                    sections[curr_idx].name = sec_name;
-                }
+            char *cb = bt_ini_strchr(line, ']');
+            if (cb) {
+                *cb = '\0';
+                bt_ini_section_t sec;
+                sec.name = bt_ini_trim(line + 1);
+                sec.entries = NULL;
+                sec.entry_count = 0;
+                arrput(ini->sections, sec);
+                cur_sec = &ini->sections[arrlen(ini->sections) - 1];
             }
             continue;
         }
-        
+
         char *eq = bt_ini_strchr(line, '=');
         if (eq) {
             *eq = '\0';
             char *key = bt_ini_trim(line);
-            char *val = eq + 1;
-            
+            char *val = bt_ini_trim(eq + 1);
             bt_ini_strip_comments(val);
             val = bt_ini_trim(val);
             val = bt_ini_trim_quotes(val);
-            
-            int curr_idx = has_global ? current_section_headers : (current_section_headers - 1);
-            if (curr_idx >= 0 && curr_idx < total_sections) {
-                int ec = sections[curr_idx].entry_count;
-                if (ec < entry_counts[curr_idx]) {
-                    sections[curr_idx].entries[ec].key = key;
-                    sections[curr_idx].entries[ec].value = val;
-                    sections[curr_idx].entry_count++;
-                }
+
+            if (!cur_sec) {
+                bt_ini_section_t sec;
+                sec.name = "";
+                sec.entries = NULL;
+                sec.entry_count = 0;
+                arrput(ini->sections, sec);
+                cur_sec = &ini->sections[arrlen(ini->sections) - 1];
             }
+
+            bt_ini_entry_t entry;
+            entry.key = key;
+            entry.value = val;
+            arrput(cur_sec->entries, entry);
         }
     }
 
-    free(entry_counts);
-
-    ini->buffer = buf;
-    ini->sections = sections;
-    ini->section_count = total_sections;
+    for (int i = 0; i < arrlen(ini->sections); i++)
+        ini->sections[i].entry_count = arrlen(ini->sections[i].entries);
+    ini->section_count = arrlen(ini->sections);
 
     return 0;
 }

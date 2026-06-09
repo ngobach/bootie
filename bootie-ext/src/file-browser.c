@@ -3,9 +3,9 @@
 #include <bootie-gfx.h>
 #include <bootie-icons.h>
 #include <bootie-img.h>
+#include <bootie-ds.h>
 #include <stdint.h>
 
-#define MAX_ENTRIES 512
 #define PATH_MAX 260
 #define NAME_MAX 128
 #define BUF_CAP 131072
@@ -33,8 +33,7 @@ struct entry {
 struct browser {
     char cwd[PATH_MAX];
     char device[24];
-    struct entry entries[MAX_ENTRIES];
-    int count;
+    struct entry *entries;
     int top;
     int cur;
     int view_rows;
@@ -91,21 +90,25 @@ static void sort_entries(struct entry *entries, int count) {
 }
 
 static int list_dir(struct browser *br) {
+    arrfree(br->entries);
+    br->entries = NULL;
+    br->top = 0;
+    br->cur = 0;
+
     if (br->cwd[0] == '\0') {
         struct bt_drive_info drives[MAX_DRIVES];
         int nd = bt_drive_enum(drives, MAX_DRIVES);
-        br->count = 0;
-        br->top = 0;
-        br->cur = 0;
-        for (int i = 0; i < nd && br->count < MAX_ENTRIES; i++) {
-            struct entry *e = &br->entries[br->count++];
-            strcpy(e->name, drives[i].name);
-            e->is_dir = 0;
-            e->bootable = 0;
-            e->is_drive = 1;
-            e->size = 0;
+        for (int i = 0; i < nd; i++) {
+            struct entry e;
+            strcpy(e.name, drives[i].name);
+            e.is_dir = 0;
+            e.bootable = 0;
+            e.is_drive = 1;
+            e.size = 0;
+            arrput(br->entries, e);
         }
-        sort_entries(br->entries, br->count);
+        if (arrlen(br->entries) > 1)
+            sort_entries(br->entries, arrlen(br->entries));
         return 0;
     }
 
@@ -131,12 +134,8 @@ static int list_dir(struct browser *br) {
     else
         buf[BUF_CAP - 1] = '\0';
 
-    br->count = 0;
-    br->top = 0;
-    br->cur = 0;
-
     char *p = buf;
-    while (*p && br->count < MAX_ENTRIES) {
+    while (*p) {
         while (*p == ' ') p++;
         if (!*p) break;
 
@@ -160,17 +159,19 @@ static int list_dir(struct browser *br) {
         }
 
         if (n > 0 && (br->show_dotfiles || name[0] != '.')) {
-            struct entry *e = &br->entries[br->count++];
-            strcpy(e->name, name);
-            e->is_dir = is_dir;
-            e->bootable = !is_dir && has_boot_ext(name);
-            e->is_drive = 0;
-            e->size = 0;
+            struct entry e;
+            strcpy(e.name, name);
+            e.is_dir = is_dir;
+            e.bootable = !is_dir && has_boot_ext(name);
+            e.is_drive = 0;
+            e.size = 0;
+            arrput(br->entries, e);
         }
     }
 
     free(buf);
-    for (int i = 0; i < br->count; i++) {
+    int count = arrlen(br->entries);
+    for (int i = 0; i < count; i++) {
         struct entry *e = &br->entries[i];
         if (e->is_dir) continue;
 
@@ -199,14 +200,15 @@ static int list_dir(struct browser *br) {
         }
     }
 
-    if (br->count > 1)
-        sort_entries(br->entries, br->count);
+    if (count > 1)
+        sort_entries(br->entries, count);
 
     return 0;
 }
 
 static void load_selected_size(struct browser *br) {
-    if (br->cur < 0 || br->cur >= br->count) return;
+    int count = arrlen(br->entries);
+    if (br->cur < 0 || br->cur >= count) return;
     struct entry *e = &br->entries[br->cur];
     if (e->is_dir || e->is_drive || e->size > 0 || e->size == (unsigned long long)-1) return;
 
@@ -236,13 +238,14 @@ static void load_selected_size(struct browser *br) {
 }
 
 static void ensure_visible(struct browser *br) {
-    if (br->count == 0) {
+    int count = arrlen(br->entries);
+    if (count == 0) {
         br->top = 0;
         br->cur = 0;
         return;
     }
     if (br->cur < 0) br->cur = 0;
-    if (br->cur >= br->count) br->cur = br->count - 1;
+    if (br->cur >= count) br->cur = count - 1;
     if (br->top < 0) br->top = 0;
     if (br->top > br->cur) br->top = br->cur;
     if (br->cur >= br->top + br->view_rows)
@@ -279,10 +282,11 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
     int x = px + 8;
     int y = py + HEADER_H;
     int start = br->top;
+    int count = arrlen(br->entries);
     int end = start + br->view_rows;
-    if (end > br->count) end = br->count;
+    if (end > count) end = count;
 
-    if (br->count == 0) {
+    if (count == 0) {
         const char *msg = (br->cwd[0] == '\0') ? "No drives found" : "(empty)";
         gfx_sprite_draw_str(s, ctx, x, y, msg, 150, 150, 180, 255, 1);
     }
@@ -353,7 +357,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, card_x, card_y, 1, card_h, 60, 60, 90, 255);
     gfx_sprite_fill(s, card_x + card_w - 1, card_y, 1, card_h, 60, 60, 90, 255);
 
-    if (br->cur >= 0 && br->cur < br->count) {
+    if (br->cur >= 0 && br->cur < count) {
         const struct entry *e = &br->entries[br->cur];
         int tx = card_x + 12;
         int ty = card_y + 12;
@@ -672,7 +676,7 @@ int gmain(int argc, char *argv[], int flags) {
             continue;
         }
 
-        if (br->cwd[0] == '\0' && br->count == 0) {
+        if (br->cwd[0] == '\0' && arrlen(br->entries) == 0) {
             fill_rect(&g, 0, 0, g.width, g.height, 15, 15, 30);
             draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "No drives found", 255, 50, 50, 2);
@@ -713,9 +717,9 @@ int gmain(int argc, char *argv[], int flags) {
                 br->device[0] = '\0';
                 break;
             } else if (ascii == 0x0D) {
-                if (br->cur < br->count && br->entries[br->cur].bootable)
+                if (br->cur < arrlen(br->entries) && br->entries[br->cur].bootable)
                     boot_file(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
-                else if (br->cur < br->count) {
+                else if (br->cur < arrlen(br->entries)) {
                     struct entry *e = &br->entries[br->cur];
                     if (e->is_dir) {
                         enter_dir(br, e->name);
@@ -730,7 +734,7 @@ int gmain(int argc, char *argv[], int flags) {
                     }
                 }
             } else if (scan == 0x4D) {
-                if (br->cur < br->count) {
+                if (br->cur < arrlen(br->entries)) {
                     struct entry *e = &br->entries[br->cur];
                     if (e->is_dir) {
                         enter_dir(br, e->name);
@@ -745,7 +749,7 @@ int gmain(int argc, char *argv[], int flags) {
                     }
                 }
             } else if (ascii == 'b' || ascii == 'B') {
-                if (br->cur < br->count && br->entries[br->cur].bootable)
+                if (br->cur < arrlen(br->entries) && br->entries[br->cur].bootable)
                     boot_file(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
             } else if (scan == 0x4B) {
                 go_up(br);

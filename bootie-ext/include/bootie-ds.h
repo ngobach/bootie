@@ -36,6 +36,7 @@ static inline void *bt_realloc(void *ptr, size_t size) {
 #define STBDS_FREE(ctx,ptr)        free(ptr)
 #define STBDS_ASSERT(x)            ((void)0)
 
+#define STB_DS_IMPLEMENTATION
 #include <stb_ds.h>
 
 #endif /* BOOTIE_DS_H */
