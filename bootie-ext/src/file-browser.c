@@ -306,7 +306,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
         }
 
         int tx = x + 20;
-        int text_y = y + 2;
+        int text_y = y + (LINE_H - 16) / 2;
         char trunc_name[NAME_MAX];
         int max_chars = 48;
         if (strlen(e->name) > max_chars) {
