@@ -120,51 +120,51 @@ static inline int bt_ini_parse(struct bt_ini *ini, const char *content) {
 
         char saved = *cursor;
         *cursor = '\0';
-        if (saved) {
-            *cursor = saved;
-            while (*cursor == '\n' || *cursor == '\r') cursor++;
-        }
 
         char *line = bt_ini_trim(line_start);
-        if (line[0] == '\0' || line[0] == ';' || line[0] == '#')
-            continue;
 
-        if (line[0] == '[') {
-            char *cb = bt_ini_strchr(line, ']');
-            if (cb) {
-                *cb = '\0';
-                bt_ini_section_t sec;
-                sec.name = bt_ini_trim(line + 1);
-                sec.entries = NULL;
-                sec.entry_count = 0;
-                arrput(ini->sections, sec);
-                cur_sec = &ini->sections[arrlen(ini->sections) - 1];
+        if (line[0] != '\0' && line[0] != ';' && line[0] != '#') {
+            if (line[0] == '[') {
+                char *cb = bt_ini_strchr(line, ']');
+                if (cb) {
+                    *cb = '\0';
+                    bt_ini_section_t sec;
+                    sec.name = bt_ini_trim(line + 1);
+                    sec.entries = NULL;
+                    sec.entry_count = 0;
+                    arrput(ini->sections, sec);
+                    cur_sec = &ini->sections[arrlen(ini->sections) - 1];
+                }
+            } else {
+                char *eq = bt_ini_strchr(line, '=');
+                if (eq) {
+                    *eq = '\0';
+                    char *key = bt_ini_trim(line);
+                    char *val = bt_ini_trim(eq + 1);
+                    bt_ini_strip_comments(val);
+                    val = bt_ini_trim(val);
+                    val = bt_ini_trim_quotes(val);
+
+                    if (!cur_sec) {
+                        bt_ini_section_t sec;
+                        sec.name = "";
+                        sec.entries = NULL;
+                        sec.entry_count = 0;
+                        arrput(ini->sections, sec);
+                        cur_sec = &ini->sections[arrlen(ini->sections) - 1];
+                    }
+
+                    bt_ini_entry_t entry;
+                    entry.key = key;
+                    entry.value = val;
+                    arrput(cur_sec->entries, entry);
+                }
             }
-            continue;
         }
 
-        char *eq = bt_ini_strchr(line, '=');
-        if (eq) {
-            *eq = '\0';
-            char *key = bt_ini_trim(line);
-            char *val = bt_ini_trim(eq + 1);
-            bt_ini_strip_comments(val);
-            val = bt_ini_trim(val);
-            val = bt_ini_trim_quotes(val);
-
-            if (!cur_sec) {
-                bt_ini_section_t sec;
-                sec.name = "";
-                sec.entries = NULL;
-                sec.entry_count = 0;
-                arrput(ini->sections, sec);
-                cur_sec = &ini->sections[arrlen(ini->sections) - 1];
-            }
-
-            bt_ini_entry_t entry;
-            entry.key = key;
-            entry.value = val;
-            arrput(cur_sec->entries, entry);
+        if (saved) {
+            cursor++;
+            while (*cursor == '\n' || *cursor == '\r') cursor++;
         }
     }
 
