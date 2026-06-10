@@ -138,7 +138,8 @@ static int confirm_action(struct gfx_sprite *screen, struct gfx_sprite *s,
     gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 180);
 
     int dw = 400;
-    int dh = 120;
+    int has_detail = detail && detail[0];
+    int dh = has_detail ? 120 : 80;
     int dx = (cw - dw) / 2;
     int dy = (ch - dh) / 2;
 
@@ -149,11 +150,11 @@ static int confirm_action(struct gfx_sprite *screen, struct gfx_sprite *s,
     gfx_sprite_fill(s, dx + dw - 1, dy, 1, dh, 120, 120, 160, 255);
 
     gfx_sprite_draw_str(s, ctx, dx + 16, dy + 16, prompt, 255, 255, 200, 255, 20);
-    if (detail && detail[0]) {
+    if (has_detail) {
         gfx_sprite_draw_str(s, ctx, dx + 16, dy + 52, detail,
                             180, 180, 220, 255, 16);
     }
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 32,
+    gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 28,
                         "[Enter] Confirm   [Esc] Cancel",
                         180, 180, 200, 255, 16);
 
