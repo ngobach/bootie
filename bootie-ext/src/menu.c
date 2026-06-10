@@ -190,9 +190,6 @@ static void overlay_info(struct gfx_sprite *screen, struct gfx_sprite *s,
 static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
                                struct gfx *ctx, int cw, int ch,
                                const char *target) {
-    if (!confirm_action(screen, s, ctx, cw, ch, "Boot Disk Image?", target))
-        return;
-
     char cmd[PATH_MAX + 128];
     int tlen = strlen(target);
     if (tlen >= 4 && strnicmp(target + tlen - 4, ".efi", 4) == 0) {
@@ -213,9 +210,6 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
                               struct gfx *ctx, int cw, int ch,
                               const char *target) {
-    if (!confirm_action(screen, s, ctx, cw, ch, "Chainload Bootloader?", target))
-        return;
-
     char cmd[PATH_MAX + 128];
     sprintf(cmd, "chainloader %s ;; boot", target);
     run_line(cmd, BUILTIN_CMDLINE);
