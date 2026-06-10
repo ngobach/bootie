@@ -2,12 +2,12 @@
 #define BOOTIE_GFX_H
 
 /* ------------------------------------------------------------------ */
-/*  Delay using PIT channel 2 (8253/8254) – shared BIOS & UEFI        */
-/*  Works on x86 (32-bit) and x86_64 (long mode); in/out opcodes      */
-/*  are valid on both. UEFI stall() is firmware-dependent, PIT is     */
-/*  always available on x86 chipsets.                                  */
+/*  Delay using PIT channel 2 (8253/8254) – BIOS target                */
+/*  Works on x86 (32-bit); in/out opcodes are valid. UEFI uses         */
+/*  the firmware stall() instead because PIT IO ports may be           */
+/*  restricted in long mode.                                           */
 /* ------------------------------------------------------------------ */
-static void delay_ms(unsigned int ms) {
+static void pit_delay_ms(unsigned int ms) {
     if (!ms) return;
 
     /* Enable PIT channel 2 gate (bit 0 of port 0x61 = Timer 2 gate) */

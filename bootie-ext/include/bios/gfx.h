@@ -525,7 +525,7 @@ static inline int gfx_getkey(struct gfx *ctx) {
 
 static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
     (void)ctx;
-    delay_ms(ms);
+    pit_delay_ms(ms);
 }
 
 /* ------------------------------------------------------------------ */
