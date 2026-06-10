@@ -1,8 +1,8 @@
 /*
- * screen_test.c - VBE graphics test (pure C, no LVGL)
+ * screen_test.c - framebuffer graphics test
  *
- * Tests VBE mode detection, linear framebuffer pixel writes,
- * and a basic font renderer using a built-in 5x7 bitmap font.
+ * Tests linear framebuffer pixel writes and a basic font renderer
+ * using a built-in 5x7 bitmap font.
  */
 #include <bootie.h>
 #include <stdint.h>
@@ -43,7 +43,7 @@ static void draw_demo(struct gfx *g) {
     }
 
     /* --- centred title banner --- */
-    const char *title = "Bootie-ext VBE Test";
+    const char *title = "Bootie-ext GFX Test";
     uint32_t scale   = 3;
     uint32_t tx = (W > gfx_text_width(title, SCALE_PX(scale))) ?
                   (W - gfx_text_width(title, SCALE_PX(scale))) / 2 : 0;
@@ -87,8 +87,6 @@ int gmain(int argc, char *argv[], int flags) {
 
     /* --- draw the demo --- */
     draw_demo(&g);
-
-    printf("Demo drawn. Press any key to return...\n");
 
     /* wait for keypress */
     while (!gfx_checkkey(&g)) {
