@@ -298,7 +298,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_fill(s, px + 2, y, 472, LINE_H, 50, 50, 120, 255);
 
         /* Draw icon (centered vertically within row) */
-        int icon_y = y + (LINE_H - 16) / 2;
+        int icon_y = y + (LINE_H - 24) / 2;
         if (e->is_drive && br->icon_disc.pixels) {
             gfx_sprite_blit(s, &br->icon_disc, x, icon_y);
         } else if (e->is_dir && br->icon_folder.pixels) {
@@ -309,7 +309,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_blit(s, &br->icon_file, x, icon_y);
         }
 
-        int tx = x + 20;
+        int tx = x + 28;
         int text_y = y + (LINE_H - 16) / 2;
         char trunc_name[NAME_MAX];
         int max_chars = 48;
@@ -592,8 +592,8 @@ int gmain(int argc, char *argv[], int flags) {
     br->view_rows = (canvas_h - HEADER_H - FOOTER_H) / LINE_H;
     br->show_dotfiles = 0;
     br->device[0] = '\0';
-    gfx_png_decode(ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG), &br->icon_disc);
-    gfx_png_decode(ICON_FILE_16_PNG, sizeof(ICON_FILE_16_PNG), &br->icon_file);
+    gfx_png_decode(ICON_DISC_24_PNG, sizeof(ICON_DISC_24_PNG), &br->icon_disc);
+    gfx_png_decode(ICON_FILE_24_PNG, sizeof(ICON_FILE_24_PNG), &br->icon_file);
     gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &br->icon_folder);
     gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &br->icon_boot);
 

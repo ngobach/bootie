@@ -101,7 +101,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_blit(s, &m->icons[item->icon_id], x, icon_y);
         }
 
-        int tx = x + 24;
+        int tx = x + 32;
         int tcolor = (i == m->cur) ? 255 : 200;
         gfx_sprite_draw_str(s, ctx, tx, row_y + 6, item->title,
                             tcolor, tcolor, 255, 255, 16);
@@ -326,11 +326,11 @@ int gmain(int argc, char *argv[], int flags) {
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
-    gfx_png_decode(ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG), &m->icons[0]);
+    gfx_png_decode(ICON_DISC_24_PNG, sizeof(ICON_DISC_24_PNG), &m->icons[0]);
     gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &m->icons[1]);
     gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &m->icons[2]);
-    gfx_png_decode(ICON_RESTART_16_PNG, sizeof(ICON_RESTART_16_PNG), &m->icons[3]);
-    gfx_png_decode(ICON_POWEROFF_16_PNG, sizeof(ICON_POWEROFF_16_PNG), &m->icons[4]);
+    gfx_png_decode(ICON_RESTART_24_PNG, sizeof(ICON_RESTART_24_PNG), &m->icons[3]);
+    gfx_png_decode(ICON_POWEROFF_24_PNG, sizeof(ICON_POWEROFF_24_PNG), &m->icons[4]);
 
     load_ini_items(m);
 
