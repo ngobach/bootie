@@ -24,6 +24,7 @@ enum action_type {
 
 struct menu_action {
     int type;
+    int priority;
     char target[PATH_MAX];
 };
 
@@ -40,6 +41,7 @@ struct menu {
     int top;
     int view_rows;
     struct gfx_sprite icons[5];
+    int confirm_exit;
 };
 
 static void ensure_visible(struct menu *m) {
@@ -80,7 +82,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     if (end > count) end = count;
 
     if (count == 0) {
-        gfx_sprite_draw_str(s, ctx, x, y, "(no menu items)",
+        gfx_sprite_draw_str(s, ctx, x, y + 8, "(no menu items)",
                             150, 150, 180, 255, 16);
     }
 
@@ -234,113 +236,68 @@ static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
         run_line("halt", BUILTIN_CMDLINE);
 }
 
-static void append_power_actions(struct menu *m) {
-    struct menu_item *item;
-
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Restart");
-    strcpy(item->desc, "Reboot the system");
-    item->icon_id = 3;
-    item->action.type = ACTION_REBOOT;
-
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Shutdown");
-    strcpy(item->desc, "Power off the system");
-    item->icon_id = 4;
-    item->action.type = ACTION_POWEROFF;
+static int icon_id_from_name(const char *name) {
+    if (!name) return -1;
+    if (stricmp(name, "disc") == 0) return 0;
+    if (stricmp(name, "folder") == 0) return 1;
+    if (stricmp(name, "boot") == 0) return 2;
+    if (stricmp(name, "restart") == 0) return 3;
+    if (stricmp(name, "poweroff") == 0) return 4;
+    return -1;
 }
 
-static void build_demo_menu(struct menu *m) {
-    struct menu_item *item;
+static int action_type_from_name(const char *name) {
+    if (!name) return ACTION_NONE;
+    if (stricmp(name, "disk-image") == 0) return ACTION_DISK_IMAGE;
+    if (stricmp(name, "file-browser") == 0) return ACTION_FILE_BROWSER;
+    if (stricmp(name, "chainload") == 0) return ACTION_CHAINLOAD;
+    if (stricmp(name, "reboot") == 0) return ACTION_REBOOT;
+    if (stricmp(name, "poweroff") == 0) return ACTION_POWEROFF;
+    return ACTION_NONE;
+}
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Boot Disk Image");
-    strcpy(item->desc, "/boot/disk.img");
-    item->icon_id = 0;
-    item->action.type = ACTION_DISK_IMAGE;
-    strcpy(item->action.target, "/boot/disk.img");
+static void load_ini_items(struct menu *m) {
+    struct bt_ini ini;
+    if (bt_ini_parse_file(&ini, "/menu.ini") != 0)
+        return;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "File Browser");
-    strcpy(item->desc, "Browse and boot files from disk");
-    item->icon_id = 1;
-    item->action.type = ACTION_FILE_BROWSER;
+    for (int i = 0; i < ini.section_count; i++) {
+        const char *sec_name = ini.sections[i].name;
+        if (strnicmp(sec_name, "items.", 6) != 0)
+            continue;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Chainload Bootloader");
-    strcpy(item->desc, "/bootmgr");
-    item->icon_id = 2;
-    item->action.type = ACTION_CHAINLOAD;
-    strcpy(item->action.target, "/bootmgr");
+        const char *type_str = bt_ini_section_get_value(&ini.sections[i], "type");
+        if (!type_str) continue;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Boot from USB");
-    strcpy(item->desc, "/usb/boot.img");
-    item->icon_id = 0;
-    item->action.type = ACTION_DISK_IMAGE;
-    strcpy(item->action.target, "/usb/boot.img");
+        int type = action_type_from_name(type_str);
+        if (type == ACTION_NONE) continue;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Memtest86+");
-    strcpy(item->desc, "Run memory diagnostics");
-    item->icon_id = 2;
-    item->action.type = ACTION_CHAINLOAD;
-    strcpy(item->action.target, "/memtest.bin");
+        const char *title = bt_ini_section_get_value(&ini.sections[i], "title");
+        if (!title) continue;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "HDD Boot (sda1)");
-    strcpy(item->desc, "Boot from first partition");
-    item->icon_id = 0;
-    item->action.type = ACTION_DISK_IMAGE;
-    strcpy(item->action.target, "(hd0,1)/boot/grub/core.img");
+        struct menu_item *item = arraddnptr(m->items, 1);
+        memset(item, 0, sizeof(*item));
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Network Boot (PXE)");
-    strcpy(item->desc, "Boot from network image");
-    item->icon_id = 1;
-    item->action.type = ACTION_DISK_IMAGE;
-    strcpy(item->action.target, "(pxe)/boot/netboot.img");
+        strcpy(item->title, title);
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Rescue Shell");
-    strcpy(item->desc, "Drop to command line");
-    item->icon_id = 2;
-    item->action.type = ACTION_CHAINLOAD;
-    strcpy(item->action.target, "/rescue-shell.efi");
+        const char *desc = bt_ini_section_get_value(&ini.sections[i], "desc");
+        if (desc)
+            strcpy(item->desc, desc);
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Boot ISO from Disk");
-    strcpy(item->desc, "/isos/ubuntu.iso");
-    item->icon_id = 0;
-    item->action.type = ACTION_DISK_IMAGE;
-    strcpy(item->action.target, "/isos/ubuntu.iso");
+        const char *icon_str = bt_ini_section_get_value(&ini.sections[i], "icon");
+        item->icon_id = icon_id_from_name(icon_str);
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Windows Recovery");
-    strcpy(item->desc, "/Windows/System32/winload.efi");
-    item->icon_id = 1;
-    item->action.type = ACTION_CHAINLOAD;
-    strcpy(item->action.target, "/Windows/System32/winload.efi");
+        item->action.type = type;
 
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "System Info");
-    strcpy(item->desc, "Display hardware information");
-    item->icon_id = 2;
-    item->action.type = ACTION_CHAINLOAD;
-    strcpy(item->action.target, "/sysinfo.efi");
+        const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
+        if (target)
+            strcpy(item->action.target, target);
+
+        item->action.priority = bt_ini_section_get_int(&ini.sections[i], "priority", 1000);
+    }
+
+    m->confirm_exit = bt_ini_get_bool(&ini, "menu", "confirm_exit", 1);
+    bt_ini_destroy(&ini);
 }
 
 int gmain(int argc, char *argv[], int flags) {
@@ -374,16 +331,7 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_png_decode(ICON_RESTART_PNG, sizeof(ICON_RESTART_PNG), &m->icons[3]);
     gfx_png_decode(ICON_POWEROFF_PNG, sizeof(ICON_POWEROFF_PNG), &m->icons[4]);
 
-    build_demo_menu(m);
-
-    int power_actions = 1;
-    struct bt_ini ini;
-    if (bt_ini_parse_file(&ini, "/menu.ini") == 0) {
-        power_actions = bt_ini_get_bool(&ini, "menu", "power_actions", 1);
-        bt_ini_destroy(&ini);
-    }
-    if (power_actions)
-        append_power_actions(m);
+    load_ini_items(m);
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
@@ -399,7 +347,7 @@ int gmain(int argc, char *argv[], int flags) {
         int ascii = key & 0xFF;
 
         if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
-            if (confirm_action(&screen, &back, &g, cw, ch, "Quit Boot Menu?", NULL))
+            if (!m->confirm_exit || confirm_action(&screen, &back, &g, cw, ch, "Quit Boot Menu?", NULL))
                 break;
         } else if (ascii == 0x0D) {
             int count = arrlenu(m->items);
