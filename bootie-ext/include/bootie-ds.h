@@ -36,6 +36,12 @@ static inline void *bt_realloc(void *ptr, size_t size) {
 #define STBDS_FREE(ctx,ptr)        free(ptr)
 #define STBDS_ASSERT(x)            ((void)0)
 
+/* stb_ds implementation uses memcpy internally (hash map key copy, etc.);
+   GRUB4DOS provides memmove but not memcpy — redirect safely. */
+#ifndef memcpy
+#define memcpy(d,s,n) memmove(d,s,n)
+#endif
+
 #define STB_DS_IMPLEMENTATION
 #include <stb_ds.h>
 
