@@ -95,7 +95,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_fill(s, 2, row_y - 2, cw - 4, LINE_H, 60, 80, 160, 100);
         }
 
-        int icon_y = row_y + 4;
+        int icon_y = row_y + 8;
         if (item->icon_id >= 0 && item->icon_id < 5
             && m->icons[item->icon_id].pixels) {
             gfx_sprite_blit(s, &m->icons[item->icon_id], x, icon_y);
