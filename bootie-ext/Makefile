@@ -21,13 +21,13 @@ CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -fno-tree-loop-distribute-patterns \
                -Wl,-N -Wl,-m,elf_i386 -Wl,-T,ld/linker_bios.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro -Wl,--no-warn-rwx-segments \
-               -Ilibs/schrift -Ilibs/lodepng -Ilibs/stb
+               -Ilibs/schrift -Ilibs/lodepng -Ilibs/stb -MD -MP
 
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
                -Wl,--no-dynamic-linker -Wl,-z,norelro -Wl,--no-warn-rwx-segments \
-               -Ilibs/schrift -Ilibs/lodepng -Ilibs/stb
+               -Ilibs/schrift -Ilibs/lodepng -Ilibs/stb -MD -MP
 
 # Collect all top-level C sources
 SOURCES := $(wildcard src/*.c)
@@ -43,6 +43,12 @@ all: bios uefi
 bios: $(BIOS_TARGETS)
 
 uefi: $(UEFI_TARGETS)
+
+# Auto-dependency tracking: -MT $@ so generated .d rules target the binary
+DEPFLAGS = -MT $@
+
+# Pull in dependency files (silently skip if none exist yet)
+-include $(wildcard mod/bios/*.d mod/uefi/*.d)
 
 # ------------------------------------------------------------------
 # Generate font header from TTF
@@ -69,7 +75,7 @@ $(ICON_HEADER): $(wildcard $(ICON_DIR)/*.png) scripts/icons_to_c.py
 # ------------------------------------------------------------------
 mod/bios/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
-	$(CC) $(CFLAGS_BIOS) -Iinclude $< -o $@.o
+	$(CC) $(CFLAGS_BIOS) $(DEPFLAGS) -Iinclude $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 	$(RM) $@.o
 
@@ -78,7 +84,7 @@ mod/bios/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 # ------------------------------------------------------------------
 mod/uefi/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
-	$(CC) $(CFLAGS_UEFI) -Iinclude -Iinclude/uefi $< -o $@.o
+	$(CC) $(CFLAGS_UEFI) $(DEPFLAGS) -Iinclude -Iinclude/uefi $< -o $@.o
 	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
 	$(RM) $@.o
 

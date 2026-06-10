@@ -64,6 +64,7 @@ struct gfx {
   int buffered_key;
   uint8_t *real_fb;
   void *backbuf;
+  uint32_t saved_mode;
   void *gop;
 };
 
@@ -311,9 +312,9 @@ static void draw_str(struct gfx *ctx, uint32_t cx, uint32_t cy, const char *s,
 
 static inline int gfx_init(struct gfx *ctx) {
   efi_guid_t gop_guid = {0x9042a9de,
-                         0x23dc,
-                         0x4a38,
-                         {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a}};
+                          0x23dc,
+                          0x4a38,
+                          {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a}};
   efi_graphics_output_protocol_t *gop = NULL;
   efi_system_table_t *st = grub_efi_system_table;
   if (!st || !st->boot_services)
@@ -323,6 +324,58 @@ static inline int gfx_init(struct gfx *ctx) {
       st->boot_services->locate_protocol(&gop_guid, NULL, (void **)&gop);
   if (status != 0 || !gop || !gop->Mode || !gop->Mode->Info) {
     return 0;
+  }
+
+  ctx->saved_mode = gop->Mode->Mode;
+
+  /* mode selection */
+  {
+    typedef efi_status_t (EFIAPI *qm_t)(
+        efi_graphics_output_protocol_t *, uint32_t,
+        grub_size_t *, EFI_GRAPHICS_OUTPUT_MODE_INFORMATION **);
+    typedef efi_status_t (EFIAPI *sm_t)(
+        efi_graphics_output_protocol_t *, uint32_t);
+
+    qm_t qm = (qm_t)gop->QueryMode;
+    sm_t sm = (sm_t)gop->SetMode;
+
+    uint32_t nmax = gop->Mode->MaxMode;
+    if (nmax > 64) nmax = 64;
+
+    int      best_score = -1;
+    uint32_t best_mode  = 0;
+
+    for (uint32_t i = 0; i < nmax; i++) {
+      grub_size_t sz = 0;
+      EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *mi = NULL;
+      if (qm(gop, i, &sz, &mi) != 0 || !mi)
+        continue;
+      if (mi->PixelFormat == PixelBltOnly || mi->PixelFormat == PixelFormatMax)
+        continue;
+      if (mi->HorizontalResolution > 800)
+        continue;
+
+      int s = 0;
+      if      (mi->PixelFormat == PixelRedGreenBlueReserved8BitPerColor ||
+               mi->PixelFormat == PixelBlueGreenRedReserved8BitPerColor)
+        s = 100;
+      else if (mi->PixelFormat == PixelBitMask)
+        s = 90;
+
+      if (mi->HorizontalResolution == 800 && mi->VerticalResolution == 600)
+        s += 60;
+      else if (mi->HorizontalResolution == 640 && mi->VerticalResolution == 480)
+        s += 30;
+
+      if (s > best_score) {
+        best_score = s;
+        best_mode  = i;
+      }
+    }
+
+    if (best_score >= 0 && best_mode != gop->Mode->Mode) {
+      sm(gop, best_mode);
+    }
   }
 
   ctx->fb = (uint8_t *)gop->Mode->FrameBufferBase;
@@ -379,6 +432,16 @@ static inline int gfx_init(struct gfx *ctx) {
 }
 
 static inline void gfx_close(struct gfx *ctx) {
+  if (ctx->gop) {
+    efi_graphics_output_protocol_t *gop =
+        (efi_graphics_output_protocol_t *)ctx->gop;
+    if (gop->Mode->Mode != ctx->saved_mode) {
+      typedef efi_status_t (EFIAPI *sm_t)(
+          efi_graphics_output_protocol_t *, uint32_t);
+      sm_t sm = (sm_t)gop->SetMode;
+      sm(gop, ctx->saved_mode);
+    }
+  }
   if (ctx->backbuf) {
     free(ctx->backbuf);
     ctx->backbuf = NULL;
