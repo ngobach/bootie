@@ -67,7 +67,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, 0, 0, 1, ch, 80, 80, 120, 255);
     gfx_sprite_fill(s, cw - 1, 0, 1, ch, 80, 80, 120, 255);
 
-    gfx_sprite_draw_str(s, ctx, 8, 12, "Boot Menu", 200, 200, 255, 255, 2);
+    gfx_sprite_draw_str(s, ctx, 8, 12, "Boot Menu", 200, 200, 255, 255, 28);
 
     gfx_sprite_fill(s, 0, HEADER_H - 1, cw, 1, 80, 80, 120, 255);
 
@@ -80,7 +80,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
 
     if (count == 0) {
         gfx_sprite_draw_str(s, ctx, x, y, "(no menu items)",
-                            150, 150, 180, 255, 1);
+                            150, 150, 180, 255, 16);
     }
 
     for (int i = start; i < end; i++) {
@@ -101,11 +101,11 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
         int tx = x + 24;
         int tcolor = (i == m->cur) ? 255 : 200;
         gfx_sprite_draw_str(s, ctx, tx, row_y + 6, item->title,
-                            tcolor, tcolor, 255, 255, 1);
+                            tcolor, tcolor, 255, 255, 16);
 
         if (item->desc[0]) {
             gfx_sprite_draw_str(s, ctx, tx, row_y + 26, item->desc,
-                                160, 160, 190, 255, 1);
+                                160, 160, 190, 255, 14);
         }
     }
 
@@ -113,13 +113,13 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, 0, footer_y, cw, FOOTER_H, 30, 30, 60, 255);
     gfx_sprite_draw_str(s, ctx, 8, footer_y + 7,
                         "[^v] Nav  [Enter] Select  [Esc] Quit",
-                        150, 150, 180, 255, 1);
+                        150, 150, 180, 255, 16);
 
     char footer_count[16];
     int total = arrlenu(m->items);
     sprintf(footer_count, "%d/%d", m->cur + 1, total);
     gfx_sprite_draw_str(s, ctx, cw - 8 - (int)strlen(footer_count) * 8,
-                        footer_y + 7, footer_count, 200, 200, 230, 255, 1);
+                        footer_y + 7, footer_count, 200, 200, 230, 255, 16);
 }
 
 static void overlay_flip(struct gfx_sprite *screen, struct gfx_sprite *back,
@@ -145,22 +145,21 @@ static int confirm_action(struct gfx_sprite *screen, struct gfx_sprite *s,
     gfx_sprite_fill(s, dx, dy, 1, dh, 120, 120, 160, 255);
     gfx_sprite_fill(s, dx + dw - 1, dy, 1, dh, 120, 120, 160, 255);
 
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 16, prompt, 255, 255, 200, 255, 2);
+    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 16, prompt, 255, 255, 200, 255, 20);
     if (detail && detail[0]) {
-        gfx_sprite_draw_str(s, ctx, dx + 16, dy + 44, detail,
-                            180, 180, 220, 255, 1);
+        gfx_sprite_draw_str(s, ctx, dx + 16, dy + 52, detail,
+                            180, 180, 220, 255, 16);
     }
     gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 32,
-                        "[Y] Yes   [N] No   [ESC] Cancel",
-                        180, 180, 200, 255, 1);
+                        "[Enter] Confirm   [Esc] Cancel",
+                        180, 180, 200, 255, 16);
 
     overlay_flip(screen, s, ctx, cw, ch);
 
     while (1) {
         int key = gfx_getkey(ctx);
         int ascii = key & 0xFF;
-        if (ascii == 'y' || ascii == 'Y') return 1;
-        if (ascii == 'n' || ascii == 'N') return 0;
+        if (ascii == 0x0D) return 1;
         if (ascii == 0x1B) return 0;
     }
 }
@@ -180,9 +179,9 @@ static void overlay_info(struct gfx_sprite *screen, struct gfx_sprite *s,
     gfx_sprite_fill(s, dx, dy, 1, dh, 120, 120, 160, 255);
     gfx_sprite_fill(s, dx + dw - 1, dy, 1, dh, 120, 120, 160, 255);
 
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 24, msg, 200, 200, 200, 255, 2);
+    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 24, msg, 200, 200, 200, 255, 28);
     gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 28,
-                        "Press any key to continue", 150, 150, 180, 255, 1);
+                        "Press any key to continue", 150, 150, 180, 255, 16);
 
     overlay_flip(screen, s, ctx, cw, ch);
     gfx_getkey(ctx);
@@ -207,7 +206,7 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
     overlay_flip(screen, s, ctx, cw, ch);
     gfx_sprite_fill(s, 0, ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
     gfx_sprite_draw_str(s, ctx, 8, ch - FOOTER_H * 2 + 2,
-                        "Boot failed", 255, 50, 50, 255, 1);
+                        "Boot failed", 255, 50, 50, 255, 16);
     gfx_getkey(ctx);
 }
 
@@ -224,7 +223,7 @@ static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
     overlay_flip(screen, s, ctx, cw, ch);
     gfx_sprite_fill(s, 0, ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
     gfx_sprite_draw_str(s, ctx, 8, ch - FOOTER_H * 2 + 2,
-                        "Boot failed", 255, 50, 50, 255, 1);
+                        "Boot failed", 255, 50, 50, 255, 16);
     gfx_getkey(ctx);
 }
 
@@ -390,7 +389,8 @@ int gmain(int argc, char *argv[], int flags) {
         int ascii = key & 0xFF;
 
         if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
-            break;
+            if (confirm_action(&screen, &back, &g, cw, ch, "Quit Boot Menu?", NULL))
+                break;
         } else if (ascii == 0x0D) {
             int count = arrlenu(m->items);
             if (m->cur >= 0 && m->cur < count) {

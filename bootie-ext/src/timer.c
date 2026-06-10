@@ -77,11 +77,10 @@ int gmain(int argc, char *argv[], int flags) {
         int mins = (elapsed_ms / 60000) % 60;
         int hrs = elapsed_ms / 3600000;
 
-        int scale = (WND_W >= 340) ? 4 : 3;
-        int text_px = SCALE_PX(scale);
-        int tx = (wnd_l + wnd_r - gfx_text_width("00:00:00.00", text_px)) / 2;
-        int ty = (wnd_t + wnd_b - text_px) / 2 - 10;
-        draw_strf(&g, tx, ty, 0, 220, 220, scale,
+        int px_size = 28;
+        int tx = (wnd_l + wnd_r - gfx_text_width("00:00:00.00", px_size)) / 2;
+        int ty = (wnd_t + wnd_b - px_size) / 2 - 10;
+        draw_strf(&g, tx, ty, 0, 220, 220, px_size,
                   "%02d:%02d:%02d.%02d", hrs, mins, secs, centis);
 
         /* State indicator */
@@ -97,16 +96,16 @@ int gmain(int argc, char *argv[], int flags) {
             state = "PAUSED";
             state_r = 220; state_g = 220; state_b = 0;
         }
-        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(state, SCALE_PX(1))) / 2,
-                 ty + SCALE_PX(scale) + 8, state, state_r, state_g, state_b, 1);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(state, 16)) / 2,
+                 ty + px_size + 8, state, state_r, state_g, state_b, 16);
 
         /* Controls */
         const char *help1 = "SPACE: Start/Stop  R: Reset";
         const char *help2 = "ESC: Reset when running, Exit when stopped";
-        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(help1, SCALE_PX(1))) / 2,
-                 wnd_b - 34, help1, 150, 150, 160, 1);
-        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(help2, SCALE_PX(1))) / 2,
-                 wnd_b - 20, help2, 150, 150, 160, 1);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(help1, 16)) / 2,
+                 wnd_b - 34, help1, 150, 150, 160, 16);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(help2, 16)) / 2,
+                 wnd_b - 20, help2, 150, 150, 160, 16);
 
         gfx_backbuffer_end(&g);
         gfx_delay_ms(&g, TICK_MS);

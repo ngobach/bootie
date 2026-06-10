@@ -71,9 +71,9 @@ int gmain(int argc, char *argv[], int flags) {
     const char *title = "BREAKOUT";
     const char *ctrl = "LEFT/RIGHT or A/D to move";
     const char *prompt = "Press any key to start...";
-    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(title, SCALE_PX(2))) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 2);
-    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(ctrl, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 1);
-    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(prompt, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 1);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 28);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(ctrl, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 16);
+    draw_str(&g, (wnd_l + wnd_r - gfx_text_width(prompt, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 16);
     while (!gfx_checkkey(&g)) gfx_delay_ms(&g, 25);
     gfx_getkey(&g);
 
@@ -273,11 +273,11 @@ int gmain(int argc, char *argv[], int flags) {
             /* Clear and draw title bar above the window */
             fill_rect(&g, 0, 0, W, wnd_t - BORDER_T, 10, 10, 15);
             int top_label_y = (wnd_t - 20) / 2;
-            draw_strf(&g, 10, top_label_y, 200, 200, 255, 1, "SCORE: %d", score);
-            draw_strf(&g, W - 100, top_label_y, 200, 200, 255, 1, "LIVES: %d", lives);
+    draw_strf(&g, 10, top_label_y, 200, 200, 255, 16, "SCORE: %d", score);
+    draw_strf(&g, W - 100, top_label_y, 200, 200, 255, 16, "LIVES: %d", lives);
 
             if (serving) {
-                draw_str(&g, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", SCALE_PX(1))) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 1);
+                draw_str(&g, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", 16)) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 16);
             }
 
             gfx_backbuffer_end(&g);
@@ -299,14 +299,14 @@ int gmain(int argc, char *argv[], int flags) {
         const char *go_title = "GAME OVER";
         const char *restart = "SPACE to Play Again, ESC to Exit";
 
-        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(go_title, SCALE_PX(2))) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 2);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(go_title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 28);
         if (lives <= 0)
-            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("Score: 99999", SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2,
-                      255, 255, 255, 1, "Score: %d", score);
+            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+                      255, 255, 255, 16, "Score: %d", score);
         else
-            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("You Win! Score: 99999", SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) / 2,
-                      255, 255, 255, 1, "You Win! Score: %d", score);
-        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(restart, SCALE_PX(1))) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 1);
+            draw_strf(&g, (wnd_l + wnd_r - gfx_text_width("You Win! Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+                      255, 255, 255, 16, "You Win! Score: %d", score);
+        draw_str(&g, (wnd_l + wnd_r - gfx_text_width(restart, 16)) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 16);
 
         int exit_req = 0;
         while (1) {

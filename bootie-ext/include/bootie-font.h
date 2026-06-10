@@ -3,10 +3,7 @@
 
 #include <bootie-gfx.h>
 #include <schrift.h>
-
-#if __has_include("font-ttf.h")
-#  include "font-ttf.h"
-#endif
+#include "font-ttf.h"
 
 /* ------------------------------------------------------------------ */
 /*  Font state                                                        */
@@ -16,7 +13,6 @@ static int       g_font_ready;
 
 static inline int gfx_font_load(void)
 {
-#if __has_include("font-ttf.h")
     if (g_font)
         sft_freefont(g_font);
     g_font = sft_loadmem(FONT_TTF_DATA, (size_t)FONT_TTF_SIZE);
@@ -24,11 +20,6 @@ static inline int gfx_font_load(void)
         return -1;
     g_font_ready = 1;
     return 0;
-#else
-    (void)sft_loadmem;
-    g_font_ready = 0;
-    return -1;
-#endif
 }
 
 static inline void gfx_font_unload(void)
@@ -49,14 +40,6 @@ static inline void gfx_font_unload(void)
 #include "../libs/schrift/schrift.c"
 
 /* ------------------------------------------------------------------ */
-/*  Save a pointer to the bitmap draw_str before we override it.      */
-/* ------------------------------------------------------------------ */
-typedef void (*bitmap_draw_str_t)(struct gfx *, uint32_t, uint32_t,
-                                   const char *, uint8_t, uint8_t, uint8_t,
-                                   uint32_t);
-static const bitmap_draw_str_t bitmap_draw_str = draw_str;
-
-/* ------------------------------------------------------------------ */
 /*  TTF glyph renderer                                                */
 /* ------------------------------------------------------------------ */
 static inline double gfx_font_render_glyph(struct gfx *ctx,
@@ -65,9 +48,6 @@ static inline double gfx_font_render_glyph(struct gfx *ctx,
                                             uint8_t r, uint8_t g, uint8_t b,
                                             int px_size)
 {
-    if (!g_font)
-        return 0.0;
-
     SFT sft;
     sft.font    = g_font;
     sft.xScale  = (double)px_size;
@@ -165,23 +145,14 @@ static inline double gfx_font_render_glyph(struct gfx *ctx,
 
 /* ------------------------------------------------------------------ */
 /*  TTF string renderer (UTF-8)                                       */
-/*  Falls back to the bitmap draw_str when no TTF font is loaded.     */
 /* ------------------------------------------------------------------ */
 static inline void gfx_draw_str_ttf(struct gfx *ctx, int x, int y,
                                      const char *s,
                                      uint8_t r, uint8_t g, uint8_t b,
                                      int px_size)
 {
-    if (!g_font_ready || !g_font) {
-        uint32_t scale = (uint32_t)(px_size > 12 ? 2 : 1);
-        bitmap_draw_str(ctx, (uint32_t)x, (uint32_t)y, s, r, g, b, scale);
-        return;
-    }
-
     double em = (double)px_size;
 
-    /* Compute baseline from a reference capital letter so the text
-       top aligns with y regardless of font metrics. */
     int baseline_y = y + (int)(em * 0.8);
     {
         SFT msft;
@@ -199,7 +170,6 @@ static inline void gfx_draw_str_ttf(struct gfx *ctx, int x, int y,
         }
     }
 
-    /* ── Render ── */
     double pen_x = (double)x;
     SFT_UChar prev = 0;
 
@@ -247,15 +217,9 @@ static inline void gfx_draw_str_ttf(struct gfx *ctx, int x, int y,
 /* ------------------------------------------------------------------ */
 /*  Proportional text width measurement                                */
 /*  Returns the pixel width of a UTF-8 string at the given px_size.    */
-/*  Falls back to bitmap estimate when no TTF font is loaded.          */
 /* ------------------------------------------------------------------ */
 static inline int gfx_text_width(const char *s, int px_size)
 {
-    if (!g_font_ready || !g_font) {
-        int scale = px_size > 12 ? 2 : 1;
-        return (int)(strlen(s) * 6 * (unsigned int)scale);
-    }
-
     double em = (double)px_size;
     SFT msft;
     msft.font    = g_font;
@@ -299,48 +263,44 @@ static inline int gfx_text_width(const char *s, int px_size)
     return (int)(w + 0.5);
 }
 
-/* Convert draw_str scale to pixel size (shared with gfx_text_width). */
-#define SCALE_PX(s) ((s) <= 1 ? 16 : 28)
-
 /* ------------------------------------------------------------------ */
-/*  Override draw_str to use TTF font, mapping scale → px_size.       */
+/*  Override draw_str to use TTF font with px_size instead of scale.   */
 /* ------------------------------------------------------------------ */
 #undef draw_str
-#define draw_str(ctx, cx, cy, s, r, g, b, scale) \
-    gfx_draw_str_ttf(ctx, (int)(cx), (int)(cy), s, r, g, b, SCALE_PX(scale))
+#define draw_str(ctx, cx, cy, s, r, g, b, px_size) \
+    gfx_draw_str_ttf(ctx, (int)(cx), (int)(cy), s, r, g, b, px_size)
 
 /* ------------------------------------------------------------------ */
 /*  draw_strf — sprintf + draw_str in one call                         */
-/*  Usage:  draw_strf(ctx, x, y, r, g, b, scale, fmt, ...)            */
+/*  Usage:  draw_strf(ctx, x, y, r, g, b, px_size, fmt, ...)          */
 /* ------------------------------------------------------------------ */
-#define draw_strf(ctx, cx, cy, r, g, b, scale, fmt, ...) do {         \
+#define draw_strf(ctx, cx, cy, r, g, b, px_size, fmt, ...) do {       \
     char _buf[256];                                                    \
     sprintf(_buf, fmt, ##__VA_ARGS__);                                 \
-    draw_str(ctx, cx, cy, _buf, r, g, b, scale);                      \
+    draw_str(ctx, cx, cy, _buf, r, g, b, px_size);                    \
 } while (0)
 
 /* Centered variants — compute the pixel width of the *actual* rendered
    text and subtract half from cx, so cx becomes the center point. */
-#define draw_strf_centered(ctx, cx, cy, r, g, b, scale, fmt, ...) do { \
+#define draw_strf_centered(ctx, cx, cy, r, g, b, px_size, fmt, ...) do { \
     char _buf[256];                                                    \
     int _w;                                                            \
     sprintf(_buf, fmt, ##__VA_ARGS__);                                 \
-    _w = gfx_text_width(_buf, SCALE_PX(scale));                        \
-    draw_str(ctx, (int)(cx) - _w / 2, cy, _buf, r, g, b, scale);      \
+    _w = gfx_text_width(_buf, px_size);                                \
+    draw_str(ctx, (int)(cx) - _w / 2, cy, _buf, r, g, b, px_size);    \
 } while (0)
 
 /* ------------------------------------------------------------------ */
 /*  draw_str_wrapped — word-wrap text to max_width pixels              */
 /*  Returns the Y coordinate below the last line.                      */
-/*  Usage:  draw_str_wrapped(ctx, x, y, max_width, r, g, b, scale, s) */
+/*  Usage:  draw_str_wrapped(ctx, x, y, max_width, r, g, b, px_size, s) */
 /* ------------------------------------------------------------------ */
 static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
                                     int max_width,
                                     uint8_t r, uint8_t g, uint8_t b,
-                                    int scale, const char *text) {
+                                    int px_size, const char *text) {
     if (!text || !text[0]) return y;
-    int px = SCALE_PX(scale);
-    int lh = px + 4;
+    int lh = px_size + 4;
     int cy = y;
     char line[256];
 
@@ -362,15 +322,15 @@ static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
             n += wlen;
             line[n] = '\0';
 
-            if (gfx_text_width(line, px) > max_width) {
+            if (gfx_text_width(line, px_size) > max_width) {
                 if (prev == 0) {
-                    draw_str(ctx, x, cy, line, r, g, b, scale);
+                    draw_str(ctx, x, cy, line, r, g, b, px_size);
                     cy += lh;
                     n = 0;
                     text = after_word;
                 } else {
                     line[prev] = '\0';
-                    draw_str(ctx, x, cy, line, r, g, b, scale);
+                    draw_str(ctx, x, cy, line, r, g, b, px_size);
                     cy += lh;
                     n = 0;
                     text = word;
@@ -380,17 +340,17 @@ static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
         }
         if (*text == '\n') text++;
         if (n > 0) {
-            draw_str(ctx, x, cy, line, r, g, b, scale);
+            draw_str(ctx, x, cy, line, r, g, b, px_size);
             cy += lh;
         }
     }
     return cy;
 }
 
-#define draw_strf_wrapped(ctx, x, y, max_width, r, g, b, scale, fmt, ...) do { \
+#define draw_strf_wrapped(ctx, x, y, max_width, r, g, b, px_size, fmt, ...) do { \
     char _buf[256];                                                       \
     sprintf(_buf, fmt, ##__VA_ARGS__);                                    \
-    draw_str_wrapped(ctx, x, y, max_width, r, g, b, scale, _buf);        \
+    draw_str_wrapped(ctx, x, y, max_width, r, g, b, px_size, _buf);      \
 } while (0)
 
 #endif /* BOOTIE_FONT_H */

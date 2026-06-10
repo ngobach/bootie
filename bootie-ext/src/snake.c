@@ -48,9 +48,9 @@ int gmain(int argc, char *argv[], int flags) {
 
   const char *title = "Snake";
   const char *prompt = "Press any key to start...";
-  draw_str(&g, (W - gfx_text_width(title, SCALE_PX(2))) / 2, y_off + grid_h / 3,
-           title, 50, 220, 50, 2);
-  draw_str(&g, (W - gfx_text_width(prompt, SCALE_PX(1))) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 1);
+  draw_str(&g, (W - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3,
+           title, 50, 220, 50, 28);
+  draw_str(&g, (W - gfx_text_width(prompt, 16)) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 16);
 
   while (!gfx_checkkey(&g)) {
     gfx_delay_ms(&g, 25);
@@ -201,10 +201,10 @@ int gmain(int argc, char *argv[], int flags) {
       /* Clear score area at the top */
       fill_rect(&g, 0, 0, W, y_off - 4, 10, 10, 15);
       if (session_high_score > 0)
-          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
                     "SCORE: %d    HI: %d", score, session_high_score);
       else
-          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
                     "SCORE: %d", score);
       gfx_backbuffer_end(&g);
 
@@ -224,16 +224,16 @@ int gmain(int argc, char *argv[], int flags) {
       gfx_backbuffer_begin(&g);
       fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
       draw_border(&g, x_off, y_off);
-      draw_str(&g, (W - gfx_text_width(go_title, SCALE_PX(2))) / 2, y_off + grid_h / 3, go_title, 220, 50,
-               50, 2);
+      draw_str(&g, (W - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50,
+               50, 28);
       if (score >= session_high_score && score > 0)
-          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
                     "New High Score: %d!", score);
       else
-          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 1,
+          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
                     "Score: %d    High Score: %d", score, session_high_score);
-      draw_str(&g, (W - gfx_text_width(restart_prompt, SCALE_PX(1))) / 2, y_off + grid_h * 2 / 3, restart_prompt,
-               180, 180, 180, 1);
+      draw_str(&g, (W - gfx_text_width(restart_prompt, 16)) / 2, y_off + grid_h * 2 / 3, restart_prompt,
+               180, 180, 180, 16);
       gfx_backbuffer_end(&g);
 
       if (gfx_checkkey(&g)) {

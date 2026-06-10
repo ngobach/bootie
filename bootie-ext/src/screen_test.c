@@ -44,23 +44,23 @@ static void draw_demo(struct gfx *g) {
 
     /* --- centred title banner --- */
     const char *title = "Bootie-ext GFX Test";
-    uint32_t scale   = 3;
-    uint32_t tx = (W > gfx_text_width(title, SCALE_PX(scale))) ?
-                  (W - gfx_text_width(title, SCALE_PX(scale))) / 2 : 0;
+    uint32_t px_size = 28;
+    uint32_t tx = (W > gfx_text_width(title, px_size)) ?
+                  (W - gfx_text_width(title, px_size)) / 2 : 0;
     uint32_t ty = H / 4;
     /* shadow */
-    draw_str(g, tx + 2, ty + 2, title, 10, 10, 40, scale);
+    draw_str(g, tx + 2, ty + 2, title, 10, 10, 40, px_size);
     /* main text */
-    draw_str(g, tx, ty, title, 220, 240, 255, scale);
+    draw_str(g, tx, ty, title, 220, 240, 255, px_size);
 
     /* --- sub-title --- */
     const char *sub = "Press any key to exit";
-    uint32_t sx2 = (W > gfx_text_width(sub, SCALE_PX(2))) ?
-                   (W - gfx_text_width(sub, SCALE_PX(2))) / 2 : 0;
-    draw_str(g, sx2, ty + SCALE_PX(scale) + 8, sub, 160, 180, 200, 2);
+    uint32_t sx2 = (W > gfx_text_width(sub, 28)) ?
+                   (W - gfx_text_width(sub, 28)) / 2 : 0;
+    draw_str(g, sx2, ty + px_size + 8, sub, 160, 180, 200, 28);
 
     /* --- resolution info line --- */
-    draw_strf(g, 8, 8, 120, 200, 100, 1, "Mode: %dx%d bpp=%d",
+    draw_strf(g, 8, 8, 120, 200, 100, 16, "Mode: %dx%d bpp=%d",
               (int)W, (int)H, (int)(g->bpp * 8));
 
     /* --- simple border --- */

@@ -181,11 +181,11 @@ static inline void gfx_sprite_blit(struct gfx_sprite *dst,
 static inline void gfx_sprite_draw_str(struct gfx_sprite *dst, struct gfx *ctx,
                                         int x, int y, const char *str,
                                         uint8_t r, uint8_t g, uint8_t b,
-                                        uint8_t a, int scale) {
+                                        uint8_t a, int px_size) {
     if (!str || !str[0]) return;
 
     if (dst->is_screen) {
-        draw_str(ctx, x, y, str, r, g, b, scale);
+        draw_str(ctx, x, y, str, r, g, b, px_size);
         return;
     }
 
@@ -202,18 +202,11 @@ static inline void gfx_sprite_draw_str(struct gfx_sprite *dst, struct gfx *ctx,
     fake.rshift = 0;
     fake.gshift = 8;
     fake.bshift = 16;
-    draw_str(&fake, x, y, str, r, g, b, scale);
+    draw_str(&fake, x, y, str, r, g, b, px_size);
 
     /* Re-assert alpha=255 in the text region (font renderer zeroed it). */
-    int tw, th;
-    if (g_font_ready && g_font) {
-        tw = gfx_text_width(str, SCALE_PX(scale));
-        th = SCALE_PX(scale) + 8;
-    } else {
-        int bm_scale = SCALE_PX(scale) > 12 ? 2 : 1;
-        tw = (int)strlen(str) * 6 * bm_scale;
-        th = 8 * bm_scale;
-    }
+    int tw = gfx_text_width(str, px_size);
+    int th = px_size + 8;
     if (tw < 1) tw = 1;
     if (th < 1) th = 1;
 
