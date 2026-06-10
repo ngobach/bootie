@@ -592,10 +592,10 @@ int gmain(int argc, char *argv[], int flags) {
     br->view_rows = (canvas_h - HEADER_H - FOOTER_H) / LINE_H;
     br->show_dotfiles = 0;
     br->device[0] = '\0';
-    gfx_png_decode(ICON_DISC_PNG, sizeof(ICON_DISC_PNG), &br->icon_disc);
-    gfx_png_decode(ICON_FILE_PNG, sizeof(ICON_FILE_PNG), &br->icon_file);
-    gfx_png_decode(ICON_FOLDER_PNG, sizeof(ICON_FOLDER_PNG), &br->icon_folder);
-    gfx_png_decode(ICON_BOOT_PNG, sizeof(ICON_BOOT_PNG), &br->icon_boot);
+    gfx_png_decode(ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG), &br->icon_disc);
+    gfx_png_decode(ICON_FILE_16_PNG, sizeof(ICON_FILE_16_PNG), &br->icon_file);
+    gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &br->icon_folder);
+    gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &br->icon_boot);
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;

@@ -326,11 +326,11 @@ int gmain(int argc, char *argv[], int flags) {
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
-    gfx_png_decode(ICON_DISC_PNG, sizeof(ICON_DISC_PNG), &m->icons[0]);
-    gfx_png_decode(ICON_FOLDER_PNG, sizeof(ICON_FOLDER_PNG), &m->icons[1]);
-    gfx_png_decode(ICON_BOOT_PNG, sizeof(ICON_BOOT_PNG), &m->icons[2]);
-    gfx_png_decode(ICON_RESTART_PNG, sizeof(ICON_RESTART_PNG), &m->icons[3]);
-    gfx_png_decode(ICON_POWEROFF_PNG, sizeof(ICON_POWEROFF_PNG), &m->icons[4]);
+    gfx_png_decode(ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG), &m->icons[0]);
+    gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &m->icons[1]);
+    gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &m->icons[2]);
+    gfx_png_decode(ICON_RESTART_16_PNG, sizeof(ICON_RESTART_16_PNG), &m->icons[3]);
+    gfx_png_decode(ICON_POWEROFF_16_PNG, sizeof(ICON_POWEROFF_16_PNG), &m->icons[4]);
 
     load_ini_items(m);
 
