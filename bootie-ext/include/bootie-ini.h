@@ -235,4 +235,74 @@ static inline const char *bt_init_get_value(const struct bt_ini *ini, const char
     return bt_ini_get_value(ini, section, key);
 }
 
+/* Retrieves a string value with a default fallback */
+static inline const char *bt_ini_get_string(const struct bt_ini *ini, const char *section, const char *key, const char *default_val) {
+    const char *val = bt_ini_get_value(ini, section, key);
+    return val ? val : default_val;
+}
+
+/* Retrieves a boolean value from a section (accepts true/false/1/0) */
+static inline int bt_ini_get_bool(const struct bt_ini *ini, const char *section, const char *key, int default_val) {
+    const char *val = bt_ini_get_value(ini, section, key);
+    if (!val) return default_val;
+    if (stricmp(val, "true") == 0 || strcmp(val, "1") == 0)
+        return 1;
+    if (stricmp(val, "false") == 0 || strcmp(val, "0") == 0)
+        return 0;
+    return default_val;
+}
+
+/* Simple integer parser (no stdlib dependency) */
+static inline int bt_ini_atoi(const char *s) {
+    if (!s) return 0;
+    int sign = 1;
+    while (*s == ' ' || *s == '\t') s++;
+    if (*s == '-') { sign = -1; s++; }
+    else if (*s == '+') s++;
+    int n = 0;
+    while (*s >= '0' && *s <= '9')
+        n = n * 10 + (*s++ - '0');
+    return sign * n;
+}
+
+/* Retrieves an integer value from a section */
+static inline int bt_ini_get_int(const struct bt_ini *ini, const char *section, const char *key, int default_val) {
+    const char *val = bt_ini_get_value(ini, section, key);
+    if (!val) return default_val;
+    /* Check that the value is entirely numeric (with optional sign) */
+    const char *p = val;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '-' || *p == '+') p++;
+    if (*p < '0' || *p > '9') return default_val;
+    while (*p >= '0' && *p <= '9') p++;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p != '\0') return default_val;
+    return bt_ini_atoi(val);
+}
+
+/* Retrieves a boolean value from a section struct */
+static inline int bt_ini_section_get_bool(const struct bt_ini_section *section, const char *key, int default_val) {
+    const char *val = bt_ini_section_get_value(section, key);
+    if (!val) return default_val;
+    if (stricmp(val, "true") == 0 || strcmp(val, "1") == 0)
+        return 1;
+    if (stricmp(val, "false") == 0 || strcmp(val, "0") == 0)
+        return 0;
+    return default_val;
+}
+
+/* Retrieves an integer value from a section struct */
+static inline int bt_ini_section_get_int(const struct bt_ini_section *section, const char *key, int default_val) {
+    const char *val = bt_ini_section_get_value(section, key);
+    if (!val) return default_val;
+    const char *p = val;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p == '-' || *p == '+') p++;
+    if (*p < '0' || *p > '9') return default_val;
+    while (*p >= '0' && *p <= '9') p++;
+    while (*p == ' ' || *p == '\t') p++;
+    if (*p != '\0') return default_val;
+    return bt_ini_atoi(val);
+}
+
 #endif /* BOOTIE_INI_H */

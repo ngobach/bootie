@@ -3,6 +3,7 @@
 #include <bootie-icons.h>
 #include <bootie-img.h>
 #include <bootie-ds.h>
+#include <bootie-ini.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -233,6 +234,24 @@ static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
         run_line("halt", BUILTIN_CMDLINE);
 }
 
+static void append_power_actions(struct menu *m) {
+    struct menu_item *item;
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Restart");
+    strcpy(item->desc, "Reboot the system");
+    item->icon_id = 3;
+    item->action.type = ACTION_REBOOT;
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Shutdown");
+    strcpy(item->desc, "Power off the system");
+    item->icon_id = 4;
+    item->action.type = ACTION_POWEROFF;
+}
+
 static void build_demo_menu(struct menu *m) {
     struct menu_item *item;
 
@@ -258,20 +277,6 @@ static void build_demo_menu(struct menu *m) {
     item->icon_id = 2;
     item->action.type = ACTION_CHAINLOAD;
     strcpy(item->action.target, "/bootmgr");
-
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Restart");
-    strcpy(item->desc, "Reboot the system");
-    item->icon_id = 3;
-    item->action.type = ACTION_REBOOT;
-
-    item = arraddnptr(m->items, 1);
-    memset(item, 0, sizeof(*item));
-    strcpy(item->title, "Shutdown");
-    strcpy(item->desc, "Power off the system");
-    item->icon_id = 4;
-    item->action.type = ACTION_POWEROFF;
 
     item = arraddnptr(m->items, 1);
     memset(item, 0, sizeof(*item));
@@ -370,6 +375,15 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_png_decode(ICON_POWEROFF_PNG, sizeof(ICON_POWEROFF_PNG), &m->icons[4]);
 
     build_demo_menu(m);
+
+    int power_actions = 1;
+    struct bt_ini ini;
+    if (bt_ini_parse_file(&ini, "/menu.ini") == 0) {
+        power_actions = bt_ini_get_bool(&ini, "menu", "power_actions", 1);
+        bt_ini_destroy(&ini);
+    }
+    if (power_actions)
+        append_power_actions(m);
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
