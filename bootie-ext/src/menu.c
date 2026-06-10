@@ -7,8 +7,8 @@
 
 #define PATH_MAX 260
 #define LINE_H   48
-#define HEADER_H 72
-#define FOOTER_H 20
+#define HEADER_H 44
+#define FOOTER_H 28
 #define CANVAS_W 820
 #define CANVAS_H 680
 
@@ -69,7 +69,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
 
     gfx_sprite_draw_str(s, ctx, 8, 12, "Boot Menu", 200, 200, 255, 255, 2);
 
-    gfx_sprite_fill(s, 0, 70, cw, 1, 80, 80, 120, 255);
+    gfx_sprite_fill(s, 0, HEADER_H - 1, cw, 1, 80, 80, 120, 255);
 
     int x = 8;
     int y = HEADER_H;
@@ -92,7 +92,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_fill(s, 2, row_y - 2, cw - 4, LINE_H, 60, 80, 160, 100);
         }
 
-        int icon_y = row_y + (LINE_H - 16) / 2;
+        int icon_y = row_y + 4;
         if (item->icon_id >= 0 && item->icon_id < 3
             && m->icons[item->icon_id].pixels) {
             gfx_sprite_blit(s, &m->icons[item->icon_id], x, icon_y);
@@ -104,16 +104,22 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
                             tcolor, tcolor, 255, 255, 1);
 
         if (item->desc[0]) {
-            gfx_sprite_draw_str(s, ctx, tx + 4, row_y + 26, item->desc,
+            gfx_sprite_draw_str(s, ctx, tx, row_y + 26, item->desc,
                                 160, 160, 190, 255, 1);
         }
     }
 
     int footer_y = ch - FOOTER_H;
     gfx_sprite_fill(s, 0, footer_y, cw, FOOTER_H, 30, 30, 60, 255);
-    gfx_sprite_draw_str(s, ctx, 8, footer_y + 2,
+    gfx_sprite_draw_str(s, ctx, 8, footer_y + 7,
                         "[^v] Nav  [Enter] Select  [Esc] Quit",
                         150, 150, 180, 255, 1);
+
+    char footer_count[16];
+    int total = arrlenu(m->items);
+    sprintf(footer_count, "%d/%d", m->cur + 1, total);
+    gfx_sprite_draw_str(s, ctx, cw - 8 - (int)strlen(footer_count) * 8,
+                        footer_y + 7, footer_count, 200, 200, 230, 255, 1);
 }
 
 static void overlay_flip(struct gfx_sprite *screen, struct gfx_sprite *back,
@@ -273,6 +279,70 @@ static void build_demo_menu(struct menu *m) {
     strcpy(item->desc, "Power off the system");
     item->icon_id = 2;
     item->action.type = ACTION_POWEROFF;
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Boot from USB");
+    strcpy(item->desc, "/usb/boot.img");
+    item->icon_id = 0;
+    item->action.type = ACTION_DISK_IMAGE;
+    strcpy(item->action.target, "/usb/boot.img");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Memtest86+");
+    strcpy(item->desc, "Run memory diagnostics");
+    item->icon_id = 2;
+    item->action.type = ACTION_CHAINLOAD;
+    strcpy(item->action.target, "/memtest.bin");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "HDD Boot (sda1)");
+    strcpy(item->desc, "Boot from first partition");
+    item->icon_id = 0;
+    item->action.type = ACTION_DISK_IMAGE;
+    strcpy(item->action.target, "(hd0,1)/boot/grub/core.img");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Network Boot (PXE)");
+    strcpy(item->desc, "Boot from network image");
+    item->icon_id = 1;
+    item->action.type = ACTION_DISK_IMAGE;
+    strcpy(item->action.target, "(pxe)/boot/netboot.img");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Rescue Shell");
+    strcpy(item->desc, "Drop to command line");
+    item->icon_id = 2;
+    item->action.type = ACTION_CHAINLOAD;
+    strcpy(item->action.target, "/rescue-shell.efi");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Boot ISO from Disk");
+    strcpy(item->desc, "/isos/ubuntu.iso");
+    item->icon_id = 0;
+    item->action.type = ACTION_DISK_IMAGE;
+    strcpy(item->action.target, "/isos/ubuntu.iso");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "Windows Recovery");
+    strcpy(item->desc, "/Windows/System32/winload.efi");
+    item->icon_id = 1;
+    item->action.type = ACTION_CHAINLOAD;
+    strcpy(item->action.target, "/Windows/System32/winload.efi");
+
+    item = arraddnptr(m->items, 1);
+    memset(item, 0, sizeof(*item));
+    strcpy(item->title, "System Info");
+    strcpy(item->desc, "Display hardware information");
+    item->icon_id = 2;
+    item->action.type = ACTION_CHAINLOAD;
+    strcpy(item->action.target, "/sysinfo.efi");
 }
 
 int gmain(int argc, char *argv[], int flags) {
