@@ -38,7 +38,7 @@ struct menu {
     int cur;
     int top;
     int view_rows;
-    struct gfx_sprite icons[3];
+    struct gfx_sprite icons[5];
 };
 
 static void ensure_visible(struct menu *m) {
@@ -93,7 +93,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
         }
 
         int icon_y = row_y + 4;
-        if (item->icon_id >= 0 && item->icon_id < 3
+        if (item->icon_id >= 0 && item->icon_id < 5
             && m->icons[item->icon_id].pixels) {
             gfx_sprite_blit(s, &m->icons[item->icon_id], x, icon_y);
         }
@@ -263,14 +263,14 @@ static void build_demo_menu(struct menu *m) {
     memset(item, 0, sizeof(*item));
     strcpy(item->title, "Restart");
     strcpy(item->desc, "Reboot the system");
-    item->icon_id = 2;
+    item->icon_id = 3;
     item->action.type = ACTION_REBOOT;
 
     item = arraddnptr(m->items, 1);
     memset(item, 0, sizeof(*item));
     strcpy(item->title, "Shutdown");
     strcpy(item->desc, "Power off the system");
-    item->icon_id = 2;
+    item->icon_id = 4;
     item->action.type = ACTION_POWEROFF;
 
     item = arraddnptr(m->items, 1);
@@ -366,6 +366,8 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_png_decode(ICON_DISC_PNG, sizeof(ICON_DISC_PNG), &m->icons[0]);
     gfx_png_decode(ICON_FOLDER_PNG, sizeof(ICON_FOLDER_PNG), &m->icons[1]);
     gfx_png_decode(ICON_BOOT_PNG, sizeof(ICON_BOOT_PNG), &m->icons[2]);
+    gfx_png_decode(ICON_RESTART_PNG, sizeof(ICON_RESTART_PNG), &m->icons[3]);
+    gfx_png_decode(ICON_POWEROFF_PNG, sizeof(ICON_POWEROFF_PNG), &m->icons[4]);
 
     build_demo_menu(m);
 
@@ -434,7 +436,7 @@ int gmain(int argc, char *argv[], int flags) {
     }
 
     gfx_sprite_destroy(&back);
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 5; i++)
         gfx_sprite_destroy(&m->icons[i]);
     arrfree(m->items);
     free(m);
