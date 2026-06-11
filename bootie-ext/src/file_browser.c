@@ -5,7 +5,6 @@
 #include <bootie-img.h>
 #include <bootie-ds.h>
 #include <bootie-gui.h>
-#include <bootie-debug.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -88,6 +87,43 @@ static void sort_entries(struct entry *entries, int count) {
     }
 }
 
+static void parse_device_path(const char *arg, char *device, char *cwd) {
+    device[0] = '\0';
+    cwd[0] = '\0';
+    if (arg[0] == '(') {
+        const char *p = arg;
+        while (*p && *p != ')') p++;
+        if (*p == ')') {
+            int devlen = p - arg + 1;
+            if (devlen < 24) {
+                for (int i = 0; i < devlen; i++) {
+                    device[i] = arg[i];
+                }
+                device[devlen] = '\0';
+                strcpy(cwd, p + 1);
+                if (cwd[0] == '\0') {
+                    strcpy(cwd, "/");
+                }
+                return;
+            }
+        }
+    }
+    if (arg[0] == '/') {
+        char root[128];
+        if (bt_eval("echo %@root%", root, sizeof(root)) >= 0) {
+            char *trim = root;
+            while (*trim == ' ' || *trim == '\t' || *trim == '\n' || *trim == '\r') trim++;
+            char *e = trim + strlen(trim);
+            while (e > trim && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r')) e--;
+            *e = '\0';
+            safe_strncpy(device, trim, 24);
+        }
+        strcpy(cwd, arg);
+        return;
+    }
+    strcpy(cwd, arg);
+}
+
 static int list_dir(struct browser *br) {
     arrfree(br->entries);
     br->entries = NULL;
@@ -96,7 +132,7 @@ static int list_dir(struct browser *br) {
 
     if (br->cwd[0] == '\0') {
         struct bt_drive_info drives[MAX_DRIVES];
-        int nd = bt_drive_enum(drives, MAX_DRIVES);
+        int nd = bt_device_ls(drives, MAX_DRIVES);
         for (int i = 0; i < nd; i++) {
             struct entry e;
             strcpy(e.name, drives[i].name);
@@ -111,97 +147,36 @@ static int list_dir(struct browser *br) {
         return 0;
     }
 
-    char *buf = malloc(BUF_CAP);
-    if (!buf) return -1;
+    char fullpath[PATH_MAX * 2];
+    strcpy(fullpath, br->device);
+    int len = strlen(fullpath);
+    strcpy(fullpath + len, br->cwd);
 
-    errnum = ERR_NONE;
-    uintptr_t saved = putchar_hooked;
-    putchar_hooked = (uintptr_t)buf;
+    struct bt_dir_entry *list = bt_directory_list(fullpath);
+    if (!list) return -1;
 
-    bt_dir_list(br->cwd);
+    for (struct bt_dir_entry *p = list; p->name; p++) {
+        if (!br->show_dotfiles && p->name[0] == '.') {
+            free(p->name);
+            continue;
+        }
 
-    char *end = (char *)putchar_hooked;
-    putchar_hooked = saved;
-
-    if (errnum != ERR_NONE) {
-        free(buf);
-        return -1;
+        struct entry e;
+        strcpy(e.name, p->name);
+        e.is_dir = p->is_dir;
+        e.bootable = !p->is_dir && has_boot_ext(p->name);
+        e.is_drive = 0;
+        e.size = 0;
+        arrput(br->entries, e);
+        free(p->name);
     }
+    free(list);
 
-    if (end >= buf && end < buf + BUF_CAP)
-        *end = '\0';
-    else
-        buf[BUF_CAP - 1] = '\0';
-
-    char *p = buf;
-    while (*p) {
-        while (*p == ' ') p++;
-        if (!*p) break;
-
-        char name[NAME_MAX];
-        int n = 0;
-
-        while (*p && *p != ' ') {
-            if (*p == '\\') {
-                p++;
-                if (*p) name[n++] = *p++;
-            } else {
-                name[n++] = *p++;
-            }
-        }
-        name[n] = '\0';
-
-        int is_dir = 0;
-        if (n > 0 && name[n - 1] == '/') {
-            name[--n] = '\0';
-            is_dir = 1;
-        }
-
-        if (n > 0 && (br->show_dotfiles || name[0] != '.')) {
-            struct entry e;
-            strcpy(e.name, name);
-            e.is_dir = is_dir;
-            e.bootable = !is_dir && has_boot_ext(name);
-            e.is_drive = 0;
-            e.size = 0;
-            arrput(br->entries, e);
-        }
+    {
+        int count = arrlen(br->entries);
+        if (count > 1)
+            sort_entries(br->entries, count);
     }
-
-    free(buf);
-    int count = arrlen(br->entries);
-    for (int i = 0; i < count; i++) {
-        struct entry *e = &br->entries[i];
-        if (e->is_dir) continue;
-
-        char fullpath[PATH_MAX * 2];
-        strcpy(fullpath, br->cwd);
-        int plen = strlen(fullpath);
-        if (plen > 0 && fullpath[plen - 1] != '/') {
-            fullpath[plen++] = '/';
-            fullpath[plen] = '\0';
-        }
-        const char *src = e->name;
-        while (*src) {
-            if (*src == ' ' || *src == '"' || *src == '\\')
-                fullpath[plen++] = '\\';
-            fullpath[plen++] = *src++;
-        }
-        fullpath[plen] = '\0';
-
-        if (bt_file_open(fullpath) == 0) {
-            e->is_dir = 1;
-            e->bootable = 0;
-            e->size = 0;
-            bt_file_close();
-        } else {
-            bt_file_close();
-        }
-    }
-
-    if (count > 1)
-        sort_entries(br->entries, count);
-
     return 0;
 }
 
@@ -228,7 +203,7 @@ static void load_selected_size(struct browser *br) {
     }
     fullpath[plen] = '\0';
 
-    unsigned long long size = bt_file_get_size(fullpath);
+    unsigned long long size = bt_file_size_at_path(fullpath);
     if (size > 0) {
         e->size = size;
     } else {
@@ -554,9 +529,6 @@ static void boot_file(const struct browser *br, struct gfx_sprite *s,
 }
 
 int gmain(int argc, char *argv[], int flags) {
-    bt_dbg_printf("file_browser started\n");
-    for (int i = 0; i < argc; i++)
-        bt_dbg_printf("  argv[%d]=%s\n", i, argv[i]);
 
     struct gfx g;
     if (!gfx_init(&g)) {
@@ -588,46 +560,10 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_sprite_init(&back, canvas_w, canvas_h);
 
     if (argc >= 2) {
-        char *rest = bt_drive_set_dev(argv[1]);
-        if (rest) {
-            bt_drive_open_dev();
-            saved_drive = current_drive;
-            saved_partition = current_partition;
-            int devlen = rest - argv[1];
-            if (devlen > 0 && devlen < (int)sizeof(br->device)) {
-                int i;
-                for (i = 0; i < devlen; i++)
-                    br->device[i] = argv[1][i];
-                br->device[devlen] = '\0';
-            }
-            if (*rest == '/')
-                strcpy(br->cwd, rest);
-            else
-                strcpy(br->cwd, "/");
-        } else if (argv[1][0] == '/') {
-            char root[128];
-            if (bt_eval("echo %@root%", root, sizeof(root)) < 0) {
-                br->cwd[0] = '\0';
-            } else {
-                char *trim = root;
-                while (*trim == ' ' || *trim == '\t' || *trim == '\n' || *trim == '\r') trim++;
-                {
-                    char *e = trim + strlen(trim);
-                    while (e > trim && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r')) e--;
-                    *e = '\0';
-                }
-                bt_drive_set_dev(trim);
-                bt_drive_open_dev();
-                saved_drive = current_drive;
-                saved_partition = current_partition;
-                safe_strncpy(br->device, trim, (int)sizeof(br->device));
-                strcpy(br->cwd, argv[1]);
-            }
-        } else {
-            br->cwd[0] = '\0';
-        }
+        parse_device_path(argv[1], br->device, br->cwd);
     } else {
         br->cwd[0] = '\0';
+        br->device[0] = '\0';
     }
 
     {
@@ -701,10 +637,6 @@ int gmain(int argc, char *argv[], int flags) {
                     if (e->is_dir) {
                         enter_dir(br, e->name);
                     } else if (e->is_drive) {
-                        bt_drive_set_dev(e->name);
-                        bt_drive_open_dev();
-                        saved_drive = current_drive;
-                        saved_partition = current_partition;
                         strcpy(br->device, e->name);
                         strcpy(br->cwd, "/");
                         break;
@@ -716,10 +648,6 @@ int gmain(int argc, char *argv[], int flags) {
                     if (e->is_dir) {
                         enter_dir(br, e->name);
                     } else if (e->is_drive) {
-                        bt_drive_set_dev(e->name);
-                        bt_drive_open_dev();
-                        saved_drive = current_drive;
-                        saved_partition = current_partition;
                         strcpy(br->device, e->name);
                         strcpy(br->cwd, "/");
                         break;

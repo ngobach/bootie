@@ -84,9 +84,22 @@ static inline void bt_file_close(void)
     close();
 }
 
+static inline int bt_is_dir(const char *path) {
+    if (bt_file_open(path) == 0) {
+        bt_file_close();
+        return 1;
+    }
+    bt_file_close();
+    return 0;
+}
+
+static inline int bt_is_file(const char *path) {
+    return !bt_is_dir(path);
+}
+
 static inline unsigned long long bt_file_size(void)  { return filesize; }
 
-static inline unsigned long long bt_file_get_size(const char *path)
+static inline unsigned long long bt_file_size_at_path(const char *path)
 {
     char cmd_arg[512];
     sprintf(cmd_arg, "--length=0 %s", path);
@@ -129,6 +142,104 @@ static inline int bt_fs_type(void)
 }
 
 /* ------------------------------------------------------------------ */
+/*  High-level directory listing                                       */
+/* ------------------------------------------------------------------ */
+
+struct bt_dir_entry {
+    char *name;
+    int is_dir;
+};
+
+static inline struct bt_dir_entry *bt_directory_list(const char *path) {
+    char *buf = (char *)malloc(16384);
+    if (!buf) return NULL;
+
+    errnum = ERR_NONE;
+    uintptr_t _saved = putchar_hooked;
+    putchar_hooked = (uintptr_t)buf;
+
+    bt_dir_list(path);
+
+    char *_end = (char *)putchar_hooked;
+    putchar_hooked = _saved;
+
+    if (errnum != ERR_NONE) {
+        free(buf);
+        return NULL;
+    }
+
+    if (_end >= buf && _end < buf + 16384)
+        *_end = '\0';
+    else
+        buf[16383] = '\0';
+
+    int _cap = 64, _count = 0;
+    struct bt_dir_entry *result = (struct bt_dir_entry *)malloc(
+        (unsigned int)_cap * sizeof(struct bt_dir_entry));
+    if (!result) { free(buf); return NULL; }
+
+    int _plen = strlen(path);
+    char *_full = (char *)malloc((unsigned int)_plen + 512);
+    if (!_full) { free(buf); free(result); return NULL; }
+    memmove(_full, path, (unsigned int)_plen + 1);
+    if (_plen > 0 && _full[_plen - 1] != '/')
+        _full[_plen++] = '/';
+
+    char *_p = buf;
+    while (*_p) {
+        while (*_p == ' ') _p++;
+        if (!*_p) break;
+
+        char _name[128];
+        int _n = 0;
+        while (*_p && *_p != ' ') {
+            if (*_p == '\\') { _p++; if (*_p) _name[_n++] = *_p++; }
+            else               _name[_n++] = *_p++;
+        }
+        _name[_n] = '\0';
+
+        if (_n > 0) {
+            int _is_dir = 0;
+            if (_name[_n - 1] == '/') {
+                _name[--_n] = '\0';
+                _is_dir = 1;
+            }
+
+            int _fplen = _plen;
+            for (int _i = 0; _i < _n; _i++) {
+                if (_name[_i] == ' ' || _name[_i] == '"' || _name[_i] == '\\')
+                    _full[_fplen++] = '\\';
+                _full[_fplen++] = _name[_i];
+            }
+            _full[_fplen] = '\0';
+
+            if (_count + 1 >= _cap) {
+                _cap *= 2;
+                struct bt_dir_entry *_new = (struct bt_dir_entry *)malloc(
+                    (unsigned int)_cap * sizeof(struct bt_dir_entry));
+                if (!_new) break;
+                memmove(_new, result, (unsigned int)_count * sizeof(struct bt_dir_entry));
+                free(result);
+                result = _new;
+            }
+
+            char *_entry = (char *)malloc((unsigned int)_n + 1);
+            if (_entry) {
+                memmove(_entry, _name, (unsigned int)_n + 1);
+                result[_count].name = _entry;
+                result[_count].is_dir = _is_dir || bt_is_dir(_full);
+                _count++;
+            }
+        }
+    }
+
+    free(_full);
+    result[_count].name = NULL;
+    free(buf);
+    return result;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Drive enumeration                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -139,13 +250,14 @@ struct bt_drive_info {
     char name[24];
 };
 
-static inline int bt_drive_enum(struct bt_drive_info *drives, int max) {
+static inline int bt_device_ls(struct bt_drive_info *drives, int max) {
     int count = 0;
     unsigned long save_drv = saved_drive;
     unsigned long save_part = saved_partition;
 
-    char _buf[4096];
-    if (bt_eval("find", _buf, sizeof(_buf)) > 0) {
+    char *_buf = (char *)malloc(4096);
+    if (!_buf) return 0;
+    if (bt_eval("find", _buf, 4096) > 0) {
         char *_p = _buf;
         while (*_p && count < max) {
             while (*_p == ' ' || *_p == '\t' || *_p == '\n' || *_p == '\r')
@@ -165,6 +277,7 @@ static inline int bt_drive_enum(struct bt_drive_info *drives, int max) {
         }
     }
 
+    free(_buf);
     saved_drive = save_drv;
     saved_partition = save_part;
     return count;

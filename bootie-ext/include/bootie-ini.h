@@ -183,7 +183,7 @@ static inline int bt_ini_parse_string(struct bt_ini *ini, const char *content) {
 /* Reads and parses file content */
 static inline int bt_ini_parse_file(struct bt_ini *ini, const char *path) {
     if (!ini || !path) return -1;
-    unsigned long long size = bt_file_get_size(path);
+    unsigned long long size = bt_file_size_at_path(path);
     if (bt_file_open(path)) {
         char *buf = malloc(size + 1);
         if (!buf) {
