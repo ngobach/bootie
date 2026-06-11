@@ -71,6 +71,63 @@ static inline void bt_gui_sep(struct gfx_sprite *s, int x, int y, int w) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Shared Layout Constants                                            */
+/* ------------------------------------------------------------------ */
+
+#define BT_GUI_FOOTER_H 24
+#define BT_GUI_CANVAS_W 800
+#define BT_GUI_CANVAS_H 600
+
+/* ------------------------------------------------------------------ */
+/*  Content Rect & Window Frame                                       */
+/* ------------------------------------------------------------------ */
+
+typedef struct {
+    int x, y, w, h;
+} bt_gui_rect;
+
+static void bt_gui_window(struct gfx_sprite *s, struct gfx *ctx,
+                           int cw, int ch,
+                           const char *title,
+                           const char *subtitle,
+                           const char *footer_left,
+                           const char *footer_right,
+                           bt_gui_rect *content) {
+    gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
+    gfx_sprite_fill(s, 0, 0, cw, ch, 15, 15, 30, 255);
+    bt_gui_border(s, 0, 0, cw, ch);
+
+    gfx_sprite_draw_str(s, ctx, 8, 12, title, 200, 200, 255, 255, 28);
+
+    int header_h;
+    if (subtitle && subtitle[0]) {
+        gfx_sprite_draw_str(s, ctx, 8, 46, subtitle, 180, 180, 220, 255, 16);
+        header_h = 72;
+    } else {
+        header_h = 44;
+    }
+    bt_gui_sep(s, 0, header_h - 1, cw);
+
+    if (content) {
+        content->x = 0;
+        content->y = header_h;
+        content->w = cw;
+        content->h = ch - header_h - BT_GUI_FOOTER_H;
+    }
+
+    int footer_y = ch - BT_GUI_FOOTER_H;
+    gfx_sprite_fill(s, 0, footer_y, cw, BT_GUI_FOOTER_H, 30, 30, 60, 255);
+    if (footer_left)
+        gfx_sprite_draw_str(s, ctx, 8, footer_y + 4,
+                            footer_left, 150, 150, 180, 255, 16);
+    if (footer_right && footer_right[0]) {
+        int fw = (int)strlen(footer_right) * 8;
+        gfx_sprite_draw_str(s, ctx, cw - 8 - fw, footer_y + 4,
+                            footer_right, 200, 200, 230, 255, 16);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Overlay Functions                                                 */
 /* ------------------------------------------------------------------ */
 

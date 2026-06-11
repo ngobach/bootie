@@ -10,7 +10,7 @@
 #define PATH_MAX 260
 #define LINE_H   48
 #define HEADER_H 44
-#define FOOTER_H 28
+#define FOOTER_H BT_GUI_FOOTER_H
 #define CANVAS_W 820
 #define CANVAS_H 680
 
@@ -63,23 +63,23 @@ static void ensure_visible(struct menu *m) {
 
 static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
                   int cw, int ch) {
-    gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
-    gfx_sprite_fill(s, 0, 0, cw, ch, 15, 15, 30, 255);
+    char footer_count[16];
+    int total = arrlenu(m->items);
+    sprintf(footer_count, "%d/%d", m->cur + 1, total);
 
-    bt_gui_border(s, 0, 0, cw, ch);
-
-    gfx_sprite_draw_str(s, ctx, 8, 12, "Boot Menu", 200, 200, 255, 255, 28);
-
-    bt_gui_sep(s, 0, HEADER_H - 1, cw);
+    bt_gui_rect content;
+    bt_gui_window(s, ctx, cw, ch,
+                  "Boot Menu", NULL,
+                  "[^v] Nav  [Enter] Select  [Esc] Quit",
+                  footer_count, &content);
 
     int x = 8;
-    int y = HEADER_H;
+    int y = content.y;
     int start = m->top;
-    int count = arrlenu(m->items);
     int end = start + m->view_rows;
-    if (end > count) end = count;
+    if (end > total) end = total;
 
-    if (count == 0) {
+    if (total == 0) {
         gfx_sprite_draw_str(s, ctx, x, y + 8, "(no menu items)",
                             150, 150, 180, 255, 16);
     }
@@ -108,18 +108,6 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
                                 160, 160, 190, 255, 14);
         }
     }
-
-    int footer_y = ch - FOOTER_H;
-    gfx_sprite_fill(s, 0, footer_y, cw, FOOTER_H, 30, 30, 60, 255);
-    gfx_sprite_draw_str(s, ctx, 8, footer_y + 7,
-                        "[^v] Nav  [Enter] Select  [Esc] Quit",
-                        150, 150, 180, 255, 16);
-
-    char footer_count[16];
-    int total = arrlenu(m->items);
-    sprintf(footer_count, "%d/%d", m->cur + 1, total);
-    gfx_sprite_draw_str(s, ctx, cw - 8 - (int)strlen(footer_count) * 8,
-                        footer_y + 7, footer_count, 200, 200, 230, 255, 16);
 }
 
 static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,

@@ -14,7 +14,7 @@
 
 #define LINE_H 28
 #define HEADER_H 72
-#define FOOTER_H 20
+#define FOOTER_H BT_GUI_FOOTER_H
 #define CANVAS_W 800
 #define CANVAS_H 600
 
@@ -251,31 +251,34 @@ static void ensure_visible(struct browser *br) {
 }
 
 static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
-                 int px, int py, int cw, int ch) {
-    gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
-    gfx_sprite_fill(s, px, py, cw, ch, 15, 15, 30, 255);
-
-    bt_gui_border(s, px, py, cw, ch);
-
+                 int cw, int ch) {
     const char *title = (br->cwd[0] == '\0') ? "Select Drive" : "File Browser";
-    gfx_sprite_draw_str(s, ctx, px + 8, py + 12, title, 200, 200, 255, 255, 28);
 
+    char subtitle[PATH_MAX + 24];
+    const char *sub = NULL;
     if (br->cwd[0] == '\0') {
-        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, "Drives", 180, 180, 220, 255, 16);
+        sub = "Drives";
     } else if (br->device[0]) {
-        char fullpath[PATH_MAX + 24];
         int dlen = strlen(br->device);
-        strcpy(fullpath, br->device);
-        strcpy(fullpath + dlen, br->cwd);
-        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, fullpath, 180, 180, 220, 255, 16);
+        strcpy(subtitle, br->device);
+        strcpy(subtitle + dlen, br->cwd);
+        sub = subtitle;
     } else {
-        gfx_sprite_draw_str(s, ctx, px + 8, py + 46, br->cwd, 180, 180, 220, 255, 16);
+        sub = br->cwd;
     }
 
-    bt_gui_sep(s, px, py + 70, cw);
+    const char *footer_left = (br->cwd[0] == '\0')
+        ? "[^v] Nav  [Enter] Select Drive  [Esc] Quit"
+        : "[^v] Nav  [<-] Up  [->] Open  [B] Boot  [.] Dots  [Esc] Back";
 
-    int x = px + 8;
-    int y = py + HEADER_H;
+    bt_gui_rect content;
+    bt_gui_window(s, ctx, cw, ch,
+                  title, sub,
+                  footer_left, NULL,
+                  &content);
+
+    int x = 8;
+    int y = content.y;
     int start = br->top;
     int count = arrlen(br->entries);
     int end = start + br->view_rows;
@@ -290,9 +293,8 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
         const struct entry *e = &br->entries[i];
 
         if (i == br->cur)
-            gfx_sprite_fill(s, px + 2, y, 472, LINE_H, 50, 50, 120, 255);
+            gfx_sprite_fill(s, 2, y, 472, LINE_H, 50, 50, 120, 255);
 
-        /* Draw icon (centered vertically within row) */
         int icon_y = y + (LINE_H - 24) / 2;
         bt_gui_icon_entry_t *entry = NULL;
         if (e->is_drive)
@@ -334,15 +336,13 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
     }
 
     // Right Column Info Panel
-    int rx = px + 476;
-    int ry = py + HEADER_H;
+    int rx = 476;
+    int ry = content.y;
     int rw = cw - 476 - 8;
-    int rh = ch - HEADER_H - FOOTER_H - 8;
+    int rh = content.h - 8;
 
-    // Draw vertical dividing line
     gfx_sprite_fill(s, rx, ry, 1, rh, 80, 80, 120, 255);
 
-    // Draw info card
     int card_x = rx + 12;
     int card_y = ry + 12;
     int card_w = rw - 24;
@@ -433,7 +433,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
                 int b = (e->size % 1024) / 10;
                 sprintf(size_str, "%d.%02d KB", kb, b);
             } else {
-                sprintf(size_str, "%d bytes", (int)e->size);
+                sprintf(size_str, "%zu bytes", e->size);
             }
             gfx_sprite_draw_str(s, ctx, tx + 8, ty, size_str, 200, 255, 200, 255, 16);
             ty += 28;
@@ -454,18 +454,6 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
                 gfx_sprite_draw_str(s, ctx, tx + 8, ty, "No direct boot script.", 150, 150, 150, 255, 16);
             }
         }
-    }
-
-    gfx_sprite_fill(s, px, py + ch - FOOTER_H, cw, FOOTER_H, 30, 30, 60, 255);
-
-    if (br->cwd[0] == '\0') {
-        gfx_sprite_draw_str(s, ctx, x, py + ch - FOOTER_H + 2,
-                 "[^v] Nav  [Enter] Select Drive  [Esc] Quit",
-                 150, 150, 180, 255, 16);
-    } else {
-        gfx_sprite_draw_str(s, ctx, x, py + ch - FOOTER_H + 2,
-                 "[^v] Nav  [<-] Up  [->] Open  [B] Boot  [.] Dots  [Esc] Back",
-                 150, 150, 180, 255, 16);
     }
 }
 
@@ -682,7 +670,7 @@ int gmain(int argc, char *argv[], int flags) {
             load_selected_size(br);
 
             gfx_sprite_clear(&back, 15, 15, 30, 255);
-            draw(br, &back, &g, pad_x, pad_y, canvas_w, canvas_h);
+            draw(br, &back, &g, canvas_w, canvas_h);
             gfx_sprite_blit(&screen, &back, pad_x, pad_y);
 
             int key = gfx_getkey(&g);
