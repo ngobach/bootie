@@ -13,16 +13,19 @@ typedef struct {
     struct gfx_sprite value;
 } bt_gui_icon_entry_t;
 
-static int bt_gui_icon_load(bt_gui_icon_entry_t **icons,
-                             const char *name,
-                             const unsigned char *png_data,
-                             int png_size) {
+static int bt_gui_icon_load_impl(bt_gui_icon_entry_t **icons,
+                                  const char *name,
+                                  const unsigned char *png_data,
+                                  int png_size) {
     struct gfx_sprite sprite;
     int result = gfx_png_decode(png_data, png_size, &sprite);
     if (result != 0) return result;
     shput(*icons, name, sprite);
     return 0;
 }
+
+#define bt_gui_icon_load(icons, name, png) \
+    bt_gui_icon_load_impl(icons, name, png, (int)sizeof(png))
 
 static void bt_gui_icons_destroy(bt_gui_icon_entry_t **icons) {
     int n = arrlenu(*icons);

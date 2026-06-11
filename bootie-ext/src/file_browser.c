@@ -12,7 +12,7 @@
 #define BUF_CAP 131072
 #define MAX_DRIVES 32
 
-#define LINE_H 22
+#define LINE_H 28
 #define HEADER_H 72
 #define FOOTER_H 20
 #define CANVAS_W 800
@@ -293,7 +293,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
             gfx_sprite_fill(s, px + 2, y, 472, LINE_H, 50, 50, 120, 255);
 
         /* Draw icon (centered vertically within row) */
-        int icon_y = y + (LINE_H - 16) / 2;
+        int icon_y = y + (LINE_H - 24) / 2;
         bt_gui_icon_entry_t *entry = NULL;
         if (e->is_drive)
             entry = shgetp_null(br->icons, "disc");
@@ -306,7 +306,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
         if (entry)
             gfx_sprite_blit(s, &entry->value, x, icon_y);
 
-        int tx = x + 20;
+        int tx = x + 28;
         int text_y = y + (LINE_H - 16) / 2;
         char trunc_name[NAME_MAX];
         int max_chars = 48;
@@ -585,10 +585,10 @@ int gmain(int argc, char *argv[], int flags) {
     br->device[0] = '\0';
     br->icons = NULL;
 
-    bt_gui_icon_load(&br->icons, "disc", ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG));
-    bt_gui_icon_load(&br->icons, "file", ICON_FILE_16_PNG, sizeof(ICON_FILE_16_PNG));
-    bt_gui_icon_load(&br->icons, "folder", ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG));
-    bt_gui_icon_load(&br->icons, "boot", ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG));
+    bt_gui_icon_load(&br->icons, "disc", ICON_DISC_24_PNG);
+    bt_gui_icon_load(&br->icons, "file", ICON_FILE_24_PNG);
+    bt_gui_icon_load(&br->icons, "folder", ICON_FOLDER_24_PNG);
+    bt_gui_icon_load(&br->icons, "boot", ICON_BOOT_24_PNG);
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;

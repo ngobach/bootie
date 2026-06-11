@@ -246,11 +246,11 @@ int gmain(int argc, char *argv[], int flags) {
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
-    bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG, sizeof(ICON_DISC_24_PNG));
-    bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG));
-    bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG));
-    bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG, sizeof(ICON_RESTART_24_PNG));
-    bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG, sizeof(ICON_POWEROFF_24_PNG));
+    bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG);
+    bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_16_PNG);
+    bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_16_PNG);
+    bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG);
+    bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG);
 
     load_ini_items(m);
 

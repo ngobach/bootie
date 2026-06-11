@@ -18,6 +18,7 @@ sync-modules: data-part
 		echo "Syncing compiled modules to data-part/mod..."; \
 		mkdir -p data-part/mod; \
 		cp -r ../bootie-ext/mod/* data-part/mod/; \
+		find data-part/mod -name '*.d' -delete; \
 	fi
 
 run-qemu-bios: scratch.img data-part sync-modules
