@@ -252,6 +252,12 @@ static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
 /*  Platform Agnostic Wrappers                                        */
 /* ------------------------------------------------------------------ */
 static inline int gfx_init(struct gfx *ctx) {
+    {
+        // QEMU hack
+        char find_buf[1024];
+        bt_eval("find", find_buf, sizeof(find_buf));
+    }
+
     /* --- find best VBE mode --- */
     struct vbe_driver_info drv;
     if (!get_driver_info(&drv)) {
