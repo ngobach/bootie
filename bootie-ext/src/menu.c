@@ -4,6 +4,7 @@
 #include <bootie-img.h>
 #include <bootie-ds.h>
 #include <bootie-ini.h>
+#include <bootie-gui.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -31,7 +32,7 @@ struct menu_action {
 struct menu_item {
     char title[64];
     char desc[128];
-    int icon_id;
+    char icon_name[24];
     struct menu_action action;
 };
 
@@ -40,7 +41,7 @@ struct menu {
     int cur;
     int top;
     int view_rows;
-    struct gfx_sprite icons[5];
+    bt_gui_icon_entry_t *icons;
     int confirm_exit;
 };
 
@@ -65,14 +66,11 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
     gfx_sprite_fill(s, 0, 0, cw, ch, 15, 15, 30, 255);
 
-    gfx_sprite_fill(s, 0, 0, cw, 1, 80, 80, 120, 255);
-    gfx_sprite_fill(s, 0, ch - 1, cw, 1, 80, 80, 120, 255);
-    gfx_sprite_fill(s, 0, 0, 1, ch, 80, 80, 120, 255);
-    gfx_sprite_fill(s, cw - 1, 0, 1, ch, 80, 80, 120, 255);
+    bt_gui_border(s, 0, 0, cw, ch);
 
     gfx_sprite_draw_str(s, ctx, 8, 12, "Boot Menu", 200, 200, 255, 255, 28);
 
-    gfx_sprite_fill(s, 0, HEADER_H - 1, cw, 1, 80, 80, 120, 255);
+    bt_gui_sep(s, 0, HEADER_H - 1, cw);
 
     int x = 8;
     int y = HEADER_H;
@@ -96,10 +94,9 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
         }
 
         int icon_y = row_y + 8;
-        if (item->icon_id >= 0 && item->icon_id < 5
-            && m->icons[item->icon_id].pixels) {
-            gfx_sprite_blit(s, &m->icons[item->icon_id], x, icon_y);
-        }
+        bt_gui_icon_entry_t *entry = shgetp_null(m->icons, item->icon_name);
+        if (entry)
+            gfx_sprite_blit(s, &entry->value, x, icon_y);
 
         int tx = x + 32;
         int tcolor = (i == m->cur) ? 255 : 200;
@@ -125,75 +122,10 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
                         footer_y + 7, footer_count, 200, 200, 230, 255, 16);
 }
 
-static void overlay_flip(struct gfx_sprite *screen, struct gfx_sprite *back,
-                          struct gfx *ctx, int cw, int ch) {
-    int pad_x = ((int)ctx->width - cw) / 2;
-    int pad_y = ((int)ctx->height - ch) / 2;
-    gfx_sprite_blit(screen, back, pad_x, pad_y);
-}
-
-static int confirm_action(struct gfx_sprite *screen, struct gfx_sprite *s,
-                           struct gfx *ctx, int cw, int ch,
-                           const char *prompt, const char *detail) {
-    gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 180);
-
-    int dw = 400;
-    int has_detail = detail && detail[0];
-    int dh = has_detail ? 120 : 80;
-    int dx = (cw - dw) / 2;
-    int dy = (ch - dh) / 2;
-
-    gfx_sprite_fill(s, dx, dy, dw, dh, 25, 25, 55, 255);
-    gfx_sprite_fill(s, dx, dy, dw, 1, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx, dy + dh - 1, dw, 1, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx, dy, 1, dh, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx + dw - 1, dy, 1, dh, 120, 120, 160, 255);
-
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 16, prompt, 255, 255, 200, 255, 20);
-    if (has_detail) {
-        gfx_sprite_draw_str(s, ctx, dx + 16, dy + 52, detail,
-                            180, 180, 220, 255, 16);
-    }
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 28,
-                        "[Enter] Confirm   [Esc] Cancel",
-                        180, 180, 200, 255, 16);
-
-    overlay_flip(screen, s, ctx, cw, ch);
-
-    while (1) {
-        int key = gfx_getkey(ctx);
-        int ascii = key & 0xFF;
-        if (ascii == 0x0D) return 1;
-        if (ascii == 0x1B) return 0;
-    }
-}
-
-static void overlay_info(struct gfx_sprite *screen, struct gfx_sprite *s,
-                          struct gfx *ctx, int cw, int ch, const char *msg) {
-    gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 180);
-
-    int dw = 400;
-    int dh = 100;
-    int dx = (cw - dw) / 2;
-    int dy = (ch - dh) / 2;
-
-    gfx_sprite_fill(s, dx, dy, dw, dh, 25, 25, 55, 255);
-    gfx_sprite_fill(s, dx, dy, dw, 1, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx, dy + dh - 1, dw, 1, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx, dy, 1, dh, 120, 120, 160, 255);
-    gfx_sprite_fill(s, dx + dw - 1, dy, 1, dh, 120, 120, 160, 255);
-
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + 24, msg, 200, 200, 200, 255, 28);
-    gfx_sprite_draw_str(s, ctx, dx + 16, dy + dh - 28,
-                        "Press any key to continue", 150, 150, 180, 255, 16);
-
-    overlay_flip(screen, s, ctx, cw, ch);
-    gfx_getkey(ctx);
-}
-
 static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
-                               struct gfx *ctx, int cw, int ch,
-                               const char *target) {
+                                struct gfx *ctx, int cw, int ch,
+                                int pad_x, int pad_y,
+                                const char *target) {
     char cmd[PATH_MAX + 128];
     int tlen = strlen(target);
     if (tlen >= 4 && strnicmp(target + tlen - 4, ".efi", 4) == 0) {
@@ -204,47 +136,38 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
     }
     run_line(cmd, BUILTIN_CMDLINE);
 
-    overlay_flip(screen, s, ctx, cw, ch);
-    gfx_sprite_fill(s, 0, ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
-    gfx_sprite_draw_str(s, ctx, 8, ch - FOOTER_H * 2 + 2,
-                        "Boot failed", 255, 50, 50, 255, 16);
+    bt_gui_overlay_flip(screen, s, ctx, pad_x, pad_y);
+    bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Boot failed", NULL);
     gfx_getkey(ctx);
 }
 
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
-                              struct gfx *ctx, int cw, int ch,
-                              const char *target) {
+                               struct gfx *ctx, int cw, int ch,
+                               int pad_x, int pad_y,
+                               const char *target) {
     char cmd[PATH_MAX + 128];
     sprintf(cmd, "chainloader %s ;; boot", target);
     run_line(cmd, BUILTIN_CMDLINE);
 
-    overlay_flip(screen, s, ctx, cw, ch);
-    gfx_sprite_fill(s, 0, ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
-    gfx_sprite_draw_str(s, ctx, 8, ch - FOOTER_H * 2 + 2,
-                        "Boot failed", 255, 50, 50, 255, 16);
+    bt_gui_overlay_flip(screen, s, ctx, pad_x, pad_y);
+    bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Boot failed", NULL);
     gfx_getkey(ctx);
 }
 
 static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
-                           struct gfx *ctx, int cw, int ch) {
-    if (confirm_action(screen, s, ctx, cw, ch, "Restart system?", NULL))
+                            struct gfx *ctx, int cw, int ch,
+                            int pad_x, int pad_y) {
+    if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
+                       "Restart system?", NULL))
         run_line("reboot", BUILTIN_CMDLINE);
 }
 
 static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
-                             struct gfx *ctx, int cw, int ch) {
-    if (confirm_action(screen, s, ctx, cw, ch, "Shut down system?", NULL))
+                              struct gfx *ctx, int cw, int ch,
+                              int pad_x, int pad_y) {
+    if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
+                       "Shut down system?", NULL))
         run_line("halt", BUILTIN_CMDLINE);
-}
-
-static int icon_id_from_name(const char *name) {
-    if (!name) return -1;
-    if (stricmp(name, "disc") == 0) return 0;
-    if (stricmp(name, "folder") == 0) return 1;
-    if (stricmp(name, "boot") == 0) return 2;
-    if (stricmp(name, "restart") == 0) return 3;
-    if (stricmp(name, "poweroff") == 0) return 4;
-    return -1;
 }
 
 static int action_type_from_name(const char *name) {
@@ -286,7 +209,8 @@ static void load_ini_items(struct menu *m) {
             strcpy(item->desc, desc);
 
         const char *icon_str = bt_ini_section_get_value(&ini.sections[i], "icon");
-        item->icon_id = icon_id_from_name(icon_str);
+        if (icon_str)
+            strcpy(item->icon_name, icon_str);
 
         item->action.type = type;
 
@@ -311,12 +235,8 @@ int gmain(int argc, char *argv[], int flags) {
         return 1;
     gfx_font_load();
 
-    uint32_t fw = g.width;
-    uint32_t fh = g.height;
-    int cw = fw < CANVAS_W ? (int)fw : CANVAS_W;
-    int ch = fh < CANVAS_H ? (int)fh : CANVAS_H;
-    int pad_x = ((int)fw - cw) / 2;
-    int pad_y = ((int)fh - ch) / 2;
+    int cw, ch, pad_x, pad_y;
+    bt_gui_canvas(g.width, g.height, CANVAS_W, CANVAS_H, &cw, &ch, &pad_x, &pad_y);
 
     struct menu *m = malloc(sizeof(struct menu));
     if (!m) {
@@ -326,11 +246,11 @@ int gmain(int argc, char *argv[], int flags) {
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
-    gfx_png_decode(ICON_DISC_24_PNG, sizeof(ICON_DISC_24_PNG), &m->icons[0]);
-    gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &m->icons[1]);
-    gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &m->icons[2]);
-    gfx_png_decode(ICON_RESTART_24_PNG, sizeof(ICON_RESTART_24_PNG), &m->icons[3]);
-    gfx_png_decode(ICON_POWEROFF_24_PNG, sizeof(ICON_POWEROFF_24_PNG), &m->icons[4]);
+    bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG, sizeof(ICON_DISC_24_PNG));
+    bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG));
+    bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG));
+    bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG, sizeof(ICON_RESTART_24_PNG));
+    bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG, sizeof(ICON_POWEROFF_24_PNG));
 
     load_ini_items(m);
 
@@ -348,7 +268,7 @@ int gmain(int argc, char *argv[], int flags) {
         int ascii = key & 0xFF;
 
         if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
-            if (!m->confirm_exit || confirm_action(&screen, &back, &g, cw, ch, "Quit Boot Menu?", NULL))
+            if (!m->confirm_exit || bt_gui_confirm(&screen, &back, &g, cw, ch, pad_x, pad_y, "Quit Boot Menu?", NULL))
                 break;
         } else if (ascii == 0x0D) {
             int count = arrlenu(m->items);
@@ -356,22 +276,22 @@ int gmain(int argc, char *argv[], int flags) {
                 struct menu_item *item = &m->items[m->cur];
                 switch (item->action.type) {
                 case ACTION_DISK_IMAGE:
-                    handle_disk_image(&screen, &back, &g, cw, ch,
+                    handle_disk_image(&screen, &back, &g, cw, ch, pad_x, pad_y,
                                       item->action.target);
                     break;
                 case ACTION_FILE_BROWSER:
-                    overlay_info(&screen, &back, &g, cw, ch,
-                                 "File Browser (coming soon)");
+                    bt_gui_show_info(&screen, &back, &g, cw, ch, pad_x, pad_y,
+                                     "File Browser (coming soon)");
                     break;
                 case ACTION_CHAINLOAD:
-                    handle_chainload(&screen, &back, &g, cw, ch,
+                    handle_chainload(&screen, &back, &g, cw, ch, pad_x, pad_y,
                                      item->action.target);
                     break;
                 case ACTION_REBOOT:
-                    handle_reboot(&screen, &back, &g, cw, ch);
+                    handle_reboot(&screen, &back, &g, cw, ch, pad_x, pad_y);
                     break;
                 case ACTION_POWEROFF:
-                    handle_poweroff(&screen, &back, &g, cw, ch);
+                    handle_poweroff(&screen, &back, &g, cw, ch, pad_x, pad_y);
                     break;
                 default:
                     break;
@@ -399,8 +319,7 @@ int gmain(int argc, char *argv[], int flags) {
     }
 
     gfx_sprite_destroy(&back);
-    for (int i = 0; i < 5; i++)
-        gfx_sprite_destroy(&m->icons[i]);
+    bt_gui_icons_destroy(&m->icons);
     arrfree(m->items);
     free(m);
     gfx_close(&g);

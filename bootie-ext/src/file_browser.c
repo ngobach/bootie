@@ -4,6 +4,7 @@
 #include <bootie-icons.h>
 #include <bootie-img.h>
 #include <bootie-ds.h>
+#include <bootie-gui.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -38,10 +39,7 @@ struct browser {
     int cur;
     int view_rows;
     int show_dotfiles;
-    struct gfx_sprite icon_disc;
-    struct gfx_sprite icon_file;
-    struct gfx_sprite icon_folder;
-    struct gfx_sprite icon_boot;
+    bt_gui_icon_entry_t *icons;
 };
 
 static void safe_strncpy(char *dest, const char *src, int n) {
@@ -257,10 +255,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, 0, 0, s->w, s->h, 15, 15, 30, 255);
     gfx_sprite_fill(s, px, py, cw, ch, 15, 15, 30, 255);
 
-    gfx_sprite_fill(s, px, py, cw, 1, 80, 80, 120, 255);
-    gfx_sprite_fill(s, px, py + ch - 1, cw, 1, 80, 80, 120, 255);
-    gfx_sprite_fill(s, px, py, 1, ch, 80, 80, 120, 255);
-    gfx_sprite_fill(s, px + cw - 1, py, 1, ch, 80, 80, 120, 255);
+    bt_gui_border(s, px, py, cw, ch);
 
     const char *title = (br->cwd[0] == '\0') ? "Select Drive" : "File Browser";
     gfx_sprite_draw_str(s, ctx, px + 8, py + 12, title, 200, 200, 255, 255, 28);
@@ -277,7 +272,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
         gfx_sprite_draw_str(s, ctx, px + 8, py + 46, br->cwd, 180, 180, 220, 255, 16);
     }
 
-    gfx_sprite_fill(s, px, py + 70, cw, 1, 80, 80, 120, 255);
+    bt_gui_sep(s, px, py + 70, cw);
 
     int x = px + 8;
     int y = py + HEADER_H;
@@ -299,15 +294,17 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
 
         /* Draw icon (centered vertically within row) */
         int icon_y = y + (LINE_H - 16) / 2;
-        if (e->is_drive && br->icon_disc.pixels) {
-            gfx_sprite_blit(s, &br->icon_disc, x, icon_y);
-        } else if (e->is_dir && br->icon_folder.pixels) {
-            gfx_sprite_blit(s, &br->icon_folder, x, icon_y);
-        } else if (e->bootable && br->icon_boot.pixels) {
-            gfx_sprite_blit(s, &br->icon_boot, x, icon_y);
-        } else if (br->icon_file.pixels) {
-            gfx_sprite_blit(s, &br->icon_file, x, icon_y);
-        }
+        bt_gui_icon_entry_t *entry = NULL;
+        if (e->is_drive)
+            entry = shgetp_null(br->icons, "disc");
+        else if (e->is_dir)
+            entry = shgetp_null(br->icons, "folder");
+        else if (e->bootable)
+            entry = shgetp_null(br->icons, "boot");
+        else
+            entry = shgetp_null(br->icons, "file");
+        if (entry)
+            gfx_sprite_blit(s, &entry->value, x, icon_y);
 
         int tx = x + 20;
         int text_y = y + (LINE_H - 16) / 2;
@@ -537,7 +534,7 @@ static int handle_boot(const char *drive, const char *path) {
 }
 
 static void boot_file(const struct browser *br, struct gfx_sprite *s,
-                      struct gfx *ctx, int px, int py, int cw, int ch) {
+                       struct gfx *ctx, int px, int py, int cw, int ch) {
     const struct entry *e = &br->entries[br->cur];
     if (!e->bootable) {
         return;
@@ -558,14 +555,11 @@ static void boot_file(const struct browser *br, struct gfx_sprite *s,
     }
     path[plen] = '\0';
 
-    gfx_sprite_fill(s, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 40, 20, 20, 255);
-    gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H * 2 + 2, "Booting...", 255, 200, 50, 255, 16);
-    gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H + 2, path, 200, 200, 200, 255, 16);
+    bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Booting...", path);
 
     int ret = handle_boot(br->device, path);
     if (ret != 0) {
-        gfx_sprite_fill(s, px, py + ch - FOOTER_H * 2, cw, FOOTER_H * 2, 60, 20, 20, 255);
-        gfx_sprite_draw_str(s, ctx, px + 8, py + ch - FOOTER_H * 2 + 2, "Boot failed", 255, 50, 50, 255, 16);
+        bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Boot failed", path);
         gfx_getkey(ctx);
     }
 }
@@ -577,12 +571,9 @@ int gmain(int argc, char *argv[], int flags) {
     }
     gfx_font_load();
 
-    uint32_t fw = g.width;
-    uint32_t fh = g.height;
-    int canvas_w = fw < CANVAS_W ? (int)fw : CANVAS_W;
-    int canvas_h = fh < CANVAS_H ? (int)fh : CANVAS_H;
-    int pad_x = ((int)fw - canvas_w) / 2;
-    int pad_y = ((int)fh - canvas_h) / 2;
+    int canvas_w, canvas_h, pad_x, pad_y;
+    bt_gui_canvas(g.width, g.height, CANVAS_W, CANVAS_H,
+                  &canvas_w, &canvas_h, &pad_x, &pad_y);
 
     struct browser *br = malloc(sizeof(struct browser));
     if (!br) {
@@ -592,10 +583,12 @@ int gmain(int argc, char *argv[], int flags) {
     br->view_rows = (canvas_h - HEADER_H - FOOTER_H) / LINE_H;
     br->show_dotfiles = 0;
     br->device[0] = '\0';
-    gfx_png_decode(ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG), &br->icon_disc);
-    gfx_png_decode(ICON_FILE_16_PNG, sizeof(ICON_FILE_16_PNG), &br->icon_file);
-    gfx_png_decode(ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG), &br->icon_folder);
-    gfx_png_decode(ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG), &br->icon_boot);
+    br->icons = NULL;
+
+    bt_gui_icon_load(&br->icons, "disc", ICON_DISC_16_PNG, sizeof(ICON_DISC_16_PNG));
+    bt_gui_icon_load(&br->icons, "file", ICON_FILE_16_PNG, sizeof(ICON_FILE_16_PNG));
+    bt_gui_icon_load(&br->icons, "folder", ICON_FOLDER_16_PNG, sizeof(ICON_FOLDER_16_PNG));
+    bt_gui_icon_load(&br->icons, "boot", ICON_BOOT_16_PNG, sizeof(ICON_BOOT_16_PNG));
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
@@ -660,10 +653,7 @@ int gmain(int argc, char *argv[], int flags) {
                  "No drives found", 255, 50, 50, 28);
                 gfx_getkey(&g);
                 gfx_sprite_destroy(&back);
-                gfx_sprite_destroy(&br->icon_disc);
-                gfx_sprite_destroy(&br->icon_file);
-                gfx_sprite_destroy(&br->icon_folder);
-                gfx_sprite_destroy(&br->icon_boot);
+                bt_gui_icons_destroy(&br->icons);
                 free(br);
                 gfx_close(&g);
                 return 1;
@@ -682,10 +672,7 @@ int gmain(int argc, char *argv[], int flags) {
                      "No drives found", 255, 50, 50, 28);
             gfx_getkey(&g);
             gfx_sprite_destroy(&back);
-            gfx_sprite_destroy(&br->icon_disc);
-            gfx_sprite_destroy(&br->icon_file);
-            gfx_sprite_destroy(&br->icon_folder);
-            gfx_sprite_destroy(&br->icon_boot);
+            bt_gui_icons_destroy(&br->icons);
             free(br);
             gfx_close(&g);
             return 1;
@@ -705,10 +692,7 @@ int gmain(int argc, char *argv[], int flags) {
             if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
                 if (br->cwd[0] == '\0') {
                     gfx_sprite_destroy(&back);
-                    gfx_sprite_destroy(&br->icon_disc);
-                    gfx_sprite_destroy(&br->icon_file);
-                    gfx_sprite_destroy(&br->icon_folder);
-                    gfx_sprite_destroy(&br->icon_boot);
+                    bt_gui_icons_destroy(&br->icons);
                     free(br);
                     gfx_close(&g);
                     return 0;
