@@ -3,7 +3,7 @@
 
 #include <bootie-gfx.h>
 #include <schrift.h>
-#include "font-ttf.h"
+#include "bootie-fonts.h"
 
 /* ------------------------------------------------------------------ */
 /*  Font state                                                        */

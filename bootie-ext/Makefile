@@ -8,7 +8,7 @@ MKDIR   := mkdir -p
 # Optional TrueType font to embed (path to a .ttf file).
 # When set, the font is converted to a C array and compiled into every module.
 TTF_FONT ?= fonts/SpaceGrotesk-Regular.ttf
-FONT_HEADER := include/font-ttf.h
+FONT_HEADER := include/bootie-fonts.h
 
 # Icon pack: 16x16 PNGs are converted to a C header at build time.
 ICON_DIR  := icons
