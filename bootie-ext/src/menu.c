@@ -5,6 +5,7 @@
 #include <bootie-ds.h>
 #include <bootie-ini.h>
 #include <bootie-gui.h>
+#include <bootie-debug.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -42,6 +43,7 @@ struct menu {
     int view_rows;
     bt_gui_icon_entry_t *icons;
     int confirm_exit;
+    char moddir[64];
 };
 
 static void ensure_visible(struct menu *m) {
@@ -237,6 +239,18 @@ int gmain(int argc, char *argv[], int flags) {
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
+    bt_dbg_init(4096);
+    bt_dbg_printf("menu started");
+
+    m->moddir[0] = '\0';
+    bt_eval("echo %moddir%", m->moddir, sizeof(m->moddir));
+    {
+        char *nl = m->moddir;
+        while (*nl && *nl != '\r' && *nl != '\n') nl++;
+        *nl = '\0';
+    }
+    bt_dbg_printf("moddir=%s", m->moddir);
+
     bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG);
     bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_24_PNG);
     bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_24_PNG);
@@ -271,8 +285,12 @@ int gmain(int argc, char *argv[], int flags) {
                                       item->action.target);
                     break;
                 case ACTION_FILE_BROWSER:
-                    bt_gui_show_info(&screen, &back, &g, cw, ch, pad_x, pad_y,
-                                     "File Browser (coming soon)");
+                    {
+                        char cmd[512];
+                        sprintf(cmd, "%s/file_browser %s",
+                                m->moddir, item->action.target);
+                        run_line(cmd, BUILTIN_CMDLINE);
+                    }
                     break;
                 case ACTION_CHAINLOAD:
                     handle_chainload(&screen, &back, &g, cw, ch, pad_x, pad_y,
