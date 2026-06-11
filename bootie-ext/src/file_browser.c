@@ -433,7 +433,7 @@ static void draw(struct browser *br, struct gfx_sprite *s, struct gfx *ctx,
                 int b = (e->size % 1024) / 10;
                 sprintf(size_str, "%d.%02d KB", kb, b);
             } else {
-                sprintf(size_str, "%zu bytes", e->size);
+                sprintf(size_str, "%u bytes", (unsigned)e->size);
             }
             gfx_sprite_draw_str(s, ctx, tx + 8, ty, size_str, 200, 255, 200, 255, 16);
             ty += 28;
