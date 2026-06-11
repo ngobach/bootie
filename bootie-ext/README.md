@@ -189,3 +189,66 @@ When capturing directory output using `grub_dir` and the `putchar_hooked` redire
 
 The file-browser icons (`boot.png`, `disc.png`, `file.png`, `folder.png`) are from the **[1ct-pack](https://github.com/1ctinus/1ct-pack)** icon set by [1ctinus](https://github.com/1ctinus), used under its open-source license.
 
+---
+
+## 10. Boot Menu INI Format
+
+The boot menu reads entries from `/menu.ini` at startup. The file uses standard INI syntax with a `[menu]` global section and one `[items.<name>]` section per entry.
+
+### Global Section
+```ini
+[menu]
+confirm_exit = true   ; optional, default true — show confirmation dialog on Quit
+```
+
+### Entry Sections
+Each entry is defined under `[items.<unique_name>]`:
+
+| Key | Required | Description |
+| :--- | :--- | :--- |
+| `type` | Yes | One of: `disk-image`, `file-browser`, `chainload`, `reboot`, `poweroff` |
+| `title` | Yes | Display name shown in the menu list |
+| `desc` | No | Subtitle/description shown below the title |
+| `target` | For `disk-image`/`chainload` | Path to the file (e.g. `/winpe.iso`, `/boot/vmlinuz`) |
+
+### Icon Derivation
+Icons are auto-selected from the entry `type` — no `icon` key is needed:
+| Type | Icon |
+| :--- | :--- |
+| `disk-image` | disc |
+| `file-browser` | folder |
+| `chainload` | boot |
+| `reboot` | restart |
+| `poweroff` | poweroff |
+
+### Ordering
+Entries appear in the exact order they appear in the INI file — no `priority` key.
+
+### Example
+```ini
+[menu]
+confirm_exit = true
+
+[items.winpe]
+type = disk-image
+title = Windows PE
+desc = Browse and manage files using Windows PE
+target = /winpe.iso
+
+[items.ubuntu]
+type = chainload
+title = Ubuntu
+desc = Boot Ubuntu from disk
+target = /boot/vmlinuz
+
+[items.restart]
+type = reboot
+title = Restart
+desc = Restart the system
+
+[items.shutdown]
+type = poweroff
+title = Power Off
+desc = Shut down the system
+```
+

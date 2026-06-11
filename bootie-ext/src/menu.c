@@ -25,7 +25,6 @@ enum action_type {
 
 struct menu_action {
     int type;
-    int priority;
     char target[PATH_MAX];
 };
 
@@ -196,17 +195,21 @@ static void load_ini_items(struct menu *m) {
         if (desc)
             strcpy(item->desc, desc);
 
-        const char *icon_str = bt_ini_section_get_value(&ini.sections[i], "icon");
-        if (icon_str)
-            strcpy(item->icon_name, icon_str);
-
         item->action.type = type;
+
+        switch (type) {
+        case ACTION_DISK_IMAGE:   strcpy(item->icon_name, "disc");     break;
+        case ACTION_FILE_BROWSER: strcpy(item->icon_name, "folder");   break;
+        case ACTION_CHAINLOAD:    strcpy(item->icon_name, "boot");     break;
+        case ACTION_REBOOT:       strcpy(item->icon_name, "restart");  break;
+        case ACTION_POWEROFF:     strcpy(item->icon_name, "poweroff"); break;
+        }
 
         const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
         if (target)
             strcpy(item->action.target, target);
 
-        item->action.priority = bt_ini_section_get_int(&ini.sections[i], "priority", 1000);
+
     }
 
     m->confirm_exit = bt_ini_get_bool(&ini, "menu", "confirm_exit", 1);
@@ -235,8 +238,8 @@ int gmain(int argc, char *argv[], int flags) {
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
 
     bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG);
-    bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_16_PNG);
-    bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_16_PNG);
+    bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_24_PNG);
+    bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_24_PNG);
     bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG);
     bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG);
 

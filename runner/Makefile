@@ -13,7 +13,7 @@ data-part:
 	fi
 
 sync-modules: data-part
-	$(MAKE) -C ../bootie-ext
+	$(MAKE) -C ../bootie-ext -j8
 	@if [ -d ../bootie-ext/mod ]; then \
 		echo "Syncing compiled modules to data-part/mod..."; \
 		mkdir -p data-part/mod; \
