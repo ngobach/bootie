@@ -12,7 +12,7 @@
 #define BUF_CAP 131072
 #define MAX_DRIVES 32
 
-#define LINE_H 28
+#define LINE_H 32
 #define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
 #define CANVAS_W 800
@@ -218,8 +218,11 @@ static void ensure_visible(struct browser *br) {
         br->cur = 0;
         return;
     }
-    if (br->cur < 0) br->cur = 0;
-    if (br->cur >= count) br->cur = count - 1;
+    if (br->cur < 0) {
+        br->cur = count - 1;
+    } else if (br->cur >= count) {
+        br->cur = 0;
+    }
     if (br->top < 0) br->top = 0;
     if (br->top > br->cur) br->top = br->cur;
     if (br->cur >= br->top + br->view_rows)

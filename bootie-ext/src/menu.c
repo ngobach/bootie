@@ -51,8 +51,11 @@ static void ensure_visible(struct menu *m) {
         m->cur = 0;
         return;
     }
-    if (m->cur < 0) m->cur = 0;
-    if (m->cur >= (int)count) m->cur = (int)count - 1;
+    if (m->cur < 0) {
+        m->cur = (int)count - 1;
+    } else if (m->cur >= (int)count) {
+        m->cur = 0;
+    }
 
     if (m->cur < m->top)
         m->top = m->cur;
