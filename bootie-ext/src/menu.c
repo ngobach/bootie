@@ -197,12 +197,20 @@ static void load_ini_items(struct menu *m) {
 
         item->action.type = type;
 
+        char type_icon[24] = "";
         switch (type) {
-        case ACTION_DISK_IMAGE:   strcpy(item->icon_name, "disc");     break;
-        case ACTION_FILE_BROWSER: strcpy(item->icon_name, "folder");   break;
-        case ACTION_CHAINLOAD:    strcpy(item->icon_name, "boot");     break;
-        case ACTION_REBOOT:       strcpy(item->icon_name, "restart");  break;
-        case ACTION_POWEROFF:     strcpy(item->icon_name, "poweroff"); break;
+        case ACTION_DISK_IMAGE:   strcpy(type_icon, "disc");     break;
+        case ACTION_FILE_BROWSER: strcpy(type_icon, "folder");   break;
+        case ACTION_CHAINLOAD:    strcpy(type_icon, "boot");     break;
+        case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
+        case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
+        }
+
+        const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
+        if (custom_icon && shgetp_null(m->icons, custom_icon)) {
+            strcpy(item->icon_name, custom_icon);
+        } else {
+            strcpy(item->icon_name, type_icon);
         }
 
         const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
@@ -242,6 +250,7 @@ int gmain(int argc, char *argv[], int flags) {
     bt_gui_icon_load(&m->icons, "boot", ICON_BOOT_24_PNG);
     bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG);
     bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG);
+    bt_gui_icon_load(&m->icons, "windows", ICON_WINDOWS_24_PNG);
 
     load_ini_items(m);
 
