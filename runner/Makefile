@@ -22,10 +22,10 @@ sync-modules: data-part
 	fi
 
 run-qemu-bios: scratch.img data-part sync-modules
-	qemu-system-x86_64 -m 2G -s -drive file=scratch.img,format=raw -drive file=fat:rw:data-part,format=raw
+	qemu-system-x86_64 -m 2G -s -debugcon stdio -drive file=scratch.img,format=raw -drive file=fat:rw:data-part,format=raw
 
 run-qemu-uefi: scratch.img data-part sync-modules
-	qemu-system-x86_64 -bios ../resources/OVMF.fd -m 2G -s -drive file=scratch.img,format=raw -drive file=fat:rw:data-part,format=raw
+	qemu-system-x86_64 -bios ../resources/OVMF.fd -m 2G -s -debugcon stdio -drive file=scratch.img,format=raw -drive file=fat:rw:data-part,format=raw
 
 clean:
 	rm -rf scratch.img data-part

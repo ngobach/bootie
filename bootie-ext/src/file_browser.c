@@ -5,6 +5,7 @@
 #include <bootie-img.h>
 #include <bootie-ds.h>
 #include <bootie-gui.h>
+#include <bootie-debug.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -553,6 +554,10 @@ static void boot_file(const struct browser *br, struct gfx_sprite *s,
 }
 
 int gmain(int argc, char *argv[], int flags) {
+    bt_dbg_printf("file_browser started\n");
+    for (int i = 0; i < argc; i++)
+        bt_dbg_printf("  argv[%d]=%s\n", i, argv[i]);
+
     struct gfx g;
     if (!gfx_init(&g)) {
         return 1;
