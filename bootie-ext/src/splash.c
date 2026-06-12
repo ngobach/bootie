@@ -17,6 +17,7 @@ struct bt_color final_clr  = {200, 200, 255, 255};
 struct char_anim {
     float t;
     struct bt_color color;
+    int y_off;
 };
 
 static float char_start_ms(int idx) {
@@ -39,12 +40,15 @@ static void update_char(struct char_anim *ca, float elapsed, int idx) {
 
     if (ca->t <= 0.0f) {
         ca->color = bg_color;
+        ca->y_off = 0;
     } else if (ca->t < 0.7f) {
         float p = bt_ease_out_cubic(ca->t / 0.7f);
         bt_color_lerp(&ca->color, bg_color, white, p);
+        ca->y_off = -(int)(8.0f * p);
     } else {
         float p = bt_ease_out_cubic((ca->t - 0.7f) / 0.3f);
         bt_color_lerp(&ca->color, white, final_clr, p);
+        ca->y_off = -(int)(8.0f * (1.0f - p));
     }
 }
 
@@ -101,7 +105,7 @@ int gmain(int argc, char *argv[], int flags) {
                 memcpy(prefix, text, i);
                 prefix[i] = '\0';
                 int cx = tx + gfx_text_width(prefix, FONT_SZ);
-                draw_str(&g, cx, ty, ch,
+                draw_str(&g, cx, ty + ca.y_off, ch,
                          ca.color.r, ca.color.g, ca.color.b, FONT_SZ);
             }
         }
