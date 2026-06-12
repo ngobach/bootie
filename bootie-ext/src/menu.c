@@ -21,6 +21,7 @@ enum action_type {
     ACTION_CHAINLOAD,
     ACTION_REBOOT,
     ACTION_POWEROFF,
+    ACTION_OPEN_CATEGORY,
 };
 
 struct menu_action {
@@ -32,6 +33,7 @@ struct menu_item {
     char title[64];
     char desc[128];
     char icon_name[24];
+    char category[32];
     struct menu_action action;
 };
 
@@ -42,10 +44,13 @@ struct menu {
     int view_rows;
     bt_gui_icon_entry_t *icons;
     int confirm_exit;
+    char  *current_category;
+    char **category_stack;
+    int   *view;
 };
 
 static void ensure_visible(struct menu *m) {
-    int count = arrlenu(m->items);
+    int count = arrlenu(m->view);
     if (count == 0) {
         m->top = 0;
         m->cur = 0;
@@ -66,7 +71,7 @@ static void ensure_visible(struct menu *m) {
 static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
                   int cw, int ch) {
     char footer_count[16];
-    int total = arrlenu(m->items);
+    int total = arrlenu(m->view);
     sprintf(footer_count, "%d/%d", m->cur + 1, total);
 
     bt_gui_rect content;
@@ -87,7 +92,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     }
 
     for (int i = start; i < end; i++) {
-        struct menu_item *item = &m->items[i];
+        struct menu_item *item = &m->items[m->view[i]];
         int row_y = y + (i - start) * LINE_H;
 
         if (i == m->cur) {
@@ -167,6 +172,7 @@ static int action_type_from_name(const char *name) {
     if (stricmp(name, "chainload") == 0) return ACTION_CHAINLOAD;
     if (stricmp(name, "reboot") == 0) return ACTION_REBOOT;
     if (stricmp(name, "poweroff") == 0) return ACTION_POWEROFF;
+    if (stricmp(name, "open-category") == 0) return ACTION_OPEN_CATEGORY;
     return ACTION_NONE;
 }
 
@@ -189,10 +195,24 @@ static void load_ini_items(struct menu *m) {
         const char *title = bt_ini_section_get_value(&ini.sections[i], "title");
         if (!title) continue;
 
+        /* Skip items from other categories if not loaded yet */
+        const char *category = bt_ini_section_get_value(&ini.sections[i], "category");
+
+        /* open-category items need a non-empty target category */
+        const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
+        if (type == ACTION_OPEN_CATEGORY && (!target || !target[0]))
+            continue;
+
         struct menu_item *item = arraddnptr(m->items, 1);
         memset(item, 0, sizeof(*item));
 
         strcpy(item->title, title);
+
+        if (category && category[0]) {
+            strcpy(item->category, category);
+        } else {
+            strcpy(item->category, "default");
+        }
 
         const char *desc = bt_ini_section_get_value(&ini.sections[i], "desc");
         if (desc)
@@ -207,6 +227,7 @@ static void load_ini_items(struct menu *m) {
         case ACTION_CHAINLOAD:    strcpy(type_icon, "boot");     break;
         case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
+        case ACTION_OPEN_CATEGORY: strcpy(type_icon, "folder");  break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
@@ -216,7 +237,6 @@ static void load_ini_items(struct menu *m) {
             strcpy(item->icon_name, type_icon);
         }
 
-        const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
         if (target)
             strcpy(item->action.target, target);
 
@@ -225,6 +245,16 @@ static void load_ini_items(struct menu *m) {
 
     m->confirm_exit = bt_ini_get_bool(&ini, "menu", "confirm_exit", 1);
     bt_ini_destroy(&ini);
+}
+
+static void rebuild_view(struct menu *m) {
+    arrsetlen(m->view, 0);
+    for (int i = 0; i < arrlen(m->items); i++) {
+        if (strcmp(m->items[i].category, m->current_category) == 0) {
+            arraddnptr(m->view, 1);
+            m->view[arrlen(m->view) - 1] = i;
+        }
+    }
 }
 
 int gmain(int argc, char *argv[], int flags) {
@@ -247,6 +277,9 @@ int gmain(int argc, char *argv[], int flags) {
     }
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
+    m->current_category = malloc(8);
+    if (m->current_category)
+        strcpy(m->current_category, "default");
 
     bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG);
     bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_24_PNG);
@@ -256,6 +289,7 @@ int gmain(int argc, char *argv[], int flags) {
     bt_gui_icon_load(&m->icons, "windows", ICON_WINDOWS_24_PNG);
 
     load_ini_items(m);
+    rebuild_view(m);
 
     struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
@@ -271,12 +305,21 @@ int gmain(int argc, char *argv[], int flags) {
         int ascii = key & 0xFF;
 
         if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
-            if (!m->confirm_exit || bt_gui_confirm(&screen, &back, &g, cw, ch, pad_x, pad_y, "Quit Boot Menu?", NULL))
-                break;
+            if (arrlen(m->category_stack) > 0) {
+                free(m->current_category);
+                m->current_category = m->category_stack[arrlen(m->category_stack) - 1];
+                arrpop(m->category_stack);
+                rebuild_view(m);
+                m->cur = 0;
+                m->top = 0;
+            } else {
+                if (!m->confirm_exit || bt_gui_confirm(&screen, &back, &g, cw, ch, pad_x, pad_y, "Quit Boot Menu?", NULL))
+                    goto done;
+            }
         } else if (ascii == 0x0D) {
-            int count = arrlenu(m->items);
+            int count = arrlenu(m->view);
             if (m->cur >= 0 && m->cur < count) {
-                struct menu_item *item = &m->items[m->cur];
+                struct menu_item *item = &m->items[m->view[m->cur]];
                 switch (item->action.type) {
                 case ACTION_DISK_IMAGE:
                     handle_disk_image(&screen, &back, &g, cw, ch, pad_x, pad_y,
@@ -300,6 +343,16 @@ int gmain(int argc, char *argv[], int flags) {
                 case ACTION_POWEROFF:
                     handle_poweroff(&screen, &back, &g, cw, ch, pad_x, pad_y);
                     break;
+                case ACTION_OPEN_CATEGORY:
+                    arraddnptr(m->category_stack, 1);
+                    m->category_stack[arrlen(m->category_stack) - 1] = m->current_category;
+                    m->current_category = malloc(strlen(item->action.target) + 1);
+                    if (m->current_category)
+                        strcpy(m->current_category, item->action.target);
+                    rebuild_view(m);
+                    m->cur = 0;
+                    m->top = 0;
+                    break;
                 default:
                     break;
                 }
@@ -314,7 +367,7 @@ int gmain(int argc, char *argv[], int flags) {
             m->cur = 0;
             ensure_visible(m);
         } else if (scan == 0x4F) {
-            m->cur = (int)arrlenu(m->items) - 1;
+            m->cur = (int)arrlenu(m->view) - 1;
             ensure_visible(m);
         } else if (scan == 0x49) {
             m->cur -= m->view_rows;
@@ -325,6 +378,12 @@ int gmain(int argc, char *argv[], int flags) {
         }
     }
 
+done:
+    for (int i = 0; i < arrlen(m->category_stack); i++)
+        free(m->category_stack[i]);
+    arrfree(m->category_stack);
+    arrfree(m->view);
+    free(m->current_category);
     gfx_sprite_destroy(&back);
     bt_gui_icons_destroy(&m->icons);
     arrfree(m->items);
