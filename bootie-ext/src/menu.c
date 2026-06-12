@@ -9,7 +9,7 @@
 
 #define PATH_MAX 260
 #define LINE_H   48
-#define HEADER_H 44
+#define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
 #define CANVAS_W 820
 #define CANVAS_H 680
@@ -37,6 +37,11 @@ struct menu_item {
     struct menu_action action;
 };
 
+struct cat_nav {
+    char *category;
+    char *display;
+};
+
 struct menu {
     struct menu_item *items;
     int cur;
@@ -45,7 +50,8 @@ struct menu {
     bt_gui_icon_entry_t *icons;
     int confirm_exit;
     char  *current_category;
-    char **category_stack;
+    char  *current_category_display;
+    struct cat_nav *category_stack;
     int   *view;
 };
 
@@ -76,9 +82,14 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
 
     bt_gui_rect content;
     bt_gui_window(s, ctx, cw, ch,
-                  "Boot Menu", NULL,
+                  "Boot Menu", m->current_category_display,
                   "[^v] Nav  [Enter] Select  [Esc] Quit",
                   footer_count, &content);
+
+    bt_gui_icon_entry_t *hdr_icon = shgetp_null(m->icons, "broken_robot");
+    if (hdr_icon)
+        gfx_sprite_blit(s, &hdr_icon->value, cw - 8 - hdr_icon->value.w,
+                        (HEADER_H - hdr_icon->value.h) / 2);
 
     int x = 8;
     int y = content.y;
@@ -227,7 +238,7 @@ static void load_ini_items(struct menu *m) {
         case ACTION_CHAINLOAD:    strcpy(type_icon, "boot");     break;
         case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
-        case ACTION_OPEN_CATEGORY: strcpy(type_icon, "folder");  break;
+        case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
@@ -280,6 +291,9 @@ int gmain(int argc, char *argv[], int flags) {
     m->current_category = malloc(8);
     if (m->current_category)
         strcpy(m->current_category, "default");
+    m->current_category_display = malloc(42);
+    if (m->current_category_display)
+        strcpy(m->current_category_display, "Select the item you want to continue with");
 
     bt_gui_icon_load(&m->icons, "disc", ICON_DISC_24_PNG);
     bt_gui_icon_load(&m->icons, "folder", ICON_FOLDER_24_PNG);
@@ -287,6 +301,8 @@ int gmain(int argc, char *argv[], int flags) {
     bt_gui_icon_load(&m->icons, "restart", ICON_RESTART_24_PNG);
     bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG);
     bt_gui_icon_load(&m->icons, "windows", ICON_WINDOWS_24_PNG);
+    bt_gui_icon_load(&m->icons, "menu", ICON_MENU_24_PNG);
+    bt_gui_icon_load(&m->icons, "broken_robot", ICON_BROKEN_ROBOT_50_PNG);
 
     load_ini_items(m);
     rebuild_view(m);
@@ -307,7 +323,10 @@ int gmain(int argc, char *argv[], int flags) {
         if (ascii == 0x1B || ascii == 'q' || ascii == 'Q') {
             if (arrlen(m->category_stack) > 0) {
                 free(m->current_category);
-                m->current_category = m->category_stack[arrlen(m->category_stack) - 1];
+                free(m->current_category_display);
+                struct cat_nav *e = &m->category_stack[arrlen(m->category_stack) - 1];
+                m->current_category = e->category;
+                m->current_category_display = e->display;
                 arrpop(m->category_stack);
                 rebuild_view(m);
                 m->cur = 0;
@@ -344,14 +363,20 @@ int gmain(int argc, char *argv[], int flags) {
                     handle_poweroff(&screen, &back, &g, cw, ch, pad_x, pad_y);
                     break;
                 case ACTION_OPEN_CATEGORY:
-                    arraddnptr(m->category_stack, 1);
-                    m->category_stack[arrlen(m->category_stack) - 1] = m->current_category;
-                    m->current_category = malloc(strlen(item->action.target) + 1);
-                    if (m->current_category)
-                        strcpy(m->current_category, item->action.target);
-                    rebuild_view(m);
-                    m->cur = 0;
-                    m->top = 0;
+                    {
+                        struct cat_nav *e = arraddnptr(m->category_stack, 1);
+                        e->category = m->current_category;
+                        e->display  = m->current_category_display;
+                        m->current_category = malloc(strlen(item->action.target) + 1);
+                        if (m->current_category)
+                            strcpy(m->current_category, item->action.target);
+                        m->current_category_display = malloc(strlen(item->title) + 1);
+                        if (m->current_category_display)
+                            strcpy(m->current_category_display, item->title);
+                        rebuild_view(m);
+                        m->cur = 0;
+                        m->top = 0;
+                    }
                     break;
                 default:
                     break;
@@ -379,11 +404,14 @@ int gmain(int argc, char *argv[], int flags) {
     }
 
 done:
-    for (int i = 0; i < arrlen(m->category_stack); i++)
-        free(m->category_stack[i]);
+    for (int i = 0; i < arrlen(m->category_stack); i++) {
+        free(m->category_stack[i].category);
+        free(m->category_stack[i].display);
+    }
     arrfree(m->category_stack);
     arrfree(m->view);
     free(m->current_category);
+    free(m->current_category_display);
     gfx_sprite_destroy(&back);
     bt_gui_icons_destroy(&m->icons);
     arrfree(m->items);
