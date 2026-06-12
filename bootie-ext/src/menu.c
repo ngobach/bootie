@@ -140,11 +140,12 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
         sprintf(cmd, "map %s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
                 target);
     }
-    run_line(cmd, BUILTIN_CMDLINE);
 
-    bt_gui_overlay_flip(screen, s, ctx, pad_x, pad_y);
-    bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Boot failed", NULL);
-    gfx_getkey(ctx);
+    char log[10240];
+    log[0] = '\0';
+    if (bt_eval(cmd, log, sizeof(log)) != 0)
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Boot failed", log);
 }
 
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
@@ -153,27 +154,38 @@ static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
                                const char *target) {
     char cmd[PATH_MAX + 128];
     sprintf(cmd, "chainloader %s ;; boot", target);
-    run_line(cmd, BUILTIN_CMDLINE);
 
-    bt_gui_overlay_flip(screen, s, ctx, pad_x, pad_y);
-    bt_gui_boot_feedback(s, ctx, cw, ch, FOOTER_H, "Boot failed", NULL);
-    gfx_getkey(ctx);
+    char log[10240];
+    log[0] = '\0';
+    if (bt_eval(cmd, log, sizeof(log)) != 0)
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Boot failed", log);
 }
 
 static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
                             struct gfx *ctx, int cw, int ch,
                             int pad_x, int pad_y) {
     if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
-                       "Restart system?", NULL))
-        run_line("reboot", BUILTIN_CMDLINE);
+                       "Restart system?", NULL)) {
+        char log[10240];
+        log[0] = '\0';
+        bt_eval("reboot", log, sizeof(log));
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Failed to reboot", log);
+    }
 }
 
 static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
                               struct gfx *ctx, int cw, int ch,
                               int pad_x, int pad_y) {
     if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
-                       "Shut down system?", NULL))
-        run_line("halt", BUILTIN_CMDLINE);
+                       "Shut down system?", NULL)) {
+        char log[10240];
+        log[0] = '\0';
+        bt_eval("halt", log, sizeof(log));
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Failed to shut down", log);
+    }
 }
 
 static int action_type_from_name(const char *name) {

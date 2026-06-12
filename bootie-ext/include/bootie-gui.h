@@ -195,6 +195,62 @@ static void bt_gui_show_info(struct gfx_sprite *screen, struct gfx_sprite *s,
     gfx_getkey(ctx);
 }
 
+static void bt_gui_show_log(struct gfx_sprite *screen, struct gfx_sprite *s,
+                             struct gfx *ctx, int cw, int ch,
+                             int pad_x, int pad_y,
+                             const char *title, const char *log) {
+    gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 200);
+
+    int margin = 16;
+    int mw = cw - margin * 2;
+    int mh = ch - margin * 2;
+    int mx = margin;
+    int my = margin;
+
+    gfx_sprite_fill(s, mx, my, mw, mh, 20, 20, 45, 255);
+    bt_gui_border(s, mx, my, mw, mh);
+
+    gfx_sprite_draw_str(s, ctx, mx + 12, my + 12, title, 255, 200, 100, 255, 20);
+    bt_gui_sep(s, mx + 8, my + 40, mw - 16);
+
+    int log_x = mx + 12;
+    int log_y = my + 50;
+    int avail_h = mh - 50 - 32;
+    int line_h = 18;
+
+    if (log && log[0]) {
+        const char *p = log;
+        int line = 0;
+        while (*p && line * line_h < avail_h) {
+            const char *nl = p;
+            while (*nl && *nl != '\n') nl++;
+            int len = (int)(nl - p);
+            char line_buf[256];
+            int copy = len < 255 ? len : 255;
+            memcpy(line_buf, p, copy);
+            line_buf[copy] = '\0';
+            gfx_sprite_draw_str(s, ctx, log_x, log_y + line * line_h,
+                                line_buf, 200, 200, 220, 255, 14);
+            if (!*nl) break;
+            p = nl + 1;
+            line++;
+        }
+    } else {
+        gfx_sprite_draw_str(s, ctx, log_x, log_y, "(no output)",
+                            150, 150, 180, 255, 14);
+    }
+
+    gfx_sprite_draw_str(s, ctx, mx + 12, my + mh - 24,
+                        "[Esc] Close", 150, 150, 180, 255, 14);
+
+    bt_gui_overlay_flip(screen, s, ctx, pad_x, pad_y);
+
+    while (1) {
+        int key = gfx_getkey(ctx);
+        if ((key & 0xFF) == 0x1B) break;
+    }
+}
+
 static void bt_gui_boot_feedback(struct gfx_sprite *s, struct gfx *ctx,
                                   int cw, int ch, int footer_h,
                                   const char *status, const char *extra) {
