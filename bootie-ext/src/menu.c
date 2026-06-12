@@ -23,6 +23,7 @@ enum action_type {
     ACTION_REBOOT,
     ACTION_POWEROFF,
     ACTION_OPEN_CATEGORY,
+    ACTION_PROGRAM,
 };
 
 struct menu_action {
@@ -214,6 +215,7 @@ static int action_type_from_name(const char *name) {
     if (stricmp(name, "reboot") == 0) return ACTION_REBOOT;
     if (stricmp(name, "poweroff") == 0) return ACTION_POWEROFF;
     if (stricmp(name, "open-category") == 0) return ACTION_OPEN_CATEGORY;
+    if (stricmp(name, "program") == 0) return ACTION_PROGRAM;
     return ACTION_NONE;
 }
 
@@ -269,6 +271,7 @@ static void load_ini_items(struct menu *m) {
         case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
         case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
+        case ACTION_PROGRAM:       strcpy(type_icon, "boot");    break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
@@ -406,6 +409,13 @@ int gmain(int argc, char *argv[], int flags) {
                         rebuild_view(m);
                         m->cur = 0;
                         m->top = 0;
+                    }
+                    break;
+                case ACTION_PROGRAM:
+                    {
+                        char cmd[512];
+                        sprintf(cmd, "%%moddir%%/%s", item->action.target);
+                        run_line(cmd, BUILTIN_CMDLINE);
                     }
                     break;
                 default:
