@@ -263,7 +263,7 @@ static void load_ini_items(struct menu *m) {
         case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
         case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
-        case ACTION_PROGRAM:       strcpy(type_icon, "boot");    break;
+        case ACTION_PROGRAM:       strcpy(type_icon, "console"); break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
@@ -327,6 +327,7 @@ int gmain(int argc, char *argv[], int flags) {
     bt_gui_icon_load(&m->icons, "poweroff", ICON_POWEROFF_24_PNG);
     bt_gui_icon_load(&m->icons, "windows", ICON_WINDOWS_24_PNG);
     bt_gui_icon_load(&m->icons, "menu", ICON_MENU_24_PNG);
+    bt_gui_icon_load(&m->icons, "console", ICON_CONSOLE_24_PNG);
     bt_gui_icon_load(&m->icons, "broken_robot", ICON_BROKEN_ROBOT_50_PNG);
 
     load_ini_items(m);
