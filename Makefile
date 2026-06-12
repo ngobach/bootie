@@ -35,12 +35,17 @@ build/mod.tar.gz: mod
 	mkdir -p $(BUILD_DIR)
 	tar -czf $@ -C bootie-ext mod
 
+# Package data-part (ISO/, menu.ini, menu.lst, mod/) into a tarball
+build/data-part.tar.gz: mod
+	mkdir -p $(BUILD_DIR)
+	tar -czf $@ -C $(BOOTIE_GO_DIR)/resources/data-part .
+
 # Clean build artifacts
 clean:
 	rm -rf $(BUILD_DIR) $(MOD_DEST)
 
 # Prepare build directory and module tarball
-build: build/mod.tar.gz
+build: build/mod.tar.gz build/data-part.tar.gz
 
 # Build macOS (Darwin) executables
 $(CLI_DARWIN): build
