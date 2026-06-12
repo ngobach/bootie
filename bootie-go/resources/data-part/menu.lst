@@ -1,4 +1,6 @@
 if not "%@UEFI%"=="" set moddir=/mod/uefi
 if "%@UEFI%"=="" set moddir=/mod/bios
 graphicsmode -1 800
-%moddir%/menu
+if "%splashed%"=="" %moddir%/splash
+if "%splashed%"=="y" %moddir%/menu
+set splashed=y
