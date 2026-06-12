@@ -107,8 +107,8 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
         int row_y = y + (i - start) * LINE_H;
 
         if (i == m->cur) {
-            gfx_sprite_fill(s, 2, row_y - 2, cw - 4, LINE_H, 40, 60, 120, 255);
-            gfx_sprite_fill(s, 2, row_y - 2, cw - 4, LINE_H, 60, 80, 160, 100);
+            gfx_sprite_fill(s, 2, row_y, cw - 4, LINE_H, 40, 60, 120, 255);
+            gfx_sprite_fill(s, 2, row_y, cw - 4, LINE_H, 60, 80, 160, 100);
         }
 
         int icon_y = row_y + 8;
