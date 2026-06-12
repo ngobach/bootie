@@ -5,7 +5,7 @@
 #include <bootie-ds.h>
 #include <bootie-ini.h>
 #include <bootie-gui.h>
-#include <bootie-debug.h>
+
 #include <stdint.h>
 
 #define PATH_MAX 260
