@@ -134,41 +134,43 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
                                 struct gfx *ctx, int cw, int ch,
                                 int pad_x, int pad_y,
                                 const char *target) {
-    char cmd[PATH_MAX + 128];
-    int tlen = strlen(target);
-    if (tlen >= 4 && strnicmp(target + tlen - 4, ".efi", 4) == 0) {
-        sprintf(cmd, "chainloader %s ;; boot", target);
-    } else {
-        sprintf(cmd, "map %s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
-                target);
-    }
-
     char log[10240];
     log[0] = '\0';
-    int bt_ret = bt_eval(cmd, log, sizeof(log));
-    if (bt_ret != 0)
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Boot failed", log);
+    char cmd[PATH_MAX + 64];
+
+    sprintf(cmd, "map %s (0xff)", target);
+    if (bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG) != 0)
+        goto fail;
+    log[0] = '\0';
+    bt_eval_ex("map --hook", log, sizeof(log), BT_EVAL_F_ERRMSG);
+    log[0] = '\0';
+    bt_eval_ex("chainloader (0xff)", log, sizeof(log), BT_EVAL_F_ERRMSG);
+    log[0] = '\0';
+    bt_eval_ex("boot", log, sizeof(log), BT_EVAL_F_ERRMSG);
+    return;
+
+fail:
+    bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                    "Boot failed", log);
 }
 
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
                                struct gfx *ctx, int cw, int ch,
                                int pad_x, int pad_y,
                                const char *target) {
-    char cmd[PATH_MAX + 128];
-    sprintf(cmd, "chainloader %s ;; boot", target);
-
     char log[10240];
     log[0] = '\0';
-    int bt_ret = bt_eval(cmd, log, sizeof(log));
-    if (log[0] == '\0' && bt_ret < 0) {
-        char num[24];
-        sprintf(num, "Error %d", (int)errnum);
-        memcpy(log, num, strlen(num) + 1);
-    }
-    if (bt_ret != 0)
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Boot failed", log);
+    char cmd[PATH_MAX + 64];
+    sprintf(cmd, "chainloader %s", target);
+    if (bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG) != 0)
+        goto fail;
+    log[0] = '\0';
+    bt_eval_ex("boot", log, sizeof(log), BT_EVAL_F_ERRMSG);
+    return;
+
+fail:
+    bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                    "Boot failed", log);
 }
 
 static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
@@ -178,12 +180,7 @@ static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
                        "Restart system?", NULL)) {
         char log[10240];
         log[0] = '\0';
-        int bt_ret = bt_eval("reboot", log, sizeof(log));
-        if (log[0] == '\0') {
-            char num[24];
-            sprintf(num, "Error %d", (int)errnum);
-            memcpy(log, num, strlen(num) + 1);
-        }
+        int bt_ret = bt_eval_ex("reboot", log, sizeof(log), BT_EVAL_F_ERRMSG);
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Failed to reboot", log);
     }
@@ -196,12 +193,7 @@ static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
                        "Shut down system?", NULL)) {
         char log[10240];
         log[0] = '\0';
-        int bt_ret = bt_eval("halt", log, sizeof(log));
-        if (log[0] == '\0') {
-            char num[24];
-            sprintf(num, "Error %d", (int)errnum);
-            memcpy(log, num, strlen(num) + 1);
-        }
+        int bt_ret = bt_eval_ex("halt", log, sizeof(log), BT_EVAL_F_ERRMSG);
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Failed to shut down", log);
     }
