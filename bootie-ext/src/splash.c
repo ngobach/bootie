@@ -68,26 +68,22 @@ int gmain(int argc, char *argv[], int flags) {
 
     float elapsed = 0.0f;
     int done = 0;
-    int skip = 0;
+    int hold = 500;
 
-    while (!skip) {
+    while (hold > 0) {
         while (gfx_checkkey(&g)) {
             gfx_getkey(&g);
-            if (done) {
-                skip = 1;
-                break;
-            } else {
-                elapsed = DELAY_MS + text_len * STAGGER_MS + CHAR_DUR_MS;
-                done = 1;
-            }
+            hold = 0;
         }
-        if (skip) break;
+        if (hold <= 0) break;
 
         if (!done) {
             elapsed += FIXED_DT;
             if (elapsed >= DELAY_MS + text_len * STAGGER_MS + CHAR_DUR_MS) {
                 done = 1;
             }
+        } else {
+            hold -= FIXED_DT;
         }
 
         gfx_backbuffer_begin(&g);
@@ -110,17 +106,11 @@ int gmain(int argc, char *argv[], int flags) {
             }
         }
 
-        if (done) {
-            const char *hint = "Press any key to continue";
-            int hw = gfx_text_width(hint, 16);
-            int hx = ((int)W - hw) / 2;
-            draw_str(&g, hx, ty + 72, hint, 150, 150, 180, 16);
-        }
-
         gfx_backbuffer_end(&g);
         gfx_delay_ms(&g, FIXED_DT);
     }
 
     gfx_close(&g);
+    run_line("%moddir%/menu", BUILTIN_CMDLINE);
     return 0;
 }
