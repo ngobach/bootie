@@ -93,6 +93,7 @@ struct gfx {
     uint8_t   bshift;
     uint8_t  *real_fb;
     void     *backbuf;
+    uint16_t  prev_vbe_mode;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) {
@@ -306,6 +307,22 @@ static inline int gfx_init(struct gfx *ctx) {
         return 0;
     }
 
+    /* Save current VBE mode before switching */
+    ctx->prev_vbe_mode = 0;
+    {
+        struct realmode_regs rr = {
+            0, 0, 0, (unsigned long)-1,
+            0, 0, 0, 0x4F03,
+            (unsigned long)-1, (unsigned long)-1,
+            (unsigned long)-1, (unsigned long)-1,
+            (unsigned long)-1, 0xFFFF10CD,
+            (unsigned long)-1, (unsigned long)-1
+        };
+        realmode_run((long)&rr);
+        if ((rr.eax & 0xFF) == 0x4F)
+            ctx->prev_vbe_mode = (uint16_t)(rr.ebx & 0xFFFF);
+    }
+
     printf("Setting VBE mode 0x%X (%dx%d, %d bpp)\n",
            (int)best_mode,
            (int)best_mi.XResolution, (int)best_mi.YResolution,
@@ -344,10 +361,9 @@ static inline void gfx_close(struct gfx *ctx) {
         free(ctx->backbuf);
         ctx->backbuf = NULL;
     }
-    /* --- restore text mode --- */
-    if (graphics_inited) {
-        if (current_term->STARTUP)
-            ((int (*)(int))current_term->STARTUP)(0);
+    /* --- restore previous video mode --- */
+    if (ctx->prev_vbe_mode) {
+        bios_int10(0x4F02, ctx->prev_vbe_mode, 0, 0, (unsigned long)-1, 0);
     } else {
         bios_int10(3, 0, 0, 0, (unsigned long)-1, 0);
     }
