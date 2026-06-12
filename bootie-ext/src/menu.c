@@ -5,6 +5,7 @@
 #include <bootie-ds.h>
 #include <bootie-ini.h>
 #include <bootie-gui.h>
+#include <bootie-debug.h>
 #include <stdint.h>
 
 #define PATH_MAX 260
@@ -143,7 +144,8 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
 
     char log[10240];
     log[0] = '\0';
-    if (bt_eval(cmd, log, sizeof(log)) != 0)
+    int bt_ret = bt_eval(cmd, log, sizeof(log));
+    if (bt_ret != 0)
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Boot failed", log);
 }
@@ -157,7 +159,13 @@ static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
 
     char log[10240];
     log[0] = '\0';
-    if (bt_eval(cmd, log, sizeof(log)) != 0)
+    int bt_ret = bt_eval(cmd, log, sizeof(log));
+    if (log[0] == '\0' && bt_ret < 0) {
+        char num[24];
+        sprintf(num, "Error %d", (int)errnum);
+        memcpy(log, num, strlen(num) + 1);
+    }
+    if (bt_ret != 0)
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Boot failed", log);
 }
@@ -169,7 +177,12 @@ static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
                        "Restart system?", NULL)) {
         char log[10240];
         log[0] = '\0';
-        bt_eval("reboot", log, sizeof(log));
+        int bt_ret = bt_eval("reboot", log, sizeof(log));
+        if (log[0] == '\0') {
+            char num[24];
+            sprintf(num, "Error %d", (int)errnum);
+            memcpy(log, num, strlen(num) + 1);
+        }
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Failed to reboot", log);
     }
@@ -182,7 +195,12 @@ static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
                        "Shut down system?", NULL)) {
         char log[10240];
         log[0] = '\0';
-        bt_eval("halt", log, sizeof(log));
+        int bt_ret = bt_eval("halt", log, sizeof(log));
+        if (log[0] == '\0') {
+            char num[24];
+            sprintf(num, "Error %d", (int)errnum);
+            memcpy(log, num, strlen(num) + 1);
+        }
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
                         "Failed to shut down", log);
     }
