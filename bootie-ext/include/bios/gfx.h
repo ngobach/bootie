@@ -256,7 +256,7 @@ static inline int gfx_init(struct gfx *ctx) {
     {
         // QEMU hack
         char find_buf[1024];
-        bt_eval("find", find_buf, sizeof(find_buf));
+        bt_eval("echo", find_buf, sizeof(find_buf));
     }
 
     /* --- find best VBE mode --- */
