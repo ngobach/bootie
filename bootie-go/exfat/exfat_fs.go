@@ -468,6 +468,7 @@ func growFile(ef *Exfat, node *exfatNode, current, difference uint32) error {
 		return nil
 	}
 	var previous uint32
+	var allocated uint32
 	if node.startCluster != exfatClusterFree {
 		previous = exfatAdvanceCluster(ef, node, current-1)
 		if previous >= exfatClusterBad {
@@ -481,9 +482,8 @@ func growFile(ef *Exfat, node *exfatNode, current, difference uint32) error {
 		node.fptrCluster = previous
 		node.startCluster = previous
 		node.isContiguous = true
+		allocated = 1
 	}
-
-	allocated := uint32(1)
 	for allocated < difference {
 		next := allocateCluster(ef, previous+1)
 		if next >= exfatClusterBad {
