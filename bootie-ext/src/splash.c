@@ -7,7 +7,6 @@
 #define DELAY_MS        100.0f
 #define STAGGER_MS      80.0f
 #define CHAR_DUR_MS     500.0f
-#define FIXED_DT        16.0f
 #define FONT_SZ         48
 
 struct bt_color bg_color   = { 15,  15,  30, 0 };
@@ -70,24 +69,31 @@ int gmain(int argc, char *argv[], int flags) {
     float total_w = (float)gfx_text_width(text, FONT_SZ);
     int ty = ((int)H - FONT_SZ) / 2;
 
-    float elapsed = 0.0f;
     int done = 0;
-    int hold = 500;
+    int hold_ms = 500;
+    int anim_start = (int)millis();
+    int done_start = 0;
+    struct bt_fps fps;
+    bt_fps_init(&fps, 60);
 
-    while (hold > 0) {
+    while (1) {
         while (gfx_checkkey(&g)) {
             gfx_getkey(&g);
-            hold = 0;
+            hold_ms = 0;
         }
-        if (hold <= 0) break;
+
+        if (done) {
+            if (hold_ms <= 0) break;
+            if ((int)millis() - done_start >= hold_ms) break;
+        }
+
+        float elapsed = (float)((int)millis() - anim_start);
 
         if (!done) {
-            elapsed += FIXED_DT;
             if (elapsed >= DELAY_MS + text_len * STAGGER_MS + CHAR_DUR_MS) {
                 done = 1;
+                done_start = (int)millis();
             }
-        } else {
-            hold -= FIXED_DT;
         }
 
         gfx_backbuffer_begin(&g);
@@ -111,7 +117,7 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         gfx_backbuffer_end(&g);
-        gfx_delay_ms(&g, FIXED_DT);
+        bt_fps_wait(&fps);
     }
 
     gfx_close(&g);

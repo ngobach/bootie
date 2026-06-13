@@ -2,7 +2,6 @@
 #include <bootie-gfx.h>
 #include <stdint.h>
 
-#define TICK_MS     10
 #define BORDER_T    3
 #define WND_W       380
 #define WND_H       200
@@ -24,9 +23,10 @@ int gmain(int argc, char *argv[], int flags) {
     int wnd_r = wnd_l + WND_W;
     int wnd_b = wnd_t + WND_H;
 
-    int elapsed_ms = 0;
     int running = 0;
     int exit_req = 0;
+    int paused_elapsed = 0;
+    int start_ms = 0;
 
     while (!exit_req) {
         /* Input */
@@ -34,24 +34,33 @@ int gmain(int argc, char *argv[], int flags) {
             int key = gfx_getkey(&g);
             if (key == 27) {
                 if (running) {
-                    elapsed_ms = 0;
+                    paused_elapsed = 0;
                     running = 0;
+                    start_ms = 0;
                 } else {
                     exit_req = 1;
                 }
             }
             if (key == ' ') {
-                running = !running;
+                if (running) {
+                    paused_elapsed += (int)(millis() - start_ms);
+                    running = 0;
+                } else {
+                    start_ms = (int)millis();
+                    running = 1;
+                }
             }
             if (key == 'r' || key == 'R') {
-                elapsed_ms = 0;
                 running = 0;
+                paused_elapsed = 0;
+                start_ms = 0;
             }
         }
 
-        /* Advance timer */
+        /* Compute actual elapsed wall-clock time */
+        int elapsed_ms = paused_elapsed;
         if (running) {
-            elapsed_ms += TICK_MS;
+            elapsed_ms += (int)(millis() - start_ms);
         }
 
         /* --- Rendering --- */
@@ -108,7 +117,6 @@ int gmain(int argc, char *argv[], int flags) {
                  wnd_b - 20, help2, 150, 150, 160, 16);
 
         gfx_backbuffer_end(&g);
-        gfx_delay_ms(&g, TICK_MS);
     }
 
     gfx_close(&g);

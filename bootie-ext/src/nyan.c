@@ -870,6 +870,8 @@ int gmain(int argc, char *argv[], int flags) {
     fill_rect(&g, 0, 0, W, H, 15, 77, 143);
 
     int current_frame = 0;
+    struct bt_fps fps;
+    bt_fps_init(&fps, 12);
 
     while (1) {
         /* Check if user wants to exit */
@@ -888,7 +890,7 @@ int gmain(int argc, char *argv[], int flags) {
         current_frame = (current_frame + 1) % 12;
 
         /* Standard Nyan Cat animation rate is ~80ms per frame */
-        gfx_delay_ms(&g, 80);
+        bt_fps_wait(&fps);
     }
 
     gfx_close(&g);

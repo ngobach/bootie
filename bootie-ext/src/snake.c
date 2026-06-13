@@ -90,6 +90,8 @@ int gmain(int argc, char *argv[], int flags) {
     place_food(&food, snake, snake_len);
 
     /* Main Game Loop */
+    struct bt_fps fps;
+    bt_fps_init(&fps, 40);
     int logic_accumulator = 0;
     while (!game_over) {
       /* Input processing */
@@ -209,7 +211,7 @@ int gmain(int argc, char *argv[], int flags) {
       gfx_backbuffer_end(&g);
 
       /* Tick delay - Constant 40 FPS */
-      gfx_delay_ms(&g, 25);
+      bt_fps_wait(&fps);
     }
 
     /* Game Over Screen */

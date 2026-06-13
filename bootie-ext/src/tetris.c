@@ -394,6 +394,8 @@ int gmain(int argc, char *argv[], int flags) {
         int line_scores[5] = {0, 100, 300, 500, 800};
 
         /* --- Main Game Loop --- */
+        struct bt_fps fps;
+        bt_fps_init(&fps, 40);
         while (!game_over) {
             int tick_start_flag = 0;
 
@@ -545,7 +547,7 @@ int gmain(int argc, char *argv[], int flags) {
             draw_info_panel(&g, x_off, y_off, grid_w, score, level, lines, session_high_score);
             gfx_backbuffer_end(&g);
 
-            gfx_delay_ms(&g, 25); // ~40 FPS tick rate
+            bt_fps_wait(&fps); // ~40 FPS tick rate
         }
 
         /* --- Game Over Screen --- */

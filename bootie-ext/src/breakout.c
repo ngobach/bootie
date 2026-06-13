@@ -96,6 +96,9 @@ int gmain(int argc, char *argv[], int flags) {
         int game_over = 0;
 
         while (!game_over) {
+            struct bt_fps fps;
+            bt_fps_init(&fps, 60);
+
             /* Input */
             while (gfx_checkkey(&g)) {
                 int key = gfx_getkey(&g);
@@ -281,7 +284,7 @@ int gmain(int argc, char *argv[], int flags) {
             }
 
             gfx_backbuffer_end(&g);
-            gfx_delay_ms(&g, 16);
+            bt_fps_wait(&fps);
         }
 
         /* --- Game Over Screen --- */

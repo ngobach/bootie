@@ -41,6 +41,92 @@ static inline uint32_t next_rand(void) {
     return (rand_seed / 65536) % 32768;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Millisecond timer via RDTSC                                       */
+/* ------------------------------------------------------------------ */
+
+static uint64_t tsc_start;
+static uint64_t tsc_khz;
+
+static inline uint64_t bt_rdtsc(void) {
+    uint32_t lo, hi;
+    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((uint64_t)hi << 32) | lo;
+}
+
+#if defined(__i386__)
+/* 64/32 → 32 unsigned division via single x86 DIV instruction.
+   Avoids __udivdi3 which is missing in freestanding i386 toolchain. */
+static inline uint32_t div64_32(uint64_t num, uint32_t den) {
+    uint32_t q, r;
+    __asm__("divl %3" : "=a"(q), "=d"(r) : "a"((uint32_t)num), "m"(den), "d"((uint32_t)(num >> 32)));
+    (void)r;
+    return q;
+}
+#endif
+
+static inline void millis_init(void) {
+#if defined(__i386__)
+    /* BIOS: PIT one-shot, counter 0, mode 0, 10ms (11932 ticks at 1.193182 MHz) */
+    __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0x30) : "memory"); /* control */
+    __asm__ volatile("outb %%al, $0x40" : : "a"((uint8_t)0x9C) : "memory"); /* LSB */
+    __asm__ volatile("outb %%al, $0x40" : : "a"((uint8_t)0x2E) : "memory"); /* MSB */
+    uint64_t t1 = bt_rdtsc();
+    uint8_t st;
+    do {
+        __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0xE2) : "memory"); /* read-back status */
+        __asm__ volatile("inb $0x40, %%al" : "=a"(st) :: "memory");
+    } while (!(st & 0x20)); /* bit 5 = OUT (counter reached 0) */
+    uint64_t t2 = bt_rdtsc();
+    tsc_khz = (uint32_t)(t2 - t1) / 10;
+#else
+    /* UEFI: calibrate via Stall(10ms) */
+    efi_system_table_t *st = grub_efi_system_table;
+    if (st && st->boot_services) {
+        uint64_t t1 = bt_rdtsc();
+        st->boot_services->stall(10000);
+        uint64_t t2 = bt_rdtsc();
+        tsc_khz = (t2 - t1) / 10;
+    } else {
+        tsc_khz = 2000000;
+    }
+#endif
+    tsc_start = bt_rdtsc();
+}
+
+static inline uint64_t millis(void) {
+    uint64_t delta = bt_rdtsc() - tsc_start;
+#if defined(__i386__)
+    return div64_32(delta, (uint32_t)tsc_khz);
+#else
+    return delta / tsc_khz;
+#endif
+}
+
+/* ------------------------------------------------------------------ */
+/*  Fixed-FPS frame limiter                                           */
+/* ------------------------------------------------------------------ */
+
+struct bt_fps {
+    int dt;
+    int next;
+};
+
+static inline void bt_fps_init(struct bt_fps *f, int fps) {
+    f->dt = 1000 / fps;
+    f->next = (int)millis() + f->dt;
+}
+
+static inline void bt_fps_wait(struct bt_fps *f) {
+    int now = (int)millis();
+    if (f->next <= now) {
+        f->next = now + f->dt;
+    } else {
+        while ((int)millis() < f->next);
+        f->next += f->dt;
+    }
+}
+
 #define BT_EVAL_F_ERRMSG 1
 
 static inline const char *bt_errstr(grub_error_t e) {
@@ -189,6 +275,7 @@ int main(char *arg, int flags) {
   }
 #endif
   seed_rand(seed);
+  millis_init();
 
   char *argv[16];
   int argc = 0;
