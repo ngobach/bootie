@@ -116,6 +116,7 @@ static inline int bt_eval_ex(const char *cmd, char *buf, int bufsize, int flags)
             if (n > rem) n = rem;
             memcpy(wp, eb, n);
             end = wp + n;
+            *end = '\0';
         }
     }
 
