@@ -137,43 +137,31 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
                                 struct gfx *ctx, int cw, int ch,
                                 int pad_x, int pad_y,
                                 const char *target) {
+    char cmd[PATH_MAX + 128];
+    sprintf(cmd, "map %s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
+            target);
+
     char log[10240];
     log[0] = '\0';
-    char cmd[PATH_MAX + 64];
-
-    sprintf(cmd, "map %s (0xff)", target);
-    if (bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG) != 0)
-        goto fail;
-    log[0] = '\0';
-    bt_eval_ex("map --hook", log, sizeof(log), BT_EVAL_F_ERRMSG);
-    log[0] = '\0';
-    bt_eval_ex("chainloader (0xff)", log, sizeof(log), BT_EVAL_F_ERRMSG);
-    log[0] = '\0';
-    bt_eval_ex("boot", log, sizeof(log), BT_EVAL_F_ERRMSG);
-    return;
-
-fail:
-    bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                    "Boot failed", log);
+    int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+    if (bt_ret != 0)
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Boot failed", log);
 }
 
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
                                struct gfx *ctx, int cw, int ch,
                                int pad_x, int pad_y,
                                const char *target) {
+    char cmd[PATH_MAX + 128];
+    sprintf(cmd, "chainloader %s ;; boot", target);
+
     char log[10240];
     log[0] = '\0';
-    char cmd[PATH_MAX + 64];
-    sprintf(cmd, "chainloader %s", target);
-    if (bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG) != 0)
-        goto fail;
-    log[0] = '\0';
-    bt_eval_ex("boot", log, sizeof(log), BT_EVAL_F_ERRMSG);
-    return;
-
-fail:
-    bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                    "Boot failed", log);
+    int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+    if (bt_ret != 0)
+        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                        "Boot failed", log);
 }
 
 static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
