@@ -30,6 +30,10 @@ func initCommand() *cli.Command {
 				Value:   "exfat",
 				Usage:   "Filesystem for data partition: exfat (default) or fat32 (only for separate layout)",
 			},
+			&cli.BoolFlag{
+				Name:    "skip-data-copy",
+				Usage:   "Skip copying user data files to the data partition",
+			},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
 			target := c.String("target")
@@ -44,7 +48,8 @@ func initCommand() *cli.Command {
 			if fsType != "fat32" && fsType != "exfat" {
 				return fmt.Errorf("unsupported filesystem %q (must be fat32 or exfat)", fsType)
 			}
-			return core.InitializeDisk(target, layout, fsType)
+			noDataCopy := c.Bool("skip-data-copy")
+			return core.InitializeDisk(target, layout, fsType, noDataCopy)
 		},
 	}
 }

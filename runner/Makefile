@@ -4,7 +4,7 @@ all: scratch.img data-part sync-modules
 
 scratch.img:
 	cd ../bootie-go && go run ./cmd/bootie create-img -t ../runner/scratch.img -s 220M
-	cd ../bootie-go && go run ./cmd/bootie init -t ../runner/scratch.img --layout combined
+	cd ../bootie-go && go run ./cmd/bootie init -t ../runner/scratch.img --layout combined --skip-data-copy
 
 data-part:
 	@if [ ! -d data-part ]; then \

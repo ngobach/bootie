@@ -17,7 +17,7 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
-func InitializeDisk(target, layout, fsType string) error {
+func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 	if layout != "combined" && layout != "separate" {
 		return fmt.Errorf("unsupported layout %q (must be combined or separate)", layout)
 	}
@@ -134,9 +134,11 @@ func InitializeDisk(target, layout, fsType string) error {
 			return fmt.Errorf("failed to copy EFI files: %w", err)
 		}
 
-		if err := CopyToFilesystem(resources.DataFiles, "data-part", fs); err != nil {
-			fs.Close()
-			return fmt.Errorf("failed to copy data files: %w", err)
+		if !noDataCopy {
+			if err := CopyToFilesystem(resources.DataFiles, "data-part", fs); err != nil {
+				fs.Close()
+				return fmt.Errorf("failed to copy data files: %w", err)
+			}
 		}
 
 		if err := fs.Close(); err != nil {
@@ -189,9 +191,11 @@ func InitializeDisk(target, layout, fsType string) error {
 					return fmt.Errorf("failed to mount exFAT: %w", err)
 				}
 
-				if err := CopyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
-					ef.Close()
-					return fmt.Errorf("failed to copy data files: %w", err)
+				if !noDataCopy {
+					if err := CopyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
+						ef.Close()
+						return fmt.Errorf("failed to copy data files: %w", err)
+					}
 				}
 
 				if err := ef.Close(); err != nil {
@@ -209,9 +213,11 @@ func InitializeDisk(target, layout, fsType string) error {
 					return fmt.Errorf("failed to create Bootie partition: %w", err)
 				}
 
-				if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
-					dataFs.Close()
-					return fmt.Errorf("failed to copy data files: %w", err)
+				if !noDataCopy {
+					if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
+						dataFs.Close()
+						return fmt.Errorf("failed to copy data files: %w", err)
+					}
 				}
 
 				if err := dataFs.Close(); err != nil {

@@ -146,6 +146,13 @@ func main() {
 	radioSeparate.Configure(Command(updateFsState))
 	radioCombined.Configure(Command(updateFsState))
 
+	skipDataRow := mainFrame.TFrame()
+	Pack(skipDataRow, Fill("x"), Pady("5"))
+	Pack(skipDataRow.TLabel(Txt(""), Width(18)), Side("left"), Anchor("w"))
+	skipDataVar := Variable(false)
+	skipDataCheck := skipDataRow.TCheckbutton(Txt("Skip copying user data files"), skipDataVar)
+	Pack(skipDataCheck, Side("left"), Padx("5"))
+
 	btnRow := mainFrame.TFrame()
 	Pack(btnRow, Fill("x"), Pady("20"))
 	initActionBtn := btnRow.TButton(Txt("Initialize Selected Disk"))
@@ -220,12 +227,13 @@ func main() {
 		}
 		layout := initLayoutVar.Get()
 		fsType := initFsVar.Get()
+		noDataCopy := skipDataVar.Get() == "1"
 
 		initActionBtn.Configure(State("disabled"))
 		go func() {
 			defer PostEvent(func() { initActionBtn.Configure(State("normal")) }, false)
-			log.Infof("Starting disk initialization on target: %s (layout: %s, fs: %s)...", target, layout, fsType)
-			if err := core.InitializeDisk(target, layout, fsType); err != nil {
+			log.Infof("Starting disk initialization on target: %s (layout: %s, fs: %s, skip-data-copy: %v)...", target, layout, fsType, noDataCopy)
+			if err := core.InitializeDisk(target, layout, fsType, noDataCopy); err != nil {
 				log.Errorf("Initialization failed: %v", err)
 			}
 		}()
