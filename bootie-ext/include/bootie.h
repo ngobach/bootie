@@ -76,7 +76,7 @@ static inline void millis_init(void) {
     do {
         __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0xE2) : "memory"); /* read-back status */
         __asm__ volatile("inb $0x40, %%al" : "=a"(st) :: "memory");
-    } while (!(st & 0x20)); /* bit 5 = OUT (counter reached 0) */
+    } while (!(st & 0x80)); /* bit 7 = OUT (counter reached 0) */
     uint64_t t2 = bt_rdtsc();
     tsc_khz = (uint32_t)(t2 - t1) / 10;
 #else
