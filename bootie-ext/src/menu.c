@@ -244,6 +244,7 @@ static void expand_wildcard_items(struct menu *m,
     if (!entries) return;
 
     for (int i = 0; entries[i].name; i++) {
+        if (entries[i].name[0] == '.') continue;
         if (!bt_fnmatch(pattern, entries[i].name))
             continue;
 
