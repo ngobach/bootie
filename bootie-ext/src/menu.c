@@ -137,16 +137,27 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
                                 struct gfx *ctx, int cw, int ch,
                                 int pad_x, int pad_y,
                                 const char *target) {
+    int tlen = strlen(target);
     char cmd[PATH_MAX + 128];
-    sprintf(cmd, "map %s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
-            target);
+    if (tlen >= 4 &&
+        (strnicmp(target + tlen - 4, ".ima", 4) == 0 ||
+         strnicmp(target + tlen - 4, ".img", 4) == 0)) {
+        sprintf(cmd, "map --mem %s (fd0) ;; map --hook ;; root (fd0) ;; chainloader +1 ;; boot",
+                target);
+    } else {
+        sprintf(cmd, "map %s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
+                target);
+    }
 
     char log[10240];
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
-    if (bt_ret != 0)
+    if (bt_ret != 0) {
+        char tmp[10240];
+        sprintf(tmp, "> %s\n%s", cmd, log);
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Boot failed", log);
+                        "Boot failed", tmp);
+    }
 }
 
 static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
@@ -159,9 +170,12 @@ static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
     char log[10240];
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
-    if (bt_ret != 0)
+    if (bt_ret != 0) {
+        char tmp[10240];
+        sprintf(tmp, "> %s\n%s", cmd, log);
         bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Boot failed", log);
+                        "Boot failed", tmp);
+    }
 }
 
 static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
@@ -169,11 +183,16 @@ static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
                             int pad_x, int pad_y) {
     if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
                        "Restart system?", NULL)) {
+        const char *cmd = "reboot";
         char log[10240];
         log[0] = '\0';
-        int bt_ret = bt_eval_ex("reboot", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Failed to reboot", log);
+        int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+        if (bt_ret != 0) {
+            char tmp[10240];
+            sprintf(tmp, "> %s\n%s", cmd, log);
+            bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                            "Failed to reboot", tmp);
+        }
     }
 }
 
@@ -182,11 +201,16 @@ static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
                               int pad_x, int pad_y) {
     if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
                        "Shut down system?", NULL)) {
+        const char *cmd = "halt";
         char log[10240];
         log[0] = '\0';
-        int bt_ret = bt_eval_ex("halt", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
-                        "Failed to shut down", log);
+        int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+        if (bt_ret != 0) {
+            char tmp[10240];
+            sprintf(tmp, "> %s\n%s", cmd, log);
+            bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+                            "Failed to shut down", tmp);
+        }
     }
 }
 

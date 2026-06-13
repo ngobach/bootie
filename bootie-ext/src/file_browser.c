@@ -487,12 +487,17 @@ static int handle_boot(const char *drive, const char *path) {
     char cmd[PATH_MAX + 128];
     int plen = strlen(path);
     if (plen >= 4 && strnicmp(path + plen - 4, ".efi", 4) == 0) {
-        /* EFI files: chainload directly from the device path */
         sprintf(cmd, "chainloader %s%s ;; boot", drive, path);
     } else {
-        /* ISO/IMG/etc: map to (0xff) then chainload */
-        sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
-                drive, path);
+        if (plen >= 4 &&
+            (strnicmp(path + plen - 4, ".ima", 4) == 0 ||
+             strnicmp(path + plen - 4, ".img", 4) == 0)) {
+            sprintf(cmd, "map --mem %s%s (fd0) ;; map --hook ;; root (fd0) ;; chainloader +1 ;; boot",
+                    drive, path);
+        } else {
+            sprintf(cmd, "map %s%s (0xff) ;; map --hook ;; chainloader (0xff) ;; boot",
+                    drive, path);
+        }
     }
     int r = run_line(cmd, BUILTIN_CMDLINE);
     if (errnum)
