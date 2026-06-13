@@ -352,11 +352,13 @@ int gmain(int argc, char *argv[], int flags) {
     draw_border(&g, x_off, y_off, grid_w, grid_h);
 
     const char *title = "Tetris";
-    const char *prompt = "Press any key to start...";
+    const char *prompt1 = "Press any key";
+    const char *prompt2 = "to start...";
 
     // Align title and prompt relative to the playfield border to keep it centered visually
     draw_str(&g, x_off + (grid_w - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3, title, 0, 220, 220, 28);
-    draw_str(&g, x_off + (grid_w - gfx_text_width(prompt, 16)) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 16);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(prompt1, 16)) / 2, y_off + grid_h / 2 - 10, prompt1, 200, 200, 200, 16);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(prompt2, 16)) / 2, y_off + grid_h / 2 + 10, prompt2, 200, 200, 200, 16);
 
     while (!gfx_checkkey(&g)) {
         gfx_delay_ms(&g, 25);
@@ -551,12 +553,14 @@ int gmain(int argc, char *argv[], int flags) {
         draw_border(&g, x_off, y_off, grid_w, grid_h);
 
         const char *go_title = "GAME OVER";
-        const char *restart_prompt = "SPACE to Restart, ESC to Exit";
+    const char *restart_line1 = "SPACE to Restart";
+    const char *restart_line2 = "ESC to Exit";
 
-        draw_str(&g, x_off + (grid_w - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 28);
-        draw_strf(&g, x_off + (grid_w - gfx_text_width("Score: 99999", 16)) / 2, y_off + grid_h / 2,
-                  255, 255, 255, 16, "Score: %d", score);
-        draw_str(&g, x_off + (grid_w - gfx_text_width(restart_prompt, 16)) / 2, y_off + 2 * grid_h / 3, restart_prompt, 200, 200, 200, 16);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 28);
+    draw_strf(&g, x_off + (grid_w - gfx_text_width("Score: 99999", 16)) / 2, y_off + grid_h / 2,
+              255, 255, 255, 16, "Score: %d", score);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(restart_line1, 16)) / 2, y_off + 2 * grid_h / 3 - 10, restart_line1, 200, 200, 200, 16);
+    draw_str(&g, x_off + (grid_w - gfx_text_width(restart_line2, 16)) / 2, y_off + 2 * grid_h / 3 + 10, restart_line2, 200, 200, 200, 16);
 
         int exit_requested = 0;
         while (1) {
