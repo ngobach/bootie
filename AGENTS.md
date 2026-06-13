@@ -1,3 +1,5 @@
+> **IMPORTANT:** Do not commit or push unless explicitly asked.
+
 # Bare-Metal & Firmware Development Guidelines
 
 This document outlines key technical guidelines, architectural constraints, and debugging practices for developing relocatable bare-metal modules (BIOS VBE and UEFI GOP) within this repository.
