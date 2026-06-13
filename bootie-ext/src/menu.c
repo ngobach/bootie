@@ -1,4 +1,7 @@
 #include <bootie.h>
+#include <bootie-io.h>
+#include <bootie-utils.h>
+
 #include <bootie-gfx.h>
 #include <bootie-icons.h>
 #include <bootie-img.h>
@@ -211,6 +214,97 @@ static int action_type_from_name(const char *name) {
     return ACTION_NONE;
 }
 
+static void expand_wildcard_items(struct menu *m,
+                                   const struct bt_ini_section *sec,
+                                   int type, const char *title_template,
+                                   const char *category, const char *target) {
+    const char *slash = NULL;
+    {
+        const char *sp = target;
+        while (*sp) { if (*sp == '/') slash = sp; sp++; }
+    }
+    if (!slash) return;
+
+    int dir_len = (int)(slash - target);
+    char dir_path[PATH_MAX];
+    if (dir_len == 0) {
+        dir_path[0] = '/';
+        dir_path[1] = '\0';
+    } else {
+        memcpy(dir_path, target, dir_len);
+        dir_path[dir_len] = '\0';
+    }
+    /* Ensure trailing slash so GRUB4DOS dir treats it as a directory */
+    {
+        int dl = strlen(dir_path);
+        if (dl > 0 && dir_path[dl - 1] != '/') {
+            dir_path[dl] = '/';
+            dir_path[dl + 1] = '\0';
+        }
+    }
+    const char *pattern = slash + 1;
+
+    struct bt_dir_entry *entries = bt_directory_list(dir_path);
+    if (!entries) return;
+
+    for (int i = 0; entries[i].name; i++) {
+        if (!bt_fnmatch(pattern, entries[i].name))
+            continue;
+
+        char full_path[PATH_MAX];
+        int flen = strlen(dir_path);
+        memcpy(full_path, dir_path, flen);
+        if (flen > 0 && dir_path[flen - 1] != '/')
+            full_path[flen++] = '/';
+        int nlen = strlen(entries[i].name);
+        memcpy(full_path + flen, entries[i].name, nlen + 1);
+
+        struct menu_item *item = arraddnptr(m->items, 1);
+        memset(item, 0, sizeof(*item));
+
+        bt_token_t toks[] = {
+            {"basename", entries[i].name},
+            {"path", full_path},
+        };
+        bt_token_replace(item->title, sizeof(item->title), title_template,
+                         toks, 2);
+
+        const char *desc = bt_ini_section_get_value(sec, "desc");
+        if (desc)
+            bt_token_replace(item->desc, sizeof(item->desc), desc,
+                             toks, 2);
+
+        if (category && category[0])
+            strcpy(item->category, category);
+        else
+            strcpy(item->category, "default");
+
+        item->action.type = type;
+        strcpy(item->action.target, full_path);
+
+        char type_icon[24] = "";
+        switch (type) {
+        case ACTION_DISK_IMAGE:   strcpy(type_icon, "disc");     break;
+        case ACTION_FILE_BROWSER: strcpy(type_icon, "folder");   break;
+        case ACTION_CHAINLOAD:    strcpy(type_icon, "boot");     break;
+        case ACTION_REBOOT:       strcpy(type_icon, "restart");  break;
+        case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
+        case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
+        case ACTION_PROGRAM:       strcpy(type_icon, "console"); break;
+        }
+
+        const char *custom_icon = bt_ini_section_get_value(sec, "icon");
+        if (custom_icon && shgetp_null(m->icons, custom_icon))
+            strcpy(item->icon_name, custom_icon);
+        else
+            strcpy(item->icon_name, type_icon);
+    }
+
+    for (int i = 0; entries[i].name; i++)
+        free(entries[i].name);
+    free(entries);
+}
+
 static void load_ini_items(struct menu *m) {
     struct bt_ini ini;
     if (bt_ini_parse_file(&ini, "/menu.ini") != 0)
@@ -237,6 +331,17 @@ static void load_ini_items(struct menu *m) {
         const char *target = bt_ini_section_get_value(&ini.sections[i], "target");
         if (type == ACTION_OPEN_CATEGORY && (!target || !target[0]))
             continue;
+
+        /* Wildcard expansion: target contains * or ? */
+        if (target) {
+            const char *wp = target;
+            int has_wild = 0;
+            while (*wp) { if (*wp == '*' || *wp == '?') { has_wild = 1; break; } wp++; }
+            if (has_wild) {
+                expand_wildcard_items(m, &ini.sections[i], type, title, category, target);
+                continue;
+            }
+        }
 
         struct menu_item *item = arraddnptr(m->items, 1);
         memset(item, 0, sizeof(*item));
