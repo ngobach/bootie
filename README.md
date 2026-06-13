@@ -16,7 +16,7 @@ Two sub-projects:
 | Command | Usage / Flags | Description |
 |---------|---------------|-------------|
 | **`list`** | *No flags* | Scans and lists all available target disks/devices. |
-| **`init`** | `-t, --target <device>` *(Req)*<br>`-f, --fs <exfail\|fat32>` *(Default: exfat)*<br>`--no-data-part` | Wipes target, creates GPT (EFI + data), formats, installs boot sectors, extracts embedded resources. |
+| **`init`** | `-t, --target <device>` *(Req)*<br>`-l, --layout <combined\|separate>` *(Default: separate)*<br>`-f, --fs <exfat\|fat32>` *(Default: exfat)* | Wipes target, creates GPT (EFI + data), formats, installs boot sectors, extracts embedded resources. |
 | **`install`** | `-t, --target <device>` *(Req)* | Writes protective MBR + raw `grldr.mbr` loader to disk. |
 | **`copy-efi`** | `-t, --target <mount>` *(Req)* | Copies embedded EFI/GRUB loaders to a mount point. |
 | **`copy-data`** | `-t, --target <mount>` *(Req)* | Copies rescue data files to a mount point. |

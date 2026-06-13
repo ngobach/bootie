@@ -109,6 +109,18 @@ func main() {
 	browseBtn := fileSelectRow.TButton(Txt("Browse..."), Command(browseFile))
 	Pack(browseBtn, Side("right"), Padx("5"))
 
+	layoutRow := mainFrame.TFrame()
+	Pack(layoutRow, Fill("x"), Pady("5"))
+	Pack(layoutRow.TLabel(Txt("Disk layout: "), Width(18)), Side("left"), Anchor("w"))
+
+	initLayoutVar := Variable("separate")
+
+	radioSeparate := layoutRow.TRadiobutton(Txt("Separate (EFI + data)"), initLayoutVar, Value("separate"))
+	Pack(radioSeparate, Side("left"), Padx("5"))
+
+	radioCombined := layoutRow.TRadiobutton(Txt("Combined (single FAT32)"), initLayoutVar, Value("combined"))
+	Pack(radioCombined, Side("left"), Padx("5"))
+
 	fsRow := mainFrame.TFrame()
 	Pack(fsRow, Fill("x"), Pady("5"))
 	Pack(fsRow.TLabel(Txt("Data partition FS: "), Width(18)), Side("left"), Anchor("w"))
@@ -121,12 +133,18 @@ func main() {
 	radioFat32 := fsRow.TRadiobutton(Txt("FAT32"), initFsVar, Value("fat32"))
 	Pack(radioFat32, Side("left"), Padx("5"))
 
-	checkRow := mainFrame.TFrame()
-	Pack(checkRow, Fill("x"), Pady("5"))
-	Pack(checkRow.TLabel(Txt(""), Width(18)), Side("left"), Anchor("w"))
-	noDataVar := Variable(false)
-	noDataCheck := checkRow.TCheckbutton(Txt("Skip data partition (no-data-part)"), noDataVar)
-	Pack(noDataCheck, Side("left"), Padx("5"))
+	updateFsState := func() {
+		if initLayoutVar.Get() == "combined" {
+			radioExfat.Configure(State("disabled"))
+			radioFat32.Configure(State("disabled"))
+		} else {
+			radioExfat.Configure(State("normal"))
+			radioFat32.Configure(State("normal"))
+		}
+	}
+
+	radioSeparate.Configure(Command(updateFsState))
+	radioCombined.Configure(Command(updateFsState))
 
 	btnRow := mainFrame.TFrame()
 	Pack(btnRow, Fill("x"), Pady("20"))
@@ -200,14 +218,14 @@ func main() {
 				return
 			}
 		}
+		layout := initLayoutVar.Get()
 		fsType := initFsVar.Get()
-		noDataPart := noDataVar.Get() == "1"
 
 		initActionBtn.Configure(State("disabled"))
 		go func() {
 			defer PostEvent(func() { initActionBtn.Configure(State("normal")) }, false)
-			log.Infof("Starting disk initialization on target: %s (fs: %s, skip-data: %v)...", target, fsType, noDataPart)
-			if err := core.InitializeDisk(target, fsType, noDataPart); err != nil {
+			log.Infof("Starting disk initialization on target: %s (layout: %s, fs: %s)...", target, layout, fsType)
+			if err := core.InitializeDisk(target, layout, fsType); err != nil {
 				log.Errorf("Initialization failed: %v", err)
 			}
 		}()

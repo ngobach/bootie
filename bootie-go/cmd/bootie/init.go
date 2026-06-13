@@ -19,24 +19,32 @@ func initCommand() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
+				Name:    "layout",
+				Aliases: []string{"l"},
+				Value:   "separate",
+				Usage:   "Disk layout: combined (single FAT32) or separate (EFI + data partition)",
+			},
+			&cli.StringFlag{
 				Name:    "fs",
 				Aliases: []string{"f"},
 				Value:   "exfat",
-				Usage:   "Filesystem for data partition: exfat (default) or fat32",
-			},
-			&cli.BoolFlag{
-				Name:    "no-data-part",
-				Usage:   "Skip formatting and copying files of the data partition",
+				Usage:   "Filesystem for data partition: exfat (default) or fat32 (only for separate layout)",
 			},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
 			target := c.String("target")
+			layout := c.String("layout")
+			if layout != "combined" && layout != "separate" {
+				return fmt.Errorf("unsupported layout %q (must be combined or separate)", layout)
+			}
 			fsType := c.String("fs")
+			if layout == "combined" && fsType != "fat32" {
+				fmt.Printf("Warning: --fs %q is ignored for combined layout (always FAT32)\n", fsType)
+			}
 			if fsType != "fat32" && fsType != "exfat" {
 				return fmt.Errorf("unsupported filesystem %q (must be fat32 or exfat)", fsType)
 			}
-			noDataPart := c.Bool("no-data-part")
-			return core.InitializeDisk(target, fsType, noDataPart)
+			return core.InitializeDisk(target, layout, fsType)
 		},
 	}
 }
