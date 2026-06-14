@@ -19,9 +19,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install native toolchain (x86_64 host, -m32 for BIOS target)
+      - name: Install x86_64-elf cross-compiler (bare-metal)
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc gcc-multilib binutils
+          sudo apt-get update
+          sudo apt-get install -y unzip xz-utils
+          curl -sL -o /tmp/elf-tools.zip \
+            https://github.com/lordmilko/i686-elf-tools/releases/download/15.2.0/x86_64-elf-tools-linux.zip
+          sudo unzip -q /tmp/elf-tools.zip -d /opt/x86_64-elf
+          echo "/opt/x86_64-elf/bin" >> $GITHUB_PATH
 
       - name: Set up Go
         uses: actions/setup-go@v5
