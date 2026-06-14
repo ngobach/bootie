@@ -1,0 +1,62 @@
+name: Build and publish online demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-demo:
+    runs-on: ubuntu-latest
+    env:
+      DISK_IMG_SIZE: 6M
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install native toolchain (x86_64 host, -m32 for BIOS target)
+        run: |
+          sudo apt-get update && sudo apt-get install -y gcc gcc-multilib binutils
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.x"
+          cache-dependency-path: bootie-go/go.mod
+
+      - name: Build bootie-ext modules
+        run: |
+          make mod
+
+      - name: Build bootie CLI
+        run: |
+          cd bootie-go && go build -trimpath -ldflags="-s -w" -o ../build/bootie-linux ./cmd/bootie
+
+      - name: Create disk image
+        run: |
+          ./build/bootie-linux create-img -t ./disk.img -s ${{ env.DISK_IMG_SIZE }}
+          ./build/bootie-linux init -t ./disk.img -l combined
+
+      - name: Stage pages content
+        id: stage
+        run: |
+          mkdir -p staging
+          git fetch origin docs-template
+          git archive origin/docs-template index.html seabios.bin vgabios.bin | tar -x -C staging/
+          cp disk.img staging/
+          echo "timestamp=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+
+      - name: Deploy to docs branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: docs
+          publish_dir: ./staging
+          user_name: github-actions
+          user_email: github-actions@github.com
+          commit_message: "v86 demo: Super Rescue Disk in-browser emulator ${{ steps.stage.outputs.timestamp }}"
