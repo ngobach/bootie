@@ -1,5 +1,14 @@
 # Bootie — Super rescue disk toolkit
 
+<p>
+  <a href="https://ngobach.github.io/bootie/"><img src="https://img.shields.io/badge/Online_Demo-v86-512BD4?logo=javascript" alt="Online Demo"></a>
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go">
+  <img src="https://img.shields.io/badge/C11-freestanding-00599C?logo=c" alt="C11">
+  <img src="https://img.shields.io/badge/platform-macOS_|_Linux_|_Windows-lightgrey" alt="Platform">
+  <img src="https://img.shields.io/badge/arch-x86__64_|_ARM64-important" alt="Architecture">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+</p>
+
 A portable USB/CD boot/rescue disk image builder (GPT + EFI + data partition) with a suite of bare-metal external programs for GRUB4DOS/GRUB4EFI.
 
 Two sub-projects:
