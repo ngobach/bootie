@@ -1,7 +1,8 @@
 # Bootie — Super rescue disk toolkit
 
+**[Online Demo](https://ngobach.github.io/bootie/)** — Try the boot menu, games, and tools in your browser (v86 emulation).
+
 <p>
-  <a href="https://ngobach.github.io/bootie/"><img src="https://img.shields.io/badge/Online_Demo-v86-512BD4?logo=javascript" alt="Online Demo"></a>
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go" alt="Go">
   <img src="https://img.shields.io/badge/C11-freestanding-00599C?logo=c" alt="C11">
   <img src="https://img.shields.io/badge/platform-macOS_|_Linux_|_Windows-lightgrey" alt="Platform">
