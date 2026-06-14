@@ -1,0 +1,22 @@
+<!doctype html>
+<title>Bootie - v86 Demo</title>
+<script src="https://unpkg.com/v86@0.5.367/build/libv86.js"></script>
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
+<script>
+    "use strict";
+    window.onload = function () {
+        var emulator = window.emulator = new V86({
+            wasm_path: "https://unpkg.com/v86@0.5.367/build/v86.wasm",
+            memory_size: 256 * 1024 * 1024,
+            screen_container: document.getElementById("screen_container"),
+            bios: {url: "seabios.bin"},
+            vga_bios: {url: "vgabios.bin"},
+            hda: {url: "disk.img"},
+            autostart: true,
+            boot_order: 0x12,
+        });
+    };
+</script>
