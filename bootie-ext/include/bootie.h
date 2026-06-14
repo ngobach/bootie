@@ -55,30 +55,54 @@ static inline uint64_t bt_rdtsc(void) {
 }
 
 #if defined(__i386__)
-/* 64/32 → 32 unsigned division via single x86 DIV instruction.
-   Avoids __udivdi3 which is missing in freestanding i386 toolchain. */
-static inline uint32_t div64_32(uint64_t num, uint32_t den) {
-    uint32_t q, r;
-    __asm__("divl %3" : "=a"(q), "=d"(r) : "a"((uint32_t)num), "m"(den), "d"((uint32_t)(num >> 32)));
-    (void)r;
-    return q;
+/* 64/32 → 64 division using 32-bit operations to prevent #DE overflow exception
+   when uptime grows or tsc_khz is small. */
+static inline uint64_t div64_32(uint64_t num, uint32_t den) {
+    if (den == 0) return 0;
+    uint32_t high = (uint32_t)(num >> 32);
+    uint32_t low = (uint32_t)num;
+    if (high < den) {
+        uint32_t q, r;
+        __asm__("divl %3" : "=a"(q), "=d"(r) : "a"(low), "m"(den), "d"(high));
+        (void)r;
+        return q;
+    } else {
+        uint32_t q_high = high / den;
+        uint32_t r_high = high % den;
+        uint32_t q_low, r_low;
+        __asm__("divl %3" : "=a"(q_low), "=d"(r_low) : "a"(low), "m"(den), "d"(r_high));
+        (void)r_low;
+        return ((uint64_t)q_high << 32) | q_low;
+    }
 }
 #endif
 
 static inline void millis_init(void) {
 #if defined(__i386__)
-    /* BIOS: PIT one-shot, counter 0, mode 0, 10ms (11932 ticks at 1.193182 MHz) */
-    __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0x30) : "memory"); /* control */
-    __asm__ volatile("outb %%al, $0x40" : : "a"((uint8_t)0x9C) : "memory"); /* LSB */
-    __asm__ volatile("outb %%al, $0x40" : : "a"((uint8_t)0x2E) : "memory"); /* MSB */
+    /* Calibrate using PIT Channel 2 to avoid disrupting the system timer tick (Channel 0).
+     * Poll Port 0x61 bit 5 (Timer 2 OUT status) to precisely detect end-of-count, 
+     * avoiding loop wrap-around or missing small counter values due to slow port I/O. */
+    uint8_t orig_61;
+    __asm__ volatile("inb $0x61, %%al" : "=a"(orig_61));
+    __asm__ volatile("outb %%al, $0x61" : : "a"((uint8_t)((orig_61 & ~0x02) | 0x01)));
+
+    /* Program PIT channel 2: mode 0, LSB then MSB, binary */
+    __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0xB0));
+    __asm__ volatile("outb %%al, $0x42" : : "a"((uint8_t)(11932 & 0xFF)));
+    __asm__ volatile("outb %%al, $0x42" : : "a"((uint8_t)(11932 >> 8)));
+
     uint64_t t1 = bt_rdtsc();
     uint8_t st;
     do {
-        __asm__ volatile("outb %%al, $0x43" : : "a"((uint8_t)0xE2) : "memory"); /* read-back status */
-        __asm__ volatile("inb $0x40, %%al" : "=a"(st) :: "memory");
-    } while (!(st & 0x80)); /* bit 7 = OUT (counter reached 0) */
+        __asm__ volatile("inb $0x61, %%al" : "=a"(st));
+    } while (!(st & 0x20));
     uint64_t t2 = bt_rdtsc();
-    tsc_khz = (uint32_t)(t2 - t1) / 10;
+
+    /* Restore Port 0x61 */
+    __asm__ volatile("outb %%al, $0x61" : : "a"(orig_61));
+
+    uint64_t delta = t2 - t1;
+    tsc_khz = div64_32(delta, 10);
 #else
     /* UEFI: calibrate via Stall(10ms) */
     efi_system_table_t *st = grub_efi_system_table;
@@ -91,6 +115,10 @@ static inline void millis_init(void) {
         tsc_khz = 2000000;
     }
 #endif
+
+    if (tsc_khz < 10000) {
+        tsc_khz = 2000000; /* Fallback to 2 GHz if calibration fails or is absurdly low */
+    }
     tsc_start = bt_rdtsc();
 }
 
