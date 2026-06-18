@@ -190,7 +190,7 @@ static inline int gfx_init(struct gfx *ctx) {
         continue;
       if (mi->PixelFormat == PixelBltOnly || mi->PixelFormat == PixelFormatMax)
         continue;
-      if (mi->HorizontalResolution > 800)
+      if (mi->HorizontalResolution < 800)
         continue;
 
       int s = 0;
@@ -202,8 +202,10 @@ static inline int gfx_init(struct gfx *ctx) {
 
       if (mi->HorizontalResolution == 800 && mi->VerticalResolution == 600)
         s += 60;
-      else if (mi->HorizontalResolution == 640 && mi->VerticalResolution == 480)
+      else if (mi->HorizontalResolution == 1024 && mi->VerticalResolution == 768)
         s += 30;
+      else if (mi->HorizontalResolution == 1920 && mi->VerticalResolution == 1080)
+        s += 20;
 
       if (s > best_score) {
         best_score = s;

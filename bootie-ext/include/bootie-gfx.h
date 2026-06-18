@@ -44,6 +44,23 @@ static void pit_delay_ms(unsigned int ms) {
   #include <uefi/gfx.h>
 #endif
 
+/* ------------------------------------------------------------------ */
+/*  Content area helpers — centered inset for wide displays            */
+/*  When the framebuffer width exceeds 800 px, content should be       */
+/*  drawn within a centered virtual 800 px box.  Use these helpers     */
+/*  instead of raw gfx_width() to compute in-content coordinates.      */
+/* ------------------------------------------------------------------ */
+
+/* Return the effective content width (capped at 800 px) */
+static inline uint32_t gfx_content_width(const struct gfx *g) {
+    return g->width < 800 ? g->width : 800;
+}
+
+/* Return the horizontal pixel offset to center the content area */
+static inline uint32_t gfx_content_xoff(const struct gfx *g) {
+    return (g->width - gfx_content_width(g)) >> 1;
+}
+
 struct gfx_sprite {
     unsigned char *pixels;      /* RGBA pixel data (memory) or native format (screen) */
     unsigned w, h;              /* dimensions */

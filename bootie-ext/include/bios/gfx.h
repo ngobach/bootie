@@ -285,15 +285,15 @@ static inline int gfx_init(struct gfx *ctx) {
         else if (mi.BitsPerPixel == 16) score +=  50;
         else continue;
 
-        if (mi.XResolution <= 800) {
-            score += 1000;
-            if      (mi.XResolution ==  800 && mi.YResolution == 600)  score += 50;
-            else if (mi.XResolution ==  640 && mi.YResolution == 480)  score += 30;
-            else score += 5;
-        } else {
-            if      (mi.XResolution == 1024 && mi.YResolution == 768)  score += 60;
-            else score += 5;
-        }
+        /* Require at least 800 px width */
+        if (mi.XResolution < 800)
+            continue;
+
+        score += 1000;
+        if      (mi.XResolution ==  800 && mi.YResolution == 600)  score += 50;
+        else if (mi.XResolution == 1024 && mi.YResolution == 768)  score += 40;
+        else if (mi.XResolution == 1920 && mi.YResolution == 1080) score += 30;
+        else score += 5;
 
         if (score > best_score) {
             best_score = score;
