@@ -32,7 +32,13 @@ void *lodepng_realloc(void *ptr, size_t new_size) {
     if (!ptr) return lodepng_malloc(new_size);
     void *new_ptr = lodepng_malloc(new_size);
     if (new_ptr) {
+#if !defined(__i386__)
+        grub_size_t old_sz = *(grub_size_t *)((char *)ptr - UEFI_POOL_HDR);
+        grub_size_t copy = old_sz < new_size ? old_sz : new_size;
+        memmove(new_ptr, ptr, copy);
+#else
         memmove(new_ptr, ptr, new_size);
+#endif
         lodepng_free(ptr);
     }
     return new_ptr;

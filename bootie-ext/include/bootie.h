@@ -24,6 +24,49 @@
      or GOT dereferencing. */
   __attribute__((visibility("hidden"))) extern char __BSS_END[];
   __attribute__((visibility("hidden"))) extern char __BSS_START[];
+
+  /* UEFI allocator implementations — placed here because grub_efi_system_table
+     depends on g4e_data which is declared above. */
+  static inline grub_size_t _uefi_align_up(grub_size_t v, grub_size_t a) {
+      return (v + a - 1) & ~(a - 1);
+  }
+
+  static inline void *uefi_malloc(grub_size_t size) {
+      efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+      efi_boot_services_t *bs = st->boot_services;
+      grub_size_t total = UEFI_POOL_HDR + _uefi_align_up(size, UEFI_POOL_ALIGN);
+      void *buf = NULL;
+      if (bs->allocate_pool(EFI_LOADER_DATA, total, &buf) != EFI_SUCCESS)
+          return NULL;
+      *(grub_size_t *)buf = size;
+      return (char *)buf + UEFI_POOL_HDR;
+  }
+
+  static inline void uefi_free(void *ptr) {
+      if (ptr) {
+          efi_system_table_t *st = (efi_system_table_t *)grub_efi_system_table;
+          st->boot_services->free_pool((char *)ptr - UEFI_POOL_HDR);
+      }
+  }
+
+  static inline void *uefi_zalloc(grub_size_t size) {
+      void *p = uefi_malloc(size);
+      if (p) {
+          unsigned char *dst = (unsigned char *)p;
+          grub_size_t n = size >> 2;
+          if (n)
+              __asm__ __volatile__("rep stosl" : "+D"(dst), "+c"(n) : "a"(0) : "memory");
+          n = size & 3;
+          if (n)
+              __asm__ __volatile__("rep stosb" : "+D"(dst), "+c"(n) : "a"(0) : "memory");
+      }
+      return p;
+  }
+
+  static inline void *uefi_memalign(grub_size_t align, grub_size_t size) {
+      (void)align;
+      return uefi_malloc(size);
+  }
 #endif
 
 static uint32_t rand_seed = 12345;

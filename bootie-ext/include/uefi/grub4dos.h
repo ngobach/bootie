@@ -310,10 +310,31 @@ typedef enum
 #define builtin_cmd ((int (*)(char *cmd, char *arg, int flags))(SYSFUN(44)))
 #define get_datetime ((void (*)(struct grub_datetime *datetime))(SYSFUN(45)))
 #define find_command ((struct builtin *(*)(char *))(SYSFUN(46)))
-#define memalign ((void * (*)(grub_size_t, grub_size_t))(SYSFUN(48)))
-#define zalloc ((void *(*)(unsigned int))(SYSFUN(49)))
-#define malloc ((void *(*)(unsigned int))(SYSFUN(50)))
-#define free ((void (*)(void *ptr))(SYSFUN(51)))
+/* ------------------------------------------------------------------ */
+/*  UEFI Native Memory Allocator (AllocatePool / FreePool)            */
+/* ------------------------------------------------------------------ */
+/* Each allocation stores the user-requested size in a 16-byte header  */
+/* placed immediately before the returned pointer.  This allows        */
+/* realloc (bt_realloc, lodepng_realloc) to determine the old size     */
+/* and safely limit the copy, fixing the heap over-read present in     */
+/* the GRUB4DOS SYSFUN(50/51) path.                                   */
+/*                                                                    */
+/* NOTE: The function bodies are defined in bootie.h after g4e_data   */
+/* is initialized, because grub_efi_system_table depends on it.       */
+/* ------------------------------------------------------------------ */
+
+#define UEFI_POOL_ALIGN 16
+#define UEFI_POOL_HDR   ((sizeof(grub_size_t) + UEFI_POOL_ALIGN - 1) & ~(grub_size_t)(UEFI_POOL_ALIGN - 1))
+
+#undef malloc
+#undef free
+#undef zalloc
+#undef memalign
+
+#define malloc(sz)      uefi_malloc(sz)
+#define free(p)         uefi_free(p)
+#define zalloc(sz)      uefi_zalloc(sz)
+#define memalign(a, sz) uefi_memalign(a, sz)
 #define realmode_run ((int (*)(int regs_ptr))(SYSFUN(53)))
 #define grub_dir ((int (*)(char *))(SYSFUN(61)))
 #define print_a_completion ((void (*)(char *, int))(SYSFUN(62)))

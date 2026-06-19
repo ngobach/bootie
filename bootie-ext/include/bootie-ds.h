@@ -18,15 +18,23 @@
 /* ------------------------------------------------------------------ */
 
 /* realloc shim — GRUB4DOS provides malloc/free/memmove but no realloc.
-   The extra copy bytes are immediately overwritten by stb_ds
-   initialization, so the over-read is harmless in practice.
-   (Same pattern as lodepng_realloc in bootie-img.h.) */
+   On UEFI, uefi_malloc stores the user-requested size in a hidden
+   header, so we can copy exactly the old bytes (fixing the heap
+   over-read that corrupted GRUB4EFI's internal heap).
+   On BIOS, GRUB4DOS malloc does not track sizes, so we copy the full
+   new_size — this over-reads but the memory is still accessible. */
 static inline void *bt_realloc(void *ptr, size_t size) {
     if (!ptr) return malloc(size);
     if (!size) { free(ptr); return NULL; }
     void *newp = malloc(size);
     if (newp) {
+#if !defined(__i386__)
+        grub_size_t old_sz = *(grub_size_t *)((char *)ptr - UEFI_POOL_HDR);
+        grub_size_t copy = old_sz < (grub_size_t)size ? old_sz : (grub_size_t)size;
+        memmove(newp, ptr, copy);
+#else
         memmove(newp, ptr, size);
+#endif
         free(ptr);
     }
     return newp;
