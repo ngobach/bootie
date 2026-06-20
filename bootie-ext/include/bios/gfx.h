@@ -350,10 +350,18 @@ static inline int gfx_init(struct gfx *ctx) {
         __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
     }
 
+    if (gfx_font_load() < 0) {
+        if (ctx->fb) {
+            free(ctx->fb);
+            ctx->fb = NULL;
+        }
+        return 0;
+    }
     return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
+    gfx_font_unload();
     if (ctx->fb) {
         free(ctx->fb);
         ctx->fb = NULL;

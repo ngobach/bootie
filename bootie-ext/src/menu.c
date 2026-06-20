@@ -397,7 +397,6 @@ int gmain(int argc, char *argv[], int flags) {
     struct gfx g;
     if (!gfx_init(&g))
         return 1;
-    gfx_font_load();
 
     int cw, ch, pad_x, pad_y;
     bt_gui_canvas(g.width, g.height, CANVAS_W, CANVAS_H, &cw, &ch, &pad_x, &pad_y);

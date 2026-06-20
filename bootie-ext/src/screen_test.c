@@ -195,7 +195,6 @@ int gmain(int argc, char *argv[], int flags) {
 
     if (!gfx_init(&g))
         return 0;
-    gfx_font_load();
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
     struct gfx_sprite screen;

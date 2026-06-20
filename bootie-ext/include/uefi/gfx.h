@@ -275,10 +275,19 @@ static inline int gfx_init(struct gfx *ctx) {
   ctx->gop = gop;
   ctx->has_key = 0;
   ctx->buffered_key = 0;
+
+  if (gfx_font_load() < 0) {
+    if (ctx->fb) {
+      free(ctx->fb);
+      ctx->fb = NULL;
+    }
+    return 0;
+  }
   return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
+  gfx_font_unload();
   if (ctx->gop) {
     efi_graphics_output_protocol_t *gop =
         (efi_graphics_output_protocol_t *)ctx->gop;

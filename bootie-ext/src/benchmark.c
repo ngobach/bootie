@@ -201,7 +201,6 @@ int gmain(int argc, char *argv[], int flags) {
     struct gfx g;
     if (!gfx_init(&g))
         return 1;
-    gfx_font_load();
 
     int W = (int)gfx_width(&g);
     int H = (int)gfx_height(&g);

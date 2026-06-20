@@ -382,7 +382,6 @@ static void test_output(void) {
 
     struct gfx g;
     int ok = gfx_init(&g);
-    gfx_font_load();
     if (!ok) {
         print_result(0, "gfx init", "FAILED (cannot test output)");
         return;

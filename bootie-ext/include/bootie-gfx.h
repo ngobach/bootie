@@ -44,6 +44,10 @@ static void pit_delay_ms(unsigned int ms) {
 #define CANVAS_W 800
 #define CANVAS_H 600
 
+/* Forward declarations for font management (defined in bootie-font.h) */
+static inline int gfx_font_load(void);
+static inline void gfx_font_unload(void);
+
 #if defined(__i386__)
   #include <bios/gfx.h>
 #else

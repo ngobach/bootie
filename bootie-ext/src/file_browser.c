@@ -542,7 +542,6 @@ int gmain(int argc, char *argv[], int flags) {
     if (!gfx_init(&g)) {
         return 1;
     }
-    gfx_font_load();
 
     int canvas_w, canvas_h, pad_x, pad_y;
     bt_gui_canvas(g.width, g.height, CANVAS_W, CANVAS_H,
