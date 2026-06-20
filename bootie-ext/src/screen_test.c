@@ -69,26 +69,26 @@ static void fps_tick(void) {
     }
 }
 
-static void fps_draw(struct gfx *g) {
+static void fps_draw(struct gfx_sprite *g) {
     int px = 14;
     char buf[32];
     sprintf(buf, "%d FPS", fps_display);
     int tw = gfx_text_width(buf, px);
-    int x = (int)g->width - tw - 6;
+    int x = (int)g->w - tw - 6;
     int y = 2;
     int pw = tw + 12;
     int ph = px + 10;
-    fill_rect(g, x, y, pw, ph, 10, 12, 22);
+    gfx_sprite_fill_rect(g, x, y, pw, ph, 10, 12, 22, 255);
     draw_str(g, x + 2, y + 3, buf, 80, 220, 80, px);
 }
 
 /* ------------------------------------------------------------------ */
 /*  Test 1: static demo                                                 */
 /* ------------------------------------------------------------------ */
-static void draw_static(struct gfx *g) {
-    uint32_t W = g->width, H = g->height;
+static void draw_static(struct gfx_sprite *g) {
+    uint32_t W = g->w, H = g->h;
 
-    fill_rect(g, 0, 0, W, H, 10, 14, 26);
+    gfx_sprite_fill_rect(g, 0, 0, W, H, 10, 14, 26, 255);
 
     uint8_t bar_colors[7][3] = {
         {255,  50,  50}, {255, 160,  30}, {255, 220,  30},
@@ -98,15 +98,15 @@ static void draw_static(struct gfx *g) {
     uint32_t bar_h = H / 3 / 7;
     for (int i = 0; i < 7; i++) {
         uint32_t by = H * 2 / 3 + i * bar_h;
-        fill_rect(g, 0, by, W, bar_h,
-                  bar_colors[i][0], bar_colors[i][1], bar_colors[i][2]);
+        gfx_sprite_fill_rect(g, 0, by, W, bar_h,
+                  bar_colors[i][0], bar_colors[i][1], bar_colors[i][2], 255);
     }
 
     uint32_t grad_y = H * 2 / 3 - 4;
     for (uint32_t x = 0; x < W; x++) {
         uint8_t t = (uint8_t)((x * 255) / (W > 1 ? W - 1 : 1));
         for (uint32_t y = grad_y; y < grad_y + 4; y++)
-            put_pixel(g, x, y, t, 80, 255 - t);
+            gfx_sprite_put_pixel(g, x, y, t, 80, 255 - t, 255);
     }
 
     const char *title = "Bootie-ext GFX Test";
@@ -123,16 +123,16 @@ static void draw_static(struct gfx *g) {
     draw_str(g, sx2, ty + px_size + 8, sub, 160, 180, 200, 28);
 
     draw_strf(g, 8, 8, 120, 200, 100, 16, "Mode: %dx%d bpp=%d",
-              (int)W, (int)H, (int)(g->bpp * 8));
+              (int)W, (int)H, 32);
 
     uint32_t bw = 3;
-    fill_rect(g, 0, 0, W, bw, 80, 120, 200);
-    fill_rect(g, 0, H - bw, W, bw, 80, 120, 200);
-    fill_rect(g, 0, 0, bw, H, 80, 120, 200);
-    fill_rect(g, W - bw, 0, bw, H, 80, 120, 200);
+    gfx_sprite_fill_rect(g, 0, 0, W, bw, 80, 120, 200, 255);
+    gfx_sprite_fill_rect(g, 0, H - bw, W, bw, 80, 120, 200, 255);
+    gfx_sprite_fill_rect(g, 0, 0, bw, H, 80, 120, 200, 255);
+    gfx_sprite_fill_rect(g, W - bw, 0, bw, H, 80, 120, 200, 255);
 }
 
-static void test_static(struct gfx *g, int first_frame) {
+static void test_static(struct gfx_sprite *g, int first_frame) {
     (void)first_frame;
     draw_static(g);
 }
@@ -140,23 +140,23 @@ static void test_static(struct gfx *g, int first_frame) {
 /* ------------------------------------------------------------------ */
 /*  Test 2: rectangle fill bench                                        */
 /* ------------------------------------------------------------------ */
-static void test_rect_fill(struct gfx *g, int first_frame) {
-    uint32_t W = g->width, H = g->height;
+static void test_rect_fill(struct gfx_sprite *g, int first_frame) {
+    uint32_t W = g->w, H = g->h;
     (void)first_frame;
 
     int rw = (int)(next_rand() % (W / 2)) + 4;
     int rh = (int)(next_rand() % (H / 2)) + 4;
     int rx = (int)(next_rand() % (W - (uint32_t)rw + 1));
     int ry = (int)(next_rand() % (H - (uint32_t)rh + 1));
-    fill_rect(g, (uint32_t)rx, (uint32_t)ry, (uint32_t)rw, (uint32_t)rh,
-              (uint8_t)next_rand(), (uint8_t)next_rand(), (uint8_t)next_rand());
+    gfx_sprite_fill_rect(g, (uint32_t)rx, (uint32_t)ry, (uint32_t)rw, (uint32_t)rh,
+              (uint8_t)next_rand(), (uint8_t)next_rand(), (uint8_t)next_rand(), 255);
 }
 
 /* ------------------------------------------------------------------ */
 /*  Test 3: text fill bench                                             */
 /* ------------------------------------------------------------------ */
-static void test_text_fill(struct gfx *g, int first_frame) {
-    uint32_t W = g->width, H = g->height;
+static void test_text_fill(struct gfx_sprite *g, int first_frame) {
+    uint32_t W = g->w, H = g->h;
     (void)first_frame;
 
     int px = (int)(next_rand() % 3) * 4 + 12;
@@ -172,17 +172,17 @@ static void test_text_fill(struct gfx *g, int first_frame) {
 /* ------------------------------------------------------------------ */
 /*  Common UI overlays                                                  */
 /* ------------------------------------------------------------------ */
-static void draw_overlays(struct gfx *g, int test) {
+static void draw_overlays(struct gfx_sprite *g, int test) {
     fps_draw(g);
 
-    draw_str(g, 8, (int)g->height - 20, test_names[test], 160, 160, 160, 14);
+    draw_str(g, 8, (int)g->h - 20, test_names[test], 160, 160, 160, 14);
 
     const char *hint = "SPACE: Next   ESC: Exit";
     int px = 14;
     int tw = gfx_text_width(hint, px);
-    int x = ((int)g->width - tw) / 2;
-    draw_str(g, x + 1, (int)g->height - 20 + 1, hint, 0, 0, 0, px);
-    draw_str(g, x, (int)g->height - 20, hint, 200, 200, 200, px);
+    int x = ((int)g->w - tw) / 2;
+    draw_str(g, x + 1, (int)g->h - 20 + 1, hint, 0, 0, 0, px);
+    draw_str(g, x, (int)g->h - 20, hint, 200, 200, 200, px);
 }
 
 /* ------------------------------------------------------------------ */
@@ -195,6 +195,10 @@ int gmain(int argc, char *argv[], int flags) {
     if (!gfx_init(&g))
         return 0;
     gfx_font_load();
+    uint32_t W = gfx_width(&g);
+    uint32_t H = gfx_height(&g);
+    struct gfx_sprite screen;
+    gfx_sprite_init(&screen, W, H);
     fps_init(&g);
 
     int test = 0;
@@ -205,22 +209,22 @@ int gmain(int argc, char *argv[], int flags) {
     while (running) {
 
         if (clear_on_next) {
-            fill_rect(&g, 0, 0, g.width, g.height, 0, 0, 0);
+            gfx_sprite_fill_rect(&screen, 0, 0, W, H, 0, 0, 0, 255);
             clear_on_next = 0;
         }
 
         switch (test) {
-        case TEST_STATIC:    test_static(&g, first_frame);    break;
-        case TEST_RECT_FILL: test_rect_fill(&g, first_frame); break;
-        case TEST_TEXT_FILL: test_text_fill(&g, first_frame); break;
+        case TEST_STATIC:    test_static(&screen, first_frame);    break;
+        case TEST_RECT_FILL: test_rect_fill(&screen, first_frame); break;
+        case TEST_TEXT_FILL: test_text_fill(&screen, first_frame); break;
         }
 
         if (first_frame)
             first_frame = 0;
 
-        draw_overlays(&g, test);
+        draw_overlays(&screen, test);
         fps_tick();
-        gfx_flush(&g);
+        gfx_flush_sprite(&g, &screen);
 
         gfx_delay_ms(&g, test_delay[test]);
 
@@ -236,6 +240,7 @@ int gmain(int argc, char *argv[], int flags) {
         }
     }
 
+    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

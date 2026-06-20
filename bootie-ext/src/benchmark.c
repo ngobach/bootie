@@ -157,7 +157,7 @@ struct ctx_font {
 static void bench_font(void *ctx, uint64_t iter) {
     struct ctx_font *c = (struct ctx_font *)ctx;
     for (uint64_t i = 0; i < iter; i++)
-        gfx_sprite_draw_str(c->s, c->g, 4, 4, c->text,
+        gfx_sprite_draw_str(c->s, 4, 4, c->text,
                             200, 200, 220, 255, c->px);
 }
 
@@ -266,7 +266,7 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_sprite_clear(&back, 15, 15, 30, 255);
     int yy = 20;
 
-    gfx_sprite_draw_str(&back, &g, 20, yy,
+    gfx_sprite_draw_str(&back, 20, yy,
                         "=== BENCHMARK (iters in ~300ms, higher=better) ===",
                         220, 220, 255, 255, 18);
     yy += 30;
@@ -274,14 +274,14 @@ int gmain(int argc, char *argv[], int flags) {
     char line[128];
     for (int i = 0; i < nres; i++) {
         sprintf(line, "%s %d iters", results[i].name, results[i].iters);
-        gfx_sprite_draw_str(&back, &g, 24, yy, line,
+        gfx_sprite_draw_str(&back, 24, yy, line,
                             200, 200, 220, 255, 15);
         yy += 22;
         if (yy > ch - 40) break;
     }
 
     yy += 12;
-    gfx_sprite_draw_str(&back, &g, 24, yy,
+    gfx_sprite_draw_str(&back, 24, yy,
                         "[Esc] exit",
                         140, 140, 180, 255, 14);
 

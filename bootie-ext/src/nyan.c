@@ -824,7 +824,7 @@ static inline struct color get_color(char c) {
 }
 
 /* Draws a frame using horizontal run-length optimization */
-static void draw_nyan_frame(struct gfx *g, const char frame[64][64], int x_off, int y_off, int scale) {
+static void draw_nyan_frame(struct gfx_sprite *g, const char frame[64][64], int x_off, int y_off, int scale) {
     for (int r = 0; r < 64; r++) {
         const char *line = frame[r];
         int ry = y_off + r * scale;
@@ -837,7 +837,7 @@ static void draw_nyan_frame(struct gfx *g, const char frame[64][64], int x_off, 
             }
             struct color col = get_color(val);
             int rx = x_off + c * scale;
-            fill_rect(g, rx, ry, count * scale, scale, col.r, col.g, col.b);
+            gfx_sprite_fill_rect(g, rx, ry, count * scale, scale, col.r, col.g, col.b, 255);
             c += count;
         }
     }
@@ -856,6 +856,9 @@ int gmain(int argc, char *argv[], int flags) {
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
 
+    struct gfx_sprite screen;
+    gfx_sprite_init(&screen, W, H);
+
     int scale = 8;
     // Downscale slightly for smaller screens
     if (H < 512 + 40) {
@@ -867,7 +870,7 @@ int gmain(int argc, char *argv[], int flags) {
     int y_off = (H - frame_size) / 2;
 
     /* Fill background initially */
-    fill_rect(&g, 0, 0, W, H, 15, 77, 143);
+    gfx_sprite_clear(&screen, 15, 77, 143, 255);
 
     int current_frame = 0;
     struct bt_fps fps;
@@ -883,8 +886,8 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         /* Render frame */
-        draw_nyan_frame(&g, frames[current_frame], x_off, y_off, scale);
-        gfx_flush(&g);
+        draw_nyan_frame(&screen, frames[current_frame], x_off, y_off, scale);
+        gfx_flush_sprite(&g, &screen);
 
         current_frame = (current_frame + 1) % 12;
 
@@ -892,6 +895,7 @@ int gmain(int argc, char *argv[], int flags) {
         bt_fps_wait(&fps);
     }
 
+    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

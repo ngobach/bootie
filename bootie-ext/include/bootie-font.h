@@ -42,7 +42,7 @@ static inline void gfx_font_unload(void)
 /* ------------------------------------------------------------------ */
 /*  TTF glyph renderer                                                */
 /* ------------------------------------------------------------------ */
-static inline double gfx_font_render_glyph(struct gfx *ctx,
+static inline double gfx_font_render_glyph(struct gfx_sprite *spr,
                                             int x, int y,
                                             SFT_UChar codepoint,
                                             uint8_t r, uint8_t g, uint8_t b,
@@ -83,66 +83,36 @@ static inline double gfx_font_render_glyph(struct gfx *ctx,
     int origin_x = x + (int)mtx.leftSideBearing;
     int origin_y = y + mtx.yOffset;
 
-    if (ctx->bpp == 4) {
-        for (int row = 0; row < img.height; row++) {
-            for (int col = 0; col < img.width; col++) {
-                int alpha = buf[row * img.width + col];
-                if (alpha == 0) continue;
-                int px = origin_x + col;
-                int py = origin_y + row;
-                if ((unsigned int)px >= ctx->width || (unsigned int)py >= ctx->height)
-                    continue;
-                uint32_t *dst = (uint32_t *)(ctx->fb + (unsigned int)py * ctx->pitch) + px;
-                if (alpha >= 254) {
-                    *dst = ((uint32_t)r << ctx->rshift) |
-                           ((uint32_t)g << ctx->gshift) |
-                           ((uint32_t)b << ctx->bshift) |
-                           ((uint32_t)255 << 24);
-                } else {
-                    /* Canvas is in system memory — read and blend */
-                    uint32_t existing = *dst;
-                    uint8_t er = (uint8_t)((existing >> ctx->rshift) & 0xFF);
-                    uint8_t eg = (uint8_t)((existing >> ctx->gshift) & 0xFF);
-                    uint8_t eb = (uint8_t)((existing >> ctx->bshift) & 0xFF);
-                    uint8_t ea = (uint8_t)((existing >> 24) & 0xFF);
-                    int inv = 255 - alpha;
-                    uint8_t fr = (uint8_t)((r * alpha + er * inv + 128) >> 8);
-                    uint8_t fg = (uint8_t)((g * alpha + eg * inv + 128) >> 8);
-                    uint8_t fb_ = (uint8_t)((b * alpha + eb * inv + 128) >> 8);
-                    uint8_t fa = (uint8_t)((alpha * 255 + ea * inv + 128) >> 8);
-                    *dst = ((uint32_t)fr << ctx->rshift) |
-                           ((uint32_t)fg << ctx->gshift) |
-                           ((uint32_t)fb_ << ctx->bshift) |
-                           ((uint32_t)fa << 24);
-                }
-            }
-        }
-    } else {
-        uint32_t color = 0;
-        uint16_t c16 = 0;
-        if (ctx->bpp == 3)
-            color = ((uint32_t)r << ctx->rshift) |
-                    ((uint32_t)g << ctx->gshift) |
-                    ((uint32_t)b << ctx->bshift);
-        else if (ctx->bpp == 2)
-            c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-        else { free(buf); return mtx.advanceWidth; }
-
-        for (int row = 0; row < img.height; row++) {
-            for (int col = 0; col < img.width; col++) {
-                if (buf[row * img.width + col] < 128) continue;
-                int px = origin_x + col;
-                int py = origin_y + row;
-                if ((unsigned int)px >= ctx->width || (unsigned int)py >= ctx->height)
-                    continue;
-                uint8_t *dst = ctx->fb + (unsigned int)py * ctx->pitch + (unsigned int)px * ctx->bpp;
-                if (ctx->bpp == 3) {
-                    dst[0] = (uint8_t)(color & 0xFF);
-                    dst[1] = (uint8_t)((color >> 8) & 0xFF);
-                    dst[2] = (uint8_t)((color >> 16) & 0xFF);
-                } else {
-                    *(uint16_t *)dst = c16;
-                }
+    /* Sprites are always RGBA (rshift=0, gshift=8, bshift=16, bpp=4) */
+    for (int row = 0; row < img.height; row++) {
+        for (int col = 0; col < img.width; col++) {
+            int alpha = buf[row * img.width + col];
+            if (alpha == 0) continue;
+            int px = origin_x + col;
+            int py = origin_y + row;
+            if ((unsigned int)px >= spr->w || (unsigned int)py >= spr->h)
+                continue;
+            uint32_t *dst = (uint32_t *)(spr->pixels + (unsigned int)py * spr->w * 4) + px;
+            if (alpha >= 254) {
+                *dst = ((uint32_t)r) |
+                       ((uint32_t)g << 8) |
+                       ((uint32_t)b << 16) |
+                       ((uint32_t)255 << 24);
+            } else {
+                uint32_t existing = *dst;
+                uint8_t er = (uint8_t)(existing & 0xFF);
+                uint8_t eg = (uint8_t)((existing >> 8) & 0xFF);
+                uint8_t eb = (uint8_t)((existing >> 16) & 0xFF);
+                uint8_t ea = (uint8_t)((existing >> 24) & 0xFF);
+                int inv = 255 - alpha;
+                uint8_t fr = (uint8_t)((r * alpha + er * inv + 128) >> 8);
+                uint8_t fg = (uint8_t)((g * alpha + eg * inv + 128) >> 8);
+                uint8_t fb_ = (uint8_t)((b * alpha + eb * inv + 128) >> 8);
+                uint8_t fa = (uint8_t)((alpha * 255 + ea * inv + 128) >> 8);
+                *dst = ((uint32_t)fr) |
+                       ((uint32_t)fg << 8) |
+                       ((uint32_t)fb_ << 16) |
+                       ((uint32_t)fa << 24);
             }
         }
     }
@@ -154,7 +124,7 @@ static inline double gfx_font_render_glyph(struct gfx *ctx,
 /* ------------------------------------------------------------------ */
 /*  TTF string renderer (UTF-8)                                       */
 /* ------------------------------------------------------------------ */
-static inline void gfx_draw_str_ttf(struct gfx *ctx, int x, int y,
+static inline void gfx_draw_str_ttf(struct gfx_sprite *spr, int x, int y,
                                      const char *s,
                                      uint8_t r, uint8_t g, uint8_t b,
                                      int px_size)
@@ -198,7 +168,7 @@ static inline void gfx_draw_str_ttf(struct gfx *ctx, int x, int y,
 
         if (cp == '\n') { pen_x = (double)x; prev = 0; continue; }
 
-        double adv = gfx_font_render_glyph(ctx, (int)pen_x, baseline_y, cp, r, g, b, (int)em);
+        double adv = gfx_font_render_glyph(spr, (int)pen_x, baseline_y, cp, r, g, b, (int)em);
 
         if (prev) {
             SFT_Glyph prev_g, cur_g;
@@ -275,8 +245,8 @@ static inline int gfx_text_width(const char *s, int px_size)
 /*  Override draw_str to use TTF font with px_size instead of scale.   */
 /* ------------------------------------------------------------------ */
 #undef draw_str
-#define draw_str(ctx, cx, cy, s, r, g, b, px_size) \
-    gfx_draw_str_ttf(ctx, (int)(cx), (int)(cy), s, r, g, b, px_size)
+#define draw_str(spr, cx, cy, s, r, g, b, px_size) \
+    gfx_draw_str_ttf((struct gfx_sprite *)(spr), (int)(cx), (int)(cy), s, r, g, b, px_size)
 
 /* ------------------------------------------------------------------ */
 /*  draw_strf — sprintf + draw_str in one call                         */
@@ -303,7 +273,7 @@ static inline int gfx_text_width(const char *s, int px_size)
 /*  Returns the Y coordinate below the last line.                      */
 /*  Usage:  draw_str_wrapped(ctx, x, y, max_width, r, g, b, px_size, s) */
 /* ------------------------------------------------------------------ */
-static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
+static inline int draw_str_wrapped(struct gfx_sprite *spr, int x, int y,
                                     int max_width,
                                     uint8_t r, uint8_t g, uint8_t b,
                                     int px_size, const char *text) {
@@ -332,13 +302,13 @@ static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
 
             if (gfx_text_width(line, px_size) > max_width) {
                 if (prev == 0) {
-                    draw_str(ctx, x, cy, line, r, g, b, px_size);
+                    draw_str(spr, x, cy, line, r, g, b, px_size);
                     cy += lh;
                     n = 0;
                     text = after_word;
                 } else {
                     line[prev] = '\0';
-                    draw_str(ctx, x, cy, line, r, g, b, px_size);
+                    draw_str(spr, x, cy, line, r, g, b, px_size);
                     cy += lh;
                     n = 0;
                     text = word;
@@ -348,17 +318,17 @@ static inline int draw_str_wrapped(struct gfx *ctx, int x, int y,
         }
         if (*text == '\n') text++;
         if (n > 0) {
-            draw_str(ctx, x, cy, line, r, g, b, px_size);
+            draw_str(spr, x, cy, line, r, g, b, px_size);
             cy += lh;
         }
     }
     return cy;
 }
 
-#define draw_strf_wrapped(ctx, x, y, max_width, r, g, b, px_size, fmt, ...) do { \
+#define draw_strf_wrapped(spr, x, y, max_width, r, g, b, px_size, fmt, ...) do { \
     char _buf[256];                                                       \
     sprintf(_buf, fmt, ##__VA_ARGS__);                                    \
-    draw_str_wrapped(ctx, x, y, max_width, r, g, b, px_size, _buf);      \
+    draw_str_wrapped(spr, x, y, max_width, r, g, b, px_size, _buf);      \
 } while (0)
 
 #endif /* BOOTIE_FONT_H */

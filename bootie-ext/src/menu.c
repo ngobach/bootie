@@ -101,7 +101,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     if (end > total) end = total;
 
     if (total == 0) {
-        gfx_sprite_draw_str(s, ctx, x, y + 8, "(no menu items)",
+        gfx_sprite_draw_str(s, x, y + 8, "(no menu items)",
                             150, 150, 180, 255, 16);
     }
 
@@ -121,11 +121,11 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
 
         int tx = x + 32;
         int tcolor = (i == m->cur) ? 255 : 200;
-        gfx_sprite_draw_str(s, ctx, tx, row_y + 6, item->title,
+        gfx_sprite_draw_str(s, tx, row_y + 6, item->title,
                             tcolor, tcolor, 255, 255, 16);
 
         if (item->desc[0]) {
-            gfx_sprite_draw_str(s, ctx, tx, row_y + 26, item->desc,
+            gfx_sprite_draw_str(s, tx, row_y + 26, item->desc,
                                 160, 160, 190, 255, 14);
         }
     }

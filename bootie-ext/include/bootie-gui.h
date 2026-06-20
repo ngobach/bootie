@@ -97,11 +97,11 @@ static void bt_gui_window(struct gfx_sprite *s, struct gfx *ctx,
     gfx_sprite_fill(s, 0, 0, cw, ch, 15, 15, 30, 255);
     bt_gui_border(s, 0, 0, cw, ch);
 
-    gfx_sprite_draw_str(s, ctx, 8, 12, title, 200, 200, 255, 255, 28);
+    gfx_sprite_draw_str(s, 8, 12, title, 200, 200, 255, 255, 28);
 
     int header_h;
     if (subtitle && subtitle[0]) {
-        gfx_sprite_draw_str(s, ctx, 8, 46, subtitle, 180, 180, 220, 255, 16);
+        gfx_sprite_draw_str(s, 8, 46, subtitle, 180, 180, 220, 255, 16);
         header_h = 72;
     } else {
         header_h = 44;
@@ -118,11 +118,11 @@ static void bt_gui_window(struct gfx_sprite *s, struct gfx *ctx,
     int footer_y = ch - BT_GUI_FOOTER_H;
     gfx_sprite_fill(s, 0, footer_y, cw, BT_GUI_FOOTER_H, 30, 30, 60, 255);
     if (footer_left)
-        gfx_sprite_draw_str(s, ctx, 8, footer_y + 4,
+        gfx_sprite_draw_str(s, 8, footer_y + 4,
                             footer_left, 150, 150, 180, 255, 16);
     if (footer_right && footer_right[0]) {
         int fw = (int)strlen(footer_right) * 8;
-        gfx_sprite_draw_str(s, ctx, cw - 8 - fw, footer_y + 4,
+        gfx_sprite_draw_str(s, cw - 8 - fw, footer_y + 4,
                             footer_right, 200, 200, 230, 255, 16);
     }
 }
@@ -153,12 +153,12 @@ static int bt_gui_confirm(struct gfx *g, struct gfx_sprite *s,
     gfx_sprite_fill(s, dx, dy, dw, dh, 25, 25, 55, 255);
     bt_gui_border(s, dx, dy, dw, dh);
 
-    gfx_sprite_draw_str(s, g, dx + 16, dy + 16, prompt,
+    gfx_sprite_draw_str(s, dx + 16, dy + 16, prompt,
                         255, 255, 200, 255, 20);
     if (has_detail)
-        gfx_sprite_draw_str(s, g, dx + 16, dy + 52, detail,
+        gfx_sprite_draw_str(s, dx + 16, dy + 52, detail,
                             180, 180, 220, 255, 16);
-    gfx_sprite_draw_str(s, g, dx + 16, dy + dh - 28,
+    gfx_sprite_draw_str(s, dx + 16, dy + dh - 28,
                         "[Enter] Confirm   [Esc] Cancel",
                         180, 180, 200, 255, 16);
 
@@ -185,9 +185,9 @@ static void bt_gui_show_info(struct gfx *g, struct gfx_sprite *s,
     gfx_sprite_fill(s, dx, dy, dw, dh, 25, 25, 55, 255);
     bt_gui_border(s, dx, dy, dw, dh);
 
-    gfx_sprite_draw_str(s, g, dx + 16, dy + 24, msg,
+    gfx_sprite_draw_str(s, dx + 16, dy + 24, msg,
                         200, 200, 200, 255, 28);
-    gfx_sprite_draw_str(s, g, dx + 16, dy + dh - 28,
+    gfx_sprite_draw_str(s, dx + 16, dy + dh - 28,
                         "Press any key to continue",
                         150, 150, 180, 255, 16);
 
@@ -210,7 +210,7 @@ static void bt_gui_show_log(struct gfx *g, struct gfx_sprite *s,
     gfx_sprite_fill(s, mx, my, mw, mh, 20, 20, 45, 255);
     bt_gui_border(s, mx, my, mw, mh);
 
-    gfx_sprite_draw_str(s, g, mx + 12, my + 12, title, 255, 200, 100, 255, 20);
+    gfx_sprite_draw_str(s, mx + 12, my + 12, title, 255, 200, 100, 255, 20);
     bt_gui_sep(s, mx + 8, my + 40, mw - 16);
 
     int log_x = mx + 12;
@@ -229,18 +229,18 @@ static void bt_gui_show_log(struct gfx *g, struct gfx_sprite *s,
             int copy = len < 255 ? len : 255;
             memcpy(line_buf, p, copy);
             line_buf[copy] = '\0';
-            gfx_sprite_draw_str(s, g, log_x, log_y + line * line_h,
+            gfx_sprite_draw_str(s, log_x, log_y + line * line_h,
                                 line_buf, 200, 200, 220, 255, 14);
             if (!*nl) break;
             p = nl + 1;
             line++;
         }
     } else {
-        gfx_sprite_draw_str(s, g, log_x, log_y, "(no output)",
+        gfx_sprite_draw_str(s, log_x, log_y, "(no output)",
                             150, 150, 180, 255, 14);
     }
 
-    gfx_sprite_draw_str(s, g, mx + 12, my + mh - 24,
+    gfx_sprite_draw_str(s, mx + 12, my + mh - 24,
                         "[Esc] Close", 150, 150, 180, 255, 14);
 
     bt_gui_overlay_flip(g, s, pad_x, pad_y);
@@ -256,10 +256,10 @@ static void bt_gui_boot_feedback(struct gfx_sprite *s, struct gfx *ctx,
                                   const char *status, const char *extra) {
     gfx_sprite_fill(s, 0, ch - footer_h * 2, cw, footer_h * 2,
                     60, 20, 20, 255);
-    gfx_sprite_draw_str(s, ctx, 8, ch - footer_h * 2 + 2,
+    gfx_sprite_draw_str(s, 8, ch - footer_h * 2 + 2,
                         status, 255, 50, 50, 255, 16);
     if (extra)
-        gfx_sprite_draw_str(s, ctx, 8, ch - footer_h + 2,
+        gfx_sprite_draw_str(s, 8, ch - footer_h + 2,
                             extra, 200, 200, 200, 255, 16);
 }
 

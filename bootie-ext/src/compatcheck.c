@@ -206,23 +206,25 @@ static void test_gfx(void) {
 
     /* Color bar verification: draw 4 quadrants */
     {
+        struct gfx_sprite screen;
+        gfx_sprite_init(&screen, g.width, g.height);
+
         uint32_t hw = g.width / 2, hh = g.height / 2;
         putstr("  [1] drawing red...\n");
-        fill_rect(&g, 0,  0,  hw, hh, 255, 0,   0);
+        gfx_sprite_fill_rect(&screen, 0,  0,  hw, hh, 255, 0,   0, 255);
         putstr("  [2] drawing green...\n");
-        fill_rect(&g, hw, 0,  hw, hh, 0,   255, 0);
+        gfx_sprite_fill_rect(&screen, hw, 0,  hw, hh, 0,   255, 0, 255);
         putstr("  [3] drawing blue...\n");
-        fill_rect(&g, 0,  hh, hw, hh, 0,   0,   255);
+        gfx_sprite_fill_rect(&screen, 0,  hh, hw, hh, 0,   0,   255, 255);
         putstr("  [4] drawing white...\n");
-        fill_rect(&g, hw, hh, hw, hh, 255, 255, 255);
+        gfx_sprite_fill_rect(&screen, hw, hh, hw, hh, 255, 255, 255, 255);
 
         putstr("  [5] draw_str...\n");
-        draw_str(&g, 4, 4, "GFX: color bars", 255, 255, 255, 14);
+        draw_str(&screen, 4, 4, "GFX: color bars", 255, 255, 255, 14);
 
-        /* Note: pixel readback skipped.  Apple GOP framebuffers are
-           write-only — reading from FrameBufferBase causes a bus fault. */
         putstr("  [6] draw done.\n");
-        gfx_flush(&g);
+        gfx_flush_sprite(&g, &screen);
+        gfx_sprite_destroy(&screen);
         print_result(1, "fb write", "OK (readback skipped)");
     }
 
@@ -237,7 +239,13 @@ static void test_gfx(void) {
     putstr("  [8] key received, restoring screen...\n");
 
     /* Restore screen */
-    fill_rect(&g, 0, 0, g.width, g.height, 15, 15, 30);
+    {
+        struct gfx_sprite bg;
+        gfx_sprite_init(&bg, g.width, g.height);
+        gfx_sprite_clear(&bg, 15, 15, 30, 255);
+        gfx_flush_sprite(&g, &bg);
+        gfx_sprite_destroy(&bg);
+    }
     gfx_flush(&g);
     putstr("  [9] closing gfx...\n");
     gfx_close(&g);
@@ -394,11 +402,11 @@ static void test_output(void) {
     }
 
     /* Text at 3 sizes */
-    gfx_sprite_draw_str(&back, &g, 8, 24, "OUTPUT: font 14px",
+    gfx_sprite_draw_str(&back, 8, 24, "OUTPUT: font 14px",
                         220, 220, 255, 255, 14);
-    gfx_sprite_draw_str(&back, &g, 8, 50, "OUTPUT: font 20px",
+    gfx_sprite_draw_str(&back, 8, 50, "OUTPUT: font 20px",
                         200, 255, 200, 255, 20);
-    gfx_sprite_draw_str(&back, &g, 8, 82, "OUTPUT: font 28px",
+    gfx_sprite_draw_str(&back, 8, 82, "OUTPUT: font 28px",
                         255, 200, 200, 255, 28);
 
     /* Text width measurement */
@@ -414,20 +422,19 @@ static void test_output(void) {
         fmt_u32(tmp, (uint32_t)tw);
         { int i = 0; while (tmp[i]) buf[n++] = tmp[i++]; }
         buf[n++] = 'p'; buf[n++] = 'x'; buf[n] = '\0';
-        gfx_sprite_draw_str(&back, &g, 8, 124, buf,
+        gfx_sprite_draw_str(&back, 8, 124, buf,
                             180, 180, 220, 255, 16);
     }
 
     /* Sample paragraph */
-    gfx_sprite_draw_str(&back, &g, 8, 156,
+    gfx_sprite_draw_str(&back, 8, 156,
                         "Pack my box with five dozen liquor jugs!",
                         200, 200, 220, 255, 14);
 
-    gfx_sprite_draw_str(&back, &g, 8, (int)H - 24,
+    gfx_sprite_draw_str(&back, 8, (int)H - 24,
                         "Press any key to exit...",
                         120, 120, 160, 255, 14);
-    gfx_draw_sprite(&g, &back, 0, 0);
-    gfx_flush(&g);
+    gfx_flush_sprite(&g, &back);
 
     gfx_getkey(&g);
 

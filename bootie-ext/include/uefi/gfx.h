@@ -382,4 +382,5 @@ static inline void gfx_flush(struct gfx *g) {
                      g->width, g->height, g->pitch);
 }
 
+
 #endif /* UEFI_GFX_H */

@@ -16,9 +16,9 @@ static int session_high_score;
 /* Forward declarations of helper functions */
 
 static void place_food(struct point *food, const struct point *snake, int len);
-static void draw_cell(struct gfx *ctx, int cx, int cy, uint8_t r, uint8_t g,
+static void draw_cell(struct gfx_sprite *ctx, int cx, int cy, uint8_t r, uint8_t g,
                       uint8_t b, int x_off, int y_off);
-static void draw_border(struct gfx *ctx, int x_off, int y_off);
+static void draw_border(struct gfx_sprite *ctx, int x_off, int y_off);
 
 /* Main game execution loop (must be the first function defined in the C file)
  */
@@ -36,6 +36,9 @@ int gmain(int argc, char *argv[], int flags) {
   uint32_t W = gfx_width(&g);
   uint32_t H = gfx_height(&g);
 
+  struct gfx_sprite screen;
+  gfx_sprite_init(&screen, W, H);
+
   /* Center of play area on screen */
   int grid_w = GRID_COLS * CELL_SIZE;
   int grid_h = GRID_ROWS * CELL_SIZE;
@@ -43,16 +46,16 @@ int gmain(int argc, char *argv[], int flags) {
   int y_off = (H - grid_h) / 2 + 10;
 
   /* Start screen */
-  fill_rect(&g, 0, 0, W, H, 10, 10, 15);
-  draw_border(&g, x_off, y_off);
+  gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
+  draw_border(&screen, x_off, y_off);
 
   const char *title = "Snake";
   const char *prompt = "Press any key to start...";
-  draw_str(&g, (W - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3,
+  draw_str(&screen, (W - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3,
            title, 50, 220, 50, 28);
-  draw_str(&g, (W - gfx_text_width(prompt, 16)) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 16);
+  draw_str(&screen, (W - gfx_text_width(prompt, 16)) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 16);
 
-  gfx_flush(&g);
+  gfx_flush_sprite(&g, &screen);
 
   while (!gfx_checkkey(&g)) {
     gfx_delay_ms(&g, 25);
@@ -100,6 +103,7 @@ int gmain(int argc, char *argv[], int flags) {
       while (gfx_checkkey(&g)) {
         int key = gfx_getkey(&g);
         if (key == 27) { /* ESC to quit game */
+          gfx_sprite_destroy(&screen);
           gfx_close(&g);
           return 0;
         }
@@ -182,61 +186,61 @@ int gmain(int argc, char *argv[], int flags) {
 
       /* Draw the frame */
       /* 1. Clear play arena */
-      fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
+      gfx_sprite_fill_rect(&screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
 
       /* 3. Draw Food */
-      draw_cell(&g, food.x, food.y, 220, 50, 50, x_off, y_off);
+      draw_cell(&screen, food.x, food.y, 220, 50, 50, x_off, y_off);
 
       /* 4. Draw Snake */
       for (int i = 0; i < snake_len; i++) {
         if (i == 0) {
           /* Head: Yellow */
-          draw_cell(&g, snake[i].x, snake[i].y, 220, 220, 50, x_off, y_off);
+          draw_cell(&screen, snake[i].x, snake[i].y, 220, 220, 50, x_off, y_off);
         } else {
           /* Body: Green */
-          draw_cell(&g, snake[i].x, snake[i].y, 50, 200, 50, x_off, y_off);
+          draw_cell(&screen, snake[i].x, snake[i].y, 50, 200, 50, x_off, y_off);
         }
       }
 
       /* 5. Draw Border & Score */
-      draw_border(&g, x_off, y_off);
+      draw_border(&screen, x_off, y_off);
 
       /* Clear score area at the top */
-      fill_rect(&g, 0, 0, W, y_off - 4, 10, 10, 15);
+      gfx_sprite_fill_rect(&screen, 0, 0, W, y_off - 4, 10, 10, 15, 255);
       if (session_high_score > 0)
-          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
+          draw_strf_centered(&screen, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
                     "SCORE: %d    HI: %d", score, session_high_score);
       else
-          draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
+          draw_strf_centered(&screen, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
                     "SCORE: %d", score);
-      gfx_flush(&g);
+      gfx_flush_sprite(&g, &screen);
 
       /* Tick delay - Constant 40 FPS */
       bt_fps_wait(&fps);
     }
 
     /* Game Over Screen */
-    fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
-    draw_border(&g, x_off, y_off);
+    gfx_sprite_fill_rect(&screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
+    draw_border(&screen, x_off, y_off);
 
     const char *go_title = "GAME OVER";
     const char *restart_prompt = "Press SPACE to Restart, ESC to Exit";
 
     int exit_requested = 0;
     while (1) {
-      fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
-      draw_border(&g, x_off, y_off);
-      draw_str(&g, (W - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50,
+      gfx_sprite_fill_rect(&screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
+      draw_border(&screen, x_off, y_off);
+      draw_str(&screen, (W - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50,
                50, 28);
       if (score >= session_high_score && score > 0)
-          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
+          draw_strf_centered(&screen, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
                     "New High Score: %d!", score);
       else
-          draw_strf_centered(&g, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
+          draw_strf_centered(&screen, W / 2, y_off + grid_h / 2, 240, 240, 255, 16,
                     "Score: %d    High Score: %d", score, session_high_score);
-      draw_str(&g, (W - gfx_text_width(restart_prompt, 16)) / 2, y_off + grid_h * 2 / 3, restart_prompt,
+      draw_str(&screen, (W - gfx_text_width(restart_prompt, 16)) / 2, y_off + grid_h * 2 / 3, restart_prompt,
                180, 180, 180, 16);
-      gfx_flush(&g);
+      gfx_flush_sprite(&g, &screen);
 
       if (gfx_checkkey(&g)) {
         int key = gfx_getkey(&g);
@@ -255,6 +259,7 @@ int gmain(int argc, char *argv[], int flags) {
     }
   }
 
+  gfx_sprite_destroy(&screen);
   gfx_close(&g);
   return 0;
 }
@@ -307,28 +312,28 @@ static void place_food(struct point *food, const struct point *snake, int len) {
 }
 
 /* Draw a grid cell with a tiny border/gap */
-static void draw_cell(struct gfx *ctx, int cx, int cy, uint8_t r, uint8_t g,
+static void draw_cell(struct gfx_sprite *ctx, int cx, int cy, uint8_t r, uint8_t g,
                       uint8_t b, int x_off, int y_off) {
   int sx = x_off + cx * CELL_SIZE;
   int sy = y_off + cy * CELL_SIZE;
-  fill_rect(ctx, sx + 1, sy + 1, CELL_SIZE - 2, CELL_SIZE - 2, r, g, b);
+  gfx_sprite_fill_rect(ctx, sx + 1, sy + 1, CELL_SIZE - 2, CELL_SIZE - 2, r, g, b, 255);
 }
 
 /* Draw a double-line boundary frame for the grid */
-static void draw_border(struct gfx *ctx, int x_off, int y_off) {
+static void draw_border(struct gfx_sprite *ctx, int x_off, int y_off) {
   int grid_w = GRID_COLS * CELL_SIZE;
   int grid_h = GRID_ROWS * CELL_SIZE;
   int border_t = 3;
 
   /* Outermost framing */
-  fill_rect(ctx, x_off - border_t, y_off - border_t, grid_w + border_t * 2,
-            border_t, 100, 100, 150);
-  fill_rect(ctx, x_off - border_t, y_off + grid_h, grid_w + border_t * 2,
-            border_t, 100, 100, 150);
-  fill_rect(ctx, x_off - border_t, y_off - border_t, border_t,
-            grid_h + border_t * 2, 100, 100, 150);
-  fill_rect(ctx, x_off + grid_w, y_off - border_t, border_t,
-            grid_h + border_t * 2, 100, 100, 150);
+  gfx_sprite_fill_rect(ctx, x_off - border_t, y_off - border_t, grid_w + border_t * 2,
+            border_t, 100, 100, 150, 255);
+  gfx_sprite_fill_rect(ctx, x_off - border_t, y_off + grid_h, grid_w + border_t * 2,
+            border_t, 100, 100, 150, 255);
+  gfx_sprite_fill_rect(ctx, x_off - border_t, y_off - border_t, border_t,
+            grid_h + border_t * 2, 100, 100, 150, 255);
+  gfx_sprite_fill_rect(ctx, x_off + grid_w, y_off - border_t, border_t,
+            grid_h + border_t * 2, 100, 100, 150, 255);
 }
 
 
