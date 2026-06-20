@@ -83,16 +83,13 @@ struct realmode_regs {
 /*  Graphics Context Structure                                        */
 /* ------------------------------------------------------------------ */
 struct gfx {
-  /* Canvas — native pixel format, malloc'd once */
-  uint8_t *fb;
+  /* Hardware screen info */
+  uint8_t *hw_fb;       /* physical framebuffer (not malloc'd) */
   uint32_t width;       /* canvas width  (= CANVAS_W) */
   uint32_t height;      /* canvas height (= CANVAS_H) */
   uint32_t pitch;       /* bytes per scanline */
   uint8_t  bpp;         /* bytes per pixel (2, 3, or 4) */
   uint8_t  rshift, gshift, bshift;
-
-  /* Hardware screen info (for flush centering) */
-  uint8_t *hw_fb;       /* physical framebuffer (not malloc'd) */
   uint32_t hw_width, hw_height, hw_pitch;
 
   uint16_t prev_vbe_mode;
@@ -172,74 +169,6 @@ static int get_mode_info(uint16_t mode, struct vbe_mode_info *mi_out) {
     if (mi->PhysBasePtr == 0)         return 0;
     memmove(mi_out, mi, sizeof(*mi));
     return 1;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Framebuffer pixel writer (native format)                           */
-/* ------------------------------------------------------------------ */
-static inline __attribute__((always_inline)) void put_pixel(struct gfx *ctx, uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
-    if (x >= ctx->width || y >= ctx->height) return;
-    uint8_t *p = ctx->fb + y * ctx->pitch + x * ctx->bpp;
-    uint32_t color = ((uint32_t)r << ctx->rshift) |
-                     ((uint32_t)g << ctx->gshift) |
-                     ((uint32_t)b << ctx->bshift);
-    if (ctx->bpp == 4) {
-        *((uint32_t *)p) = color;
-    } else if (ctx->bpp == 3) {
-        p[0] = color & 0xFF;
-        p[1] = (color >> 8) & 0xFF;
-        p[2] = (color >> 16) & 0xFF;
-    } else if (ctx->bpp == 2) {
-        uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-        *((uint16_t *)p) = c16;
-    }
-}
-
-static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
-                      uint32_t w, uint32_t h,
-                      uint8_t r, uint8_t g, uint8_t b) {
-    if (x >= ctx->width || y >= ctx->height) return;
-    uint32_t x_end = (x + w > ctx->width) ? ctx->width : (x + w);
-    uint32_t y_end = (y + h > ctx->height) ? ctx->height : (y + h);
-    if (x_end <= x || y_end <= y) return;
-
-    uint32_t color = ((uint32_t)r << ctx->rshift) |
-                     ((uint32_t)g << ctx->gshift) |
-                     ((uint32_t)b << ctx->bshift);
-
-    if (ctx->bpp == 4) {
-        for (uint32_t row = y; row < y_end; row++) {
-            uint32_t *p = (uint32_t *)(ctx->fb + row * ctx->pitch) + x;
-            uint32_t count = x_end - x;
-            __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(count) : "a"(color) : "memory");
-        }
-    } else if (ctx->bpp == 3) {
-        uint8_t b0 = color & 0xFF;
-        uint8_t b1 = (color >> 8) & 0xFF;
-        uint8_t b2 = (color >> 16) & 0xFF;
-        for (uint32_t row = y; row < y_end; row++) {
-            uint8_t *p = ctx->fb + row * ctx->pitch + x * 3;
-            uint32_t count = x_end - x;
-            while (count >= 4) {
-                p[0] = b0; p[1] = b1; p[2] = b2;
-                p[3] = b0; p[4] = b1; p[5] = b2;
-                p[6] = b0; p[7] = b1; p[8] = b2;
-                p[9] = b0; p[10] = b1; p[11] = b2;
-                p += 12; count -= 4;
-            }
-            while (count > 0) {
-                p[0] = b0; p[1] = b1; p[2] = b2;
-                p += 3; count--;
-            }
-        }
-    } else if (ctx->bpp == 2) {
-        uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-        for (uint32_t row = y; row < y_end; row++) {
-            uint16_t *p = (uint16_t *)(ctx->fb + row * ctx->pitch) + x;
-            uint32_t count = x_end - x;
-            __asm__ __volatile__("rep stosw" : "+D"(p), "+c"(count) : "a"(c16) : "memory");
-        }
-    }
 }
 
 
@@ -337,35 +266,17 @@ static inline int gfx_init(struct gfx *ctx) {
     ctx->bshift = best_mi.LinBlueFieldPosition  ? best_mi.LinBlueFieldPosition
                                                : best_mi.BlueFieldPosition;
 
-    /* Allocate one canvas in native format */
     ctx->width  = CANVAS_W;
     ctx->height = CANVAS_H;
     ctx->pitch  = CANVAS_W * ctx->bpp;
-    ctx->fb = (uint8_t *)malloc(ctx->pitch * ctx->height);
-    if (!ctx->fb)
-        return 0;
-    {
-        uint32_t *p = (uint32_t *)ctx->fb;
-        uint32_t n = (ctx->pitch * ctx->height) / 4;
-        __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
-    }
 
-    if (gfx_font_load() < 0) {
-        if (ctx->fb) {
-            free(ctx->fb);
-            ctx->fb = NULL;
-        }
+    if (gfx_font_load() < 0)
         return 0;
-    }
     return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
     gfx_font_unload();
-    if (ctx->fb) {
-        free(ctx->fb);
-        ctx->fb = NULL;
-    }
     if (ctx->prev_vbe_mode) {
         bios_int10(0x4F02, ctx->prev_vbe_mode, 0, 0, (unsigned long)-1, 0);
     } else {
@@ -389,39 +300,10 @@ static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
     pit_delay_ms(ms);
 }
 
-/* ------------------------------------------------------------------ */
-/*  Flush canvas to hardware screen                                   */
-/*  Canvas is native format — copy row by row, centered.              */
-/* ------------------------------------------------------------------ */
+/* On BIOS the sprite pipeline (gfx_flush_sprite) writes directly to
+   hw_fb, so there is no software canvas to flush. */
 static inline void gfx_flush(struct gfx *g) {
-    if (!g->fb || !g->hw_fb)
-        return;
-
-    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
-    int oy = ((int)g->hw_height - (int)g->height) / 2;
-    if (ox < 0) ox = 0;
-    if (oy < 0) oy = 0;
-
-    uint32_t row_bytes = g->width * g->bpp;
-
-    for (uint32_t y = 0; y < g->height; y++) {
-        uint8_t *src = g->fb + y * g->pitch;
-        uint8_t *dst = g->hw_fb + (unsigned)(oy + (int)y) * g->hw_pitch
-                     + (unsigned)ox * g->bpp;
-
-        /* Bulk copy via rep movsl */
-        uint32_t dwords = row_bytes >> 2;
-        __asm__ volatile("rep movsl"
-                         : "+S"(src), "+D"(dst), "+c"(dwords)
-                         :
-                         : "memory");
-        uint32_t rem = row_bytes & 3;
-        if (rem)
-            __asm__ volatile("rep movsb"
-                             : "+S"(src), "+D"(dst), "+c"(rem)
-                             :
-                             : "memory");
-    }
+    (void)g;
 }
 
 #endif /* BIOS_GFX_H */

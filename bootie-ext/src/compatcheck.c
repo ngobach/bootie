@@ -190,6 +190,7 @@ static void test_gfx(void) {
         print_info("mode", buf);
     }
 
+#if !defined(__i386__)
     {
         char buf[48];
         fmt_hex32(buf, (uint32_t)(uintptr_t)g.fb);
@@ -203,6 +204,7 @@ static void test_gfx(void) {
         fmt_cat(buf, tmp, " bytes");
         print_info("fb size", buf);
     }
+#endif
 
     /* Color bar verification: draw 4 quadrants */
     {
