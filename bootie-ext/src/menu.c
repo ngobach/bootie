@@ -11,6 +11,9 @@
 
 #include <stdint.h>
 
+/* Set at startup: 1 on BIOS (GRUB4DOS), 0 on UEFI (GRUB4EFI) */
+static int is_bios;
+
 #define PATH_MAX 260
 #define LINE_H   48
 #define HEADER_H 72
@@ -323,6 +326,13 @@ static void load_ini_items(struct menu *m) {
         if (type == ACTION_OPEN_CATEGORY && (!target || !target[0]))
             continue;
 
+        /* Firmware-specific filtering */
+        const char *if_firmware = bt_ini_section_get_value(&ini.sections[i], "if_firmware");
+        if (if_firmware) {
+            if (stricmp(if_firmware, "bios") == 0 && !is_bios) continue;
+            if (stricmp(if_firmware, "uefi") == 0 && is_bios) continue;
+        }
+
         /* Wildcard expansion: target contains * or ? */
         if (target) {
             const char *wp = target;
@@ -392,7 +402,11 @@ static void rebuild_view(struct menu *m) {
 int gmain(int argc, char *argv[], int flags) {
     (void)argc;
     (void)argv;
-    (void)flags;
+#if defined(__i386__)
+    is_bios = 1;
+#else
+    is_bios = 0;
+#endif
 
     struct gfx g;
     if (!gfx_init(&g))
