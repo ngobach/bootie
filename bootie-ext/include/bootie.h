@@ -357,10 +357,21 @@ int main(char *arg, int flags) {
       while (*p == ' ') p++;
       if (!*p) break;
       if (*p == '"') {
-          p++;
-          argv[argc++] = p;
-          while (*p && *p != '"') p++;
-          if (*p) *p++ = '\0';
+          /* Scan ahead for a matching closing quote */
+          char *end = p + 1;
+          while (*end && *end != '"') end++;
+          if (*end == '"') {
+              /* Properly closed quote — extract the inner content */
+              p++;
+              argv[argc++] = p;
+              p = end;
+              *p++ = '\0';
+          } else {
+              /* Unclosed quote — treat the opening " as a literal character */
+              argv[argc++] = p;
+              while (*p && *p != ' ') p++;
+              if (*p) *p++ = '\0';
+          }
       } else {
           argv[argc++] = p;
           while (*p && *p != ' ') p++;
