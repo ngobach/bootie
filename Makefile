@@ -42,6 +42,8 @@ build/data-part.tar.gz: mod
 
 # Clean build artifacts
 clean:
+	$(MAKE) -C bootie-ext clean
+	$(MAKE) -C runner clean
 	rm -rf $(BUILD_DIR) $(MOD_DEST)
 
 # Prepare build directory and module tarball
