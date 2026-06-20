@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <bootie-gfx.h>
 
+
 /* ------------------------------------------------------------------ */
 /*  Test modes                                                          */
 /* ------------------------------------------------------------------ */
@@ -206,6 +207,7 @@ int gmain(int argc, char *argv[], int flags) {
     int first_frame = 1;
     int clear_on_next = 0;
 
+
     while (running) {
 
         if (clear_on_next) {
@@ -224,6 +226,7 @@ int gmain(int argc, char *argv[], int flags) {
 
         draw_overlays(&screen, test);
         fps_tick();
+
         gfx_flush_sprite(&g, &screen);
 
         gfx_delay_ms(&g, test_delay[test]);

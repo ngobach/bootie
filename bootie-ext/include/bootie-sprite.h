@@ -230,13 +230,78 @@ static inline void gfx_draw_sprite(struct gfx *g, const struct gfx_sprite *src,
 
 /* ------------------------------------------------------------------ */
 /*  Flush RGBA sprite directly to hardware screen                      */
-/*  Converts RGBA → native in the canvas, then pushes to screen.       */
+/*  Converts RGBA → native and pushes to screen.                       */
 /* ------------------------------------------------------------------ */
 static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr) {
-    if (!g->fb || !spr->pixels) return;
+    if (!spr->pixels) return;
 
     uint32_t w = g->width < spr->w ? g->width : spr->w;
     uint32_t h = g->height < spr->h ? g->height : spr->h;
+
+#if defined(__i386__)
+    /*
+     * BIOS single-pass: RGBA sprite → native pixels directly into hw_fb.
+     *
+     * The intermediate canvas (g->fb) sits in uncacheable memory under
+     * GRUB4DOS, making the old two-pass approach (write canvas + copy to
+     * VRAM) ~140× slower than UEFI.  By writing directly to the hardware
+     * framebuffer we cut the UC traffic in half.
+     *
+     * Alpha handling: the sprite is pre-composited in RGBA space, so
+     * all visible pixels should be fully opaque (a==255).  We skip
+     * transparent pixels (a==0) and write semi-transparent ones as
+     * opaque — reading the VRAM destination for blending would be
+     * extremely slow on UC memory.
+     */
+    if (!g->hw_fb) return;
+    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
+    int oy = ((int)g->hw_height - (int)g->height) / 2;
+    if (ox < 0) ox = 0;
+    if (oy < 0) oy = 0;
+
+    for (uint32_t row = 0; row < h; row++) {
+        const uint8_t *sp = spr->pixels + row * spr->w * 4;
+        uint8_t *dp = g->hw_fb + (unsigned)(oy + (int)row) * g->hw_pitch
+                     + (unsigned)ox * g->bpp;
+
+        if (g->bpp == 4) {
+            uint32_t *dst = (uint32_t *)dp;
+            for (uint32_t col = 0; col < w; col++) {
+                uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
+                if (sa > 0) {
+                    dst[col] = ((uint32_t)sr << g->rshift) |
+                               ((uint32_t)sg << g->gshift) |
+                               ((uint32_t)sb << g->bshift);
+                }
+                sp += 4;
+            }
+        } else if (g->bpp == 3) {
+            for (uint32_t col = 0; col < w; col++) {
+                uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
+                if (sa > 0) {
+                    uint32_t color = ((uint32_t)sr << g->rshift) |
+                                     ((uint32_t)sg << g->gshift) |
+                                     ((uint32_t)sb << g->bshift);
+                    dp[col*3+0] = color & 0xFF;
+                    dp[col*3+1] = (color >> 8) & 0xFF;
+                    dp[col*3+2] = (color >> 16) & 0xFF;
+                }
+                sp += 4;
+            }
+        } else if (g->bpp == 2) {
+            uint16_t *dst16 = (uint16_t *)dp;
+            for (uint32_t col = 0; col < w; col++) {
+                uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
+                if (sa > 0) {
+                    dst16[col] = (uint16_t)(((sr >> 3) << 11) | ((sg >> 2) << 5) | (sb >> 3));
+                }
+                sp += 4;
+            }
+        }
+    }
+#else
+    /* UEFI: convert RGBA → native in canvas, then Blt to screen */
+    if (!g->fb) return;
 
     for (uint32_t row = 0; row < h; row++) {
         const uint8_t *sp = spr->pixels + row * spr->w * 4;
@@ -269,9 +334,12 @@ static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr)
             for (uint32_t col = 0; col < w; col++) {
                 uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
                 if (sa == 255) {
-                    dp[col*3+0] = (sr << g->rshift) | (sg << g->gshift) | (sb << g->bshift);
-                    dp[col*3+1] = ((sr << g->rshift) | (sg << g->gshift) | (sb << g->bshift)) >> 8;
-                    dp[col*3+2] = ((sr << g->rshift) | (sg << g->gshift) | (sb << g->bshift)) >> 16;
+                    uint32_t color = ((uint32_t)sr << g->rshift) |
+                                     ((uint32_t)sg << g->gshift) |
+                                     ((uint32_t)sb << g->bshift);
+                    dp[col*3+0] = color & 0xFF;
+                    dp[col*3+1] = (color >> 8) & 0xFF;
+                    dp[col*3+2] = (color >> 16) & 0xFF;
                 } else if (sa > 0) {
                     uint32_t dc = dp[col*3] | ((uint32_t)dp[col*3+1] << 8) | ((uint32_t)dp[col*3+2] << 16);
                     uint8_t dr = (uint8_t)((dc >> g->rshift) & 0xFF);
@@ -312,32 +380,6 @@ static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr)
         }
     }
 
-    /* Push canvas to hardware screen */
-#if defined(__i386__)
-    /* BIOS: copy row by row, centered */
-    if (!g->hw_fb) return;
-    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
-    int oy = ((int)g->hw_height - (int)g->height) / 2;
-    if (ox < 0) ox = 0;
-    if (oy < 0) oy = 0;
-    uint32_t row_bytes = g->width * g->bpp;
-    for (uint32_t y = 0; y < h; y++) {
-        uint8_t *src = g->fb + y * g->pitch;
-        uint8_t *dst = g->hw_fb + (unsigned)(oy + (int)y) * g->hw_pitch
-                     + (unsigned)ox * g->bpp;
-        uint32_t dwords = row_bytes >> 2;
-        __asm__ volatile("rep movsl"
-                         : "+S"(src), "+D"(dst), "+c"(dwords)
-                         :
-                         : "memory");
-        uint32_t rem = row_bytes & 3;
-        if (rem)
-            __asm__ volatile("rep movsb"
-                             : "+S"(src), "+D"(dst), "+c"(rem)
-                             :
-                             : "memory");
-    }
-#else
     /* UEFI: Blt canvas to screen, centered */
     if (!g->gop) return;
     efi_graphics_output_protocol_t *gop =
