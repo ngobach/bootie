@@ -38,6 +38,12 @@ static void pit_delay_ms(unsigned int ms) {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/*  Canvas dimensions                                                  */
+/* ------------------------------------------------------------------ */
+#define CANVAS_W 800
+#define CANVAS_H 600
+
 #if defined(__i386__)
   #include <bios/gfx.h>
 #else
@@ -62,12 +68,8 @@ static inline uint32_t gfx_content_xoff(const struct gfx *g) {
 }
 
 struct gfx_sprite {
-    unsigned char *pixels;      /* RGBA pixel data (memory) or native format (screen) */
+    unsigned char *pixels;      /* RGBA pixel data */
     unsigned w, h;              /* dimensions */
-    uint8_t is_screen;          /* 1 = wraps hardware framebuffer (native pixel format) */
-    /* Screen sprite fields (set by gfx_sprite_from_fb): */
-    uint32_t pitch;             /* bytes per scanline */
-    uint8_t rshift, gshift, bshift, bpp;
 };
 
 /* Include TTF font rendering (overrides draw_str with a TTF-aware macro

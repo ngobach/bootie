@@ -96,16 +96,24 @@ static inline double gfx_font_render_glyph(struct gfx *ctx,
                 if (alpha >= 254) {
                     *dst = ((uint32_t)r << ctx->rshift) |
                            ((uint32_t)g << ctx->gshift) |
-                           ((uint32_t)b << ctx->bshift);
+                           ((uint32_t)b << ctx->bshift) |
+                           ((uint32_t)255 << 24);
                 } else {
-                    uint32_t bg = *dst;
+                    /* Canvas is in system memory — read and blend */
+                    uint32_t existing = *dst;
+                    uint8_t er = (uint8_t)((existing >> ctx->rshift) & 0xFF);
+                    uint8_t eg = (uint8_t)((existing >> ctx->gshift) & 0xFF);
+                    uint8_t eb = (uint8_t)((existing >> ctx->bshift) & 0xFF);
+                    uint8_t ea = (uint8_t)((existing >> 24) & 0xFF);
                     int inv = 255 - alpha;
-                    uint8_t br = (uint8_t)((bg >> ctx->rshift) & 0xFF);
-                    uint8_t bg_ = (uint8_t)((bg >> ctx->gshift) & 0xFF);
-                    uint8_t bb = (uint8_t)((bg >> ctx->bshift) & 0xFF);
-                    *dst = ((uint32_t)((alpha * r + inv * br) / 255) << ctx->rshift) |
-                           ((uint32_t)((alpha * g + inv * bg_) / 255) << ctx->gshift) |
-                           ((uint32_t)((alpha * b + inv * bb) / 255) << ctx->bshift);
+                    uint8_t fr = (uint8_t)((r * alpha + er * inv + 128) >> 8);
+                    uint8_t fg = (uint8_t)((g * alpha + eg * inv + 128) >> 8);
+                    uint8_t fb_ = (uint8_t)((b * alpha + eb * inv + 128) >> 8);
+                    uint8_t fa = (uint8_t)((alpha * 255 + ea * inv + 128) >> 8);
+                    *dst = ((uint32_t)fr << ctx->rshift) |
+                           ((uint32_t)fg << ctx->gshift) |
+                           ((uint32_t)fb_ << ctx->bshift) |
+                           ((uint32_t)fa << 24);
                 }
             }
         }

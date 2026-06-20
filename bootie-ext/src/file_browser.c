@@ -15,8 +15,6 @@
 #define LINE_H 32
 #define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
-#define CANVAS_W 800
-#define CANVAS_H 600
 
 #define NUM_BOOT_EXT 7
 static const char bootable_ext[NUM_BOOT_EXT][8] = {
@@ -553,6 +551,8 @@ int gmain(int argc, char *argv[], int flags) {
         gfx_close(&g);
         return 1;
     }
+
+    br->entries = NULL;
     br->view_rows = (canvas_h - HEADER_H - FOOTER_H) / LINE_H;
     br->show_dotfiles = 0;
     br->device[0] = '\0';
@@ -563,7 +563,6 @@ int gmain(int argc, char *argv[], int flags) {
     bt_gui_icon_load(&br->icons, "folder", ICON_FOLDER_24_PNG);
     bt_gui_icon_load(&br->icons, "boot", ICON_BOOT_24_PNG);
 
-    struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
     gfx_sprite_init(&back, canvas_w, canvas_h);
 
@@ -588,6 +587,7 @@ int gmain(int argc, char *argv[], int flags) {
             if (br->cwd[0] == '\0') {
         draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                  "No drives found", 255, 50, 50, 28);
+                gfx_flush(&g);
                 gfx_getkey(&g);
                 gfx_sprite_destroy(&back);
                 bt_gui_icons_destroy(&br->icons);
@@ -597,6 +597,7 @@ int gmain(int argc, char *argv[], int flags) {
             }
             draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                       "Cannot list directory", 255, 50, 50, 28);
+            gfx_flush(&g);
             gfx_getkey(&g);
             br->cwd[0] = '\0';
             br->device[0] = '\0';
@@ -607,6 +608,7 @@ int gmain(int argc, char *argv[], int flags) {
             fill_rect(&g, 0, 0, g.width, g.height, 15, 15, 30);
             draw_str(&g, pad_x + 8, pad_y + canvas_h / 2,
                      "No drives found", 255, 50, 50, 28);
+            gfx_flush(&g);
             gfx_getkey(&g);
             gfx_sprite_destroy(&back);
             bt_gui_icons_destroy(&br->icons);
@@ -620,7 +622,8 @@ int gmain(int argc, char *argv[], int flags) {
 
             gfx_sprite_clear(&back, 15, 15, 30, 255);
             draw(br, &back, &g, canvas_w, canvas_h);
-            gfx_sprite_blit(&screen, &back, pad_x, pad_y);
+            gfx_draw_sprite(&g, &back, pad_x, pad_y);
+            gfx_flush(&g);
 
             int key = gfx_getkey(&g);
             int scan = (key >> 8) & 0xFF;

@@ -209,7 +209,6 @@ int gmain(int argc, char *argv[], int flags) {
     int cw, ch, pad_x, pad_y;
     bt_gui_canvas(W, H, 820, 680, &cw, &ch, &pad_x, &pad_y);
 
-    struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
     gfx_sprite_init(&back, cw, ch);
 
@@ -286,7 +285,8 @@ int gmain(int argc, char *argv[], int flags) {
                         "[Esc] exit",
                         140, 140, 180, 255, 14);
 
-    gfx_sprite_blit(&screen, &back, pad_x, pad_y);
+    gfx_draw_sprite(&g, &back, pad_x, pad_y);
+    gfx_flush(&g);
 
     while (1) {
         int key = gfx_getkey(&g);

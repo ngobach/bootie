@@ -83,30 +83,27 @@ struct realmode_regs {
 /*  Graphics Context Structure                                        */
 /* ------------------------------------------------------------------ */
 struct gfx {
-    uint8_t  *fb;
-    uint32_t  width;
-    uint32_t  height;
-    uint32_t  pitch;
-    uint32_t  bpp;
-    uint8_t   rshift;
-    uint8_t   gshift;
-    uint8_t   bshift;
-    uint8_t  *real_fb;
-    void     *backbuf;
-    uint16_t  prev_vbe_mode;
+  /* Canvas — native pixel format, malloc'd once */
+  uint8_t *fb;
+  uint32_t width;       /* canvas width  (= CANVAS_W) */
+  uint32_t height;      /* canvas height (= CANVAS_H) */
+  uint32_t pitch;       /* bytes per scanline */
+  uint8_t  bpp;         /* bytes per pixel (2, 3, or 4) */
+  uint8_t  rshift, gshift, bshift;
+
+  /* Hardware screen info (for flush centering) */
+  uint8_t *hw_fb;       /* physical framebuffer (not malloc'd) */
+  uint32_t hw_width, hw_height, hw_pitch;
+
+  uint16_t prev_vbe_mode;
 };
 
-static inline uint32_t gfx_width(const struct gfx *g) {
-    return g->width;
-}
-
-static inline uint32_t gfx_height(const struct gfx *g) {
-    return g->height;
-}
+static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
+static inline uint32_t gfx_height(const struct gfx *g) { return g->height; }
 
 
 /* ------------------------------------------------------------------ */
-/*  Low-level pixel & BIOS helpers                                      */
+/*  Low-level BIOS helpers                                              */
 /* ------------------------------------------------------------------ */
 static int bios_int10(unsigned long eax, unsigned long ebx,
                       unsigned long ecx, unsigned long edx,
@@ -170,15 +167,15 @@ static int get_mode_info(uint16_t mode, struct vbe_mode_info *mi_out) {
     struct vbe_mode_info *mi = (struct vbe_mode_info *)0x20400;
     memset(mi, 0, sizeof(*mi));
     if ((bios_int10(0x4F01, 0, mode, 0, 0x2000, 1024) & 0xFF) != 0x4F) return 0;
-    if (!(mi->ModeAttributes & 1))    return 0;  /* not supported */
-    if (!(mi->ModeAttributes & 0x80)) return 0;  /* no LFB        */
+    if (!(mi->ModeAttributes & 1))    return 0;
+    if (!(mi->ModeAttributes & 0x80)) return 0;
     if (mi->PhysBasePtr == 0)         return 0;
     memmove(mi_out, mi, sizeof(*mi));
     return 1;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Framebuffer pixel writer                                            */
+/*  Framebuffer pixel writer (native format)                           */
 /* ------------------------------------------------------------------ */
 static inline __attribute__((always_inline)) void put_pixel(struct gfx *ctx, uint32_t x, uint32_t y, uint8_t r, uint8_t g, uint8_t b) {
     if (x >= ctx->width || y >= ctx->height) return;
@@ -193,13 +190,11 @@ static inline __attribute__((always_inline)) void put_pixel(struct gfx *ctx, uin
         p[1] = (color >> 8) & 0xFF;
         p[2] = (color >> 16) & 0xFF;
     } else if (ctx->bpp == 2) {
-        /* 5-6-5 approximation */
         uint16_t c16 = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
         *((uint16_t *)p) = c16;
     }
 }
 
-/* Fill a rectangle with a solid colour using fast row writes */
 static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
                       uint32_t w, uint32_t h,
                       uint8_t r, uint8_t g, uint8_t b) {
@@ -248,18 +243,15 @@ static void fill_rect(struct gfx *ctx, uint32_t x, uint32_t y,
 }
 
 
-
 /* ------------------------------------------------------------------ */
 /*  Platform Agnostic Wrappers                                        */
 /* ------------------------------------------------------------------ */
 static inline int gfx_init(struct gfx *ctx) {
     {
-        // QEMU hack
         char find_buf[1024];
         bt_eval("echo", find_buf, sizeof(find_buf));
     }
 
-    /* --- find best VBE mode --- */
     struct vbe_driver_info drv;
     if (!get_driver_info(&drv)) {
         printf("VBE 2.0 not supported\n");
@@ -275,8 +267,6 @@ static inline int gfx_init(struct gfx *ctx) {
         uint16_t mode = modes[idx];
         struct vbe_mode_info mi;
         if (!get_mode_info(mode, &mi)) continue;
-
-        /* skip non-packed-pixel memory models */
         if (mi.MemoryModel != 4 && mi.MemoryModel != 6) continue;
 
         int score = 0;
@@ -285,9 +275,7 @@ static inline int gfx_init(struct gfx *ctx) {
         else if (mi.BitsPerPixel == 16) score +=  50;
         else continue;
 
-        /* Require at least 800 px width */
-        if (mi.XResolution < 800)
-            continue;
+        if (mi.XResolution < 800) continue;
 
         score += 1000;
         if      (mi.XResolution ==  800 && mi.YResolution == 600)  score += 50;
@@ -307,7 +295,7 @@ static inline int gfx_init(struct gfx *ctx) {
         return 0;
     }
 
-    /* Save current VBE mode before switching */
+    /* Save current VBE mode */
     ctx->prev_vbe_mode = 0;
     {
         struct realmode_regs rr = {
@@ -333,35 +321,43 @@ static inline int gfx_init(struct gfx *ctx) {
         return 0;
     }
 
-    /* --- set up framebuffer fields in ctx --- */
-    ctx->fb        = (uint8_t *)best_mi.PhysBasePtr;
-    ctx->width  = best_mi.XResolution;
-    ctx->height = best_mi.YResolution;
-    ctx->pitch  = best_mi.LinBytesPerScanline ? best_mi.LinBytesPerScanline
-                                            : best_mi.BytesPerScanline;
-    ctx->bpp    = (best_mi.BitsPerPixel + 7) / 8;
+    /* Hardware screen info */
+    ctx->hw_fb    = (uint8_t *)best_mi.PhysBasePtr;
+    ctx->hw_width = best_mi.XResolution;
+    ctx->hw_height = best_mi.YResolution;
+    ctx->hw_pitch = best_mi.LinBytesPerScanline ? best_mi.LinBytesPerScanline
+                                              : best_mi.BytesPerScanline;
 
-    /* determine channel shifts from VBE colour mask info */
+    /* Canvas pixel format */
+    ctx->bpp = (best_mi.BitsPerPixel + 7) / 8;
     ctx->rshift = best_mi.LinRedFieldPosition   ? best_mi.LinRedFieldPosition
                                                : best_mi.RedFieldPosition;
     ctx->gshift = best_mi.LinGreenFieldPosition ? best_mi.LinGreenFieldPosition
                                                : best_mi.GreenFieldPosition;
     ctx->bshift = best_mi.LinBlueFieldPosition  ? best_mi.LinBlueFieldPosition
                                                : best_mi.BlueFieldPosition;
-    ctx->real_fb = NULL;
-    ctx->backbuf = NULL;
 
-
+    /* Allocate one canvas in native format */
+    ctx->width  = CANVAS_W;
+    ctx->height = CANVAS_H;
+    ctx->pitch  = CANVAS_W * ctx->bpp;
+    ctx->fb = (uint8_t *)malloc(ctx->pitch * ctx->height);
+    if (!ctx->fb)
+        return 0;
+    {
+        uint32_t *p = (uint32_t *)ctx->fb;
+        uint32_t n = (ctx->pitch * ctx->height) / 4;
+        __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
+    }
 
     return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
-    if (ctx->backbuf) {
-        free(ctx->backbuf);
-        ctx->backbuf = NULL;
+    if (ctx->fb) {
+        free(ctx->fb);
+        ctx->fb = NULL;
     }
-    /* --- restore previous video mode --- */
     if (ctx->prev_vbe_mode) {
         bios_int10(0x4F02, ctx->prev_vbe_mode, 0, 0, (unsigned long)-1, 0);
     } else {
@@ -386,41 +382,37 @@ static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Backbuffer helpers — transparent double-buffering for consumers    */
+/*  Flush canvas to hardware screen                                   */
+/*  Canvas is native format — copy row by row, centered.              */
 /* ------------------------------------------------------------------ */
+static inline void gfx_flush(struct gfx *g) {
+    if (!g->fb || !g->hw_fb)
+        return;
 
-/* Switch drawing target to the backbuffer, allocating it on first use */
-static inline void gfx_backbuffer_begin(struct gfx *g) {
-    if (!g->backbuf) {
-        g->real_fb = g->fb;
-        uint32_t sz = g->pitch * g->height;
-        g->backbuf = malloc(sz);
-        if (g->backbuf)
-            memmove(g->backbuf, g->real_fb, sz);
-    }
-    g->fb = g->backbuf;
-}
+    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
+    int oy = ((int)g->hw_height - (int)g->height) / 2;
+    if (ox < 0) ox = 0;
+    if (oy < 0) oy = 0;
 
-/* Blit backbuffer to the real framebuffer and restore fb pointer */
-static inline void gfx_backbuffer_end(struct gfx *g) {
-    if (g->backbuf && g->real_fb) {
-        uint32_t sz = g->pitch * g->height;
-        uint8_t *dst = g->real_fb;
-        const uint8_t *src = (const uint8_t *)g->backbuf;
+    uint32_t row_bytes = g->width * g->bpp;
 
-        /* Bulk copy via rep movsl (4× faster than movsb on WC framebuffer) */
-        uint32_t dwords = sz >> 2;
+    for (uint32_t y = 0; y < g->height; y++) {
+        uint8_t *src = g->fb + y * g->pitch;
+        uint8_t *dst = g->hw_fb + (unsigned)(oy + (int)y) * g->hw_pitch
+                     + (unsigned)ox * g->bpp;
+
+        /* Bulk copy via rep movsl */
+        uint32_t dwords = row_bytes >> 2;
         __asm__ volatile("rep movsl"
                          : "+S"(src), "+D"(dst), "+c"(dwords)
                          :
                          : "memory");
-        uint32_t rem = sz & 3;
+        uint32_t rem = row_bytes & 3;
         if (rem)
             __asm__ volatile("rep movsb"
                              : "+S"(src), "+D"(dst), "+c"(rem)
                              :
                              : "memory");
-        g->fb = g->real_fb;
     }
 }
 

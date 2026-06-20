@@ -15,8 +15,6 @@
 #define LINE_H   48
 #define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
-#define CANVAS_W 820
-#define CANVAS_H 680
 
 enum action_type {
     ACTION_NONE,
@@ -133,8 +131,8 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     }
 }
 
-static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
-                                struct gfx *ctx, int cw, int ch,
+static void handle_disk_image(struct gfx *g, struct gfx_sprite *s,
+                                int cw, int ch,
                                 int pad_x, int pad_y,
                                 const char *target) {
     int tlen = strlen(target);
@@ -153,12 +151,12 @@ static void handle_disk_image(struct gfx_sprite *screen, struct gfx_sprite *s,
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+        bt_gui_show_log(g, s, cw, ch, pad_x, pad_y,
                         "Boot failed", log);
 }
 
-static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
-                               struct gfx *ctx, int cw, int ch,
+static void handle_chainload(struct gfx *g, struct gfx_sprite *s,
+                               int cw, int ch,
                                int pad_x, int pad_y,
                                const char *target) {
     char cmd[PATH_MAX + 128];
@@ -168,32 +166,32 @@ static void handle_chainload(struct gfx_sprite *screen, struct gfx_sprite *s,
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+        bt_gui_show_log(g, s, cw, ch, pad_x, pad_y,
                         "Boot failed", log);
 }
 
-static void handle_reboot(struct gfx_sprite *screen, struct gfx_sprite *s,
-                            struct gfx *ctx, int cw, int ch,
+static void handle_reboot(struct gfx *g, struct gfx_sprite *s,
+                            int cw, int ch,
                             int pad_x, int pad_y) {
-    if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
+    if (bt_gui_confirm(g, s, cw, ch, pad_x, pad_y,
                        "Restart system?", NULL)) {
         char log[10240];
         log[0] = '\0';
         int bt_ret = bt_eval_ex("reboot", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+        bt_gui_show_log(g, s, cw, ch, pad_x, pad_y,
                         "Failed to reboot", log);
     }
 }
 
-static void handle_poweroff(struct gfx_sprite *screen, struct gfx_sprite *s,
-                              struct gfx *ctx, int cw, int ch,
+static void handle_poweroff(struct gfx *g, struct gfx_sprite *s,
+                              int cw, int ch,
                               int pad_x, int pad_y) {
-    if (bt_gui_confirm(screen, s, ctx, cw, ch, pad_x, pad_y,
+    if (bt_gui_confirm(g, s, cw, ch, pad_x, pad_y,
                        "Shut down system?", NULL)) {
         char log[10240];
         log[0] = '\0';
         int bt_ret = bt_eval_ex("halt", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(screen, s, ctx, cw, ch, pad_x, pad_y,
+        bt_gui_show_log(g, s, cw, ch, pad_x, pad_y,
                         "Failed to shut down", log);
     }
 }
@@ -435,14 +433,14 @@ int gmain(int argc, char *argv[], int flags) {
     load_ini_items(m);
     rebuild_view(m);
 
-    struct gfx_sprite screen = gfx_sprite_from_fb(&g);
     struct gfx_sprite back;
     gfx_sprite_init(&back, cw, ch);
 
     while (1) {
         gfx_sprite_clear(&back, 15, 15, 30, 255);
         draw(m, &back, &g, cw, ch);
-        gfx_sprite_blit(&screen, &back, pad_x, pad_y);
+        gfx_draw_sprite(&g, &back, pad_x, pad_y);
+        gfx_flush(&g);
 
         int key = gfx_getkey(&g);
         int scan = (key >> 8) & 0xFF;
@@ -460,7 +458,7 @@ int gmain(int argc, char *argv[], int flags) {
                 m->cur = 0;
                 m->top = 0;
             } else {
-                if (!m->confirm_exit || bt_gui_confirm(&screen, &back, &g, cw, ch, pad_x, pad_y, "Quit Boot Menu?", NULL))
+                if (!m->confirm_exit || bt_gui_confirm(&g, &back, cw, ch, pad_x, pad_y, "Quit Boot Menu?", NULL))
                     goto done;
             }
         } else if (ascii == 0x0D) {
@@ -469,7 +467,7 @@ int gmain(int argc, char *argv[], int flags) {
                 struct menu_item *item = &m->items[m->view[m->cur]];
                 switch (item->action.type) {
                 case ACTION_DISK_IMAGE:
-                    handle_disk_image(&screen, &back, &g, cw, ch, pad_x, pad_y,
+                    handle_disk_image(&g, &back, cw, ch, pad_x, pad_y,
                                       item->action.target);
                     break;
                 case ACTION_FILE_BROWSER:
@@ -481,14 +479,14 @@ int gmain(int argc, char *argv[], int flags) {
                     }
                     break;
                 case ACTION_CHAINLOAD:
-                    handle_chainload(&screen, &back, &g, cw, ch, pad_x, pad_y,
+                    handle_chainload(&g, &back, cw, ch, pad_x, pad_y,
                                      item->action.target);
                     break;
                 case ACTION_REBOOT:
-                    handle_reboot(&screen, &back, &g, cw, ch, pad_x, pad_y);
+                    handle_reboot(&g, &back, cw, ch, pad_x, pad_y);
                     break;
                 case ACTION_POWEROFF:
-                    handle_poweroff(&screen, &back, &g, cw, ch, pad_x, pad_y);
+                    handle_poweroff(&g, &back, cw, ch, pad_x, pad_y);
                     break;
                 case ACTION_OPEN_CATEGORY:
                     {

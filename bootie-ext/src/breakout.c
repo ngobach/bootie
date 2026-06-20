@@ -74,6 +74,7 @@ int gmain(int argc, char *argv[], int flags) {
     draw_str(&g, (wnd_l + wnd_r - gfx_text_width(title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 28);
     draw_str(&g, (wnd_l + wnd_r - gfx_text_width(ctrl, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 16);
     draw_str(&g, (wnd_l + wnd_r - gfx_text_width(prompt, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 16);
+    gfx_flush(&g);
     while (!gfx_checkkey(&g)) gfx_delay_ms(&g, 25);
     gfx_getkey(&g);
 
@@ -229,7 +230,6 @@ int gmain(int argc, char *argv[], int flags) {
             }
 
             /* --- Rendering --- */
-            gfx_backbuffer_begin(&g);
 
             /* Clear window area */
             fill_rect(&g, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30);
@@ -283,7 +283,7 @@ int gmain(int argc, char *argv[], int flags) {
                 draw_str(&g, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", 16)) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 16);
             }
 
-            gfx_backbuffer_end(&g);
+            gfx_flush(&g);
             bt_fps_wait(&fps);
         }
 

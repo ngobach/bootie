@@ -52,6 +52,8 @@ int gmain(int argc, char *argv[], int flags) {
            title, 50, 220, 50, 28);
   draw_str(&g, (W - gfx_text_width(prompt, 16)) / 2, y_off + grid_h / 2, prompt, 200, 200, 200, 16);
 
+  gfx_flush(&g);
+
   while (!gfx_checkkey(&g)) {
     gfx_delay_ms(&g, 25);
   }
@@ -179,7 +181,6 @@ int gmain(int argc, char *argv[], int flags) {
       }
 
       /* Draw the frame */
-      gfx_backbuffer_begin(&g);
       /* 1. Clear play arena */
       fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
 
@@ -208,7 +209,7 @@ int gmain(int argc, char *argv[], int flags) {
       else
           draw_strf_centered(&g, W / 2, (y_off - 10) / 2, 240, 240, 255, 16,
                     "SCORE: %d", score);
-      gfx_backbuffer_end(&g);
+      gfx_flush(&g);
 
       /* Tick delay - Constant 40 FPS */
       bt_fps_wait(&fps);
@@ -223,7 +224,6 @@ int gmain(int argc, char *argv[], int flags) {
 
     int exit_requested = 0;
     while (1) {
-      gfx_backbuffer_begin(&g);
       fill_rect(&g, x_off, y_off, grid_w, grid_h, 20, 20, 30);
       draw_border(&g, x_off, y_off);
       draw_str(&g, (W - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50,
@@ -236,7 +236,7 @@ int gmain(int argc, char *argv[], int flags) {
                     "Score: %d    High Score: %d", score, session_high_score);
       draw_str(&g, (W - gfx_text_width(restart_prompt, 16)) / 2, y_off + grid_h * 2 / 3, restart_prompt,
                180, 180, 180, 16);
-      gfx_backbuffer_end(&g);
+      gfx_flush(&g);
 
       if (gfx_checkkey(&g)) {
         int key = gfx_getkey(&g);

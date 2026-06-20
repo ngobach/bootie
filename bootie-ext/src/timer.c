@@ -64,7 +64,6 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         /* --- Rendering --- */
-        gfx_backbuffer_begin(&g);
         fill_rect(&g, 0, 0, W, H, 10, 10, 15);
 
         /* Window background */
@@ -116,7 +115,7 @@ int gmain(int argc, char *argv[], int flags) {
         draw_str(&g, (wnd_l + wnd_r - gfx_text_width(help2, 16)) / 2,
                  wnd_b - 20, help2, 150, 150, 160, 16);
 
-        gfx_backbuffer_end(&g);
+        gfx_flush(&g);
     }
 
     gfx_close(&g);

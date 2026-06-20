@@ -203,7 +203,6 @@ int gmain(int argc, char *argv[], int flags) {
     int clear_on_next = 0;
 
     while (running) {
-        gfx_backbuffer_begin(&g);
 
         if (clear_on_next) {
             fill_rect(&g, 0, 0, g.width, g.height, 0, 0, 0);
@@ -221,7 +220,7 @@ int gmain(int argc, char *argv[], int flags) {
 
         draw_overlays(&g, test);
         fps_tick();
-        gfx_backbuffer_end(&g);
+        gfx_flush(&g);
 
         gfx_delay_ms(&g, test_delay[test]);
 

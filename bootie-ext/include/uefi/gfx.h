@@ -52,29 +52,32 @@ typedef struct efi_graphics_output_protocol {
 /*  Graphics Context Structure                                        */
 /* ------------------------------------------------------------------ */
 struct gfx {
+  /* Canvas — native pixel format, malloc'd once */
   uint8_t *fb;
-  uint32_t width;
-  uint32_t height;
-  uint32_t pitch;
-  uint32_t bpp;
-  uint8_t rshift;
-  uint8_t gshift;
-  uint8_t bshift;
+  uint32_t width;       /* canvas width  (= CANVAS_W) */
+  uint32_t height;      /* canvas height (= CANVAS_H) */
+  uint32_t pitch;       /* bytes per scanline */
+  uint8_t  bpp;         /* bytes per pixel (always 4 for GOP) */
+  uint8_t  rshift, gshift, bshift;  /* channel shifts (canvas = native) */
+
+  /* Hardware screen info (for flush centering) */
+  uint32_t hw_width, hw_height;
+
+  /* UEFI */
+  void *gop;
+  uint32_t saved_mode;
+
+  /* Input */
   int has_key;
   int buffered_key;
-  uint8_t *real_fb;
-  void *backbuf;
-  uint32_t saved_mode;
-  void *gop;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
-
 static inline uint32_t gfx_height(const struct gfx *g) { return g->height; }
 
 
 /* ------------------------------------------------------------------ */
-/*  Framebuffer pixel writer                                            */
+/*  Framebuffer pixel writer (native format)                           */
 /* ------------------------------------------------------------------ */
 static inline __attribute__((always_inline)) void
 put_pixel(struct gfx *ctx, uint32_t x, uint32_t y, uint8_t r, uint8_t g,
@@ -218,13 +221,15 @@ static inline int gfx_init(struct gfx *ctx) {
     }
   }
 
-  ctx->fb = (uint8_t *)gop->Mode->FrameBufferBase;
-  ctx->width = gop->Mode->Info->HorizontalResolution;
-  ctx->height = gop->Mode->Info->VerticalResolution;
-  ctx->bpp = 4; /* GOP is always 32-bit linear framebuffer */
-  ctx->pitch = gop->Mode->Info->PixelsPerScanLine * 4;
+  /* Hardware screen info */
+  ctx->hw_width  = gop->Mode->Info->HorizontalResolution;
+  ctx->hw_height = gop->Mode->Info->VerticalResolution;
 
-  /* Determine shifts */
+  /* Canvas pixel format (GOP is always 32-bit) */
+  ctx->bpp = 4;
+  ctx->pitch = CANVAS_W * 4;
+
+  /* Determine channel shifts */
   ctx->rshift = 16;
   ctx->gshift = 8;
   ctx->bshift = 0;
@@ -240,34 +245,36 @@ static inline int gfx_init(struct gfx *ctx) {
 
     uint8_t count = 0;
     uint32_t temp = rmask;
-    while (temp && !(temp & 1)) {
-      count++;
-      temp >>= 1;
-    }
+    while (temp && !(temp & 1)) { count++; temp >>= 1; }
     ctx->rshift = count;
 
     count = 0;
     temp = gmask;
-    while (temp && !(temp & 1)) {
-      count++;
-      temp >>= 1;
-    }
+    while (temp && !(temp & 1)) { count++; temp >>= 1; }
     ctx->gshift = count;
 
     count = 0;
     temp = bmask;
-    while (temp && !(temp & 1)) {
-      count++;
-      temp >>= 1;
-    }
+    while (temp && !(temp & 1)) { count++; temp >>= 1; }
     ctx->bshift = count;
   }
 
+  /* Allocate one canvas in native format */
+  ctx->width  = CANVAS_W;
+  ctx->height = CANVAS_H;
+  ctx->fb = (uint8_t *)malloc(ctx->pitch * ctx->height);
+  if (!ctx->fb)
+    return 0;
+  /* Clear to black */
+  {
+    uint32_t *p = (uint32_t *)ctx->fb;
+    uint32_t n = (ctx->pitch * ctx->height) / 4;
+    __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
+  }
+
+  ctx->gop = gop;
   ctx->has_key = 0;
   ctx->buffered_key = 0;
-  ctx->real_fb = NULL;
-  ctx->backbuf = NULL;
-  ctx->gop = gop;
   return 1;
 }
 
@@ -282,9 +289,9 @@ static inline void gfx_close(struct gfx *ctx) {
       sm(gop, ctx->saved_mode);
     }
   }
-  if (ctx->backbuf) {
-    free(ctx->backbuf);
-    ctx->backbuf = NULL;
+  if (ctx->fb) {
+    free(ctx->fb);
+    ctx->fb = NULL;
   }
   if (graphics_inited) {
     if (current_term->STARTUP)
@@ -310,7 +317,7 @@ static inline int gfx_checkkey(struct gfx *ctx) {
     return 0;
 
   efi_status_t status = st->boot_services->check_event(st->con_in->wait_for_key);
-  if (status == 0) { // EFI_SUCCESS (event is signaled, key is ready)
+  if (status == 0) {
     efi_input_key_t key;
     status = st->con_in->read_key_stroke(st->con_in, &key);
     if (status == 0) {
@@ -318,17 +325,16 @@ static inline int gfx_checkkey(struct gfx *ctx) {
       if (key.scan_code == 0) {
         code = key.unicode_char;
       } else {
-        // Map UEFI scan codes to BIOS codes expected by the game
         if (key.scan_code == 1)
-          code = 0x4800; // Up
+          code = 0x4800;
         else if (key.scan_code == 2)
-          code = 0x5000; // Down
+          code = 0x5000;
         else if (key.scan_code == 3)
-          code = 0x4D00; // Right
+          code = 0x4D00;
         else if (key.scan_code == 4)
-          code = 0x4B00; // Left
+          code = 0x4B00;
         else if (key.scan_code == 23)
-          code = 27; // ESC
+          code = 27;
         else
           code = key.scan_code << 8;
       }
@@ -349,94 +355,31 @@ static inline int gfx_getkey(struct gfx *ctx) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Backbuffer helpers — transparent double-buffering for consumers    */
+/*  Flush canvas to hardware screen                                   */
+/*  Canvas is native format — just Blt it, centered on screen.        */
 /* ------------------------------------------------------------------ */
-
-/* Switch drawing target to the backbuffer, allocating it on first use */
-static inline void gfx_backbuffer_begin(struct gfx *g) {
-  if (!g->backbuf) {
-    g->real_fb = g->fb;
-    uint32_t sz = g->pitch * g->height;
-    g->backbuf = malloc(sz);
-    if (g->backbuf) {
-      /* Preserve current screen into backbuffer (one-time copy).
-         Use GOP Blt (EfiBltVideoToBltBuffer) for WC framebuffer if
-         pixel format matches BLT_PIXEL (BGRx). */
-      int copied = 0;
-      if (g->gop && g->bshift == 0 && g->gshift == 8 && g->rshift == 16) {
-        efi_graphics_output_protocol_t *gop =
-            (efi_graphics_output_protocol_t *)g->gop;
-        if (gop->Blt) {
-          typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
-                                               uint32_t, uint32_t, uint32_t,
-                                               uint32_t, uint32_t, uint32_t,
-                                               uint32_t);
-          if (((blt_t)gop->Blt)(gop, g->backbuf, 1 /*EfiBltVideoToBltBuffer*/,
-                                0, 0, 0, 0, g->width, g->height, g->pitch) == 0)
-            copied = 1;
-        }
-      }
-      if (!copied) {
-        uint8_t *dst = g->backbuf;
-        const uint8_t *src = g->real_fb;
-        uint32_t dwords = sz >> 2;
-        __asm__ volatile("rep movsl"
-                         : "+S"(src), "+D"(dst), "+c"(dwords)
-                         :
-                         : "memory");
-        uint32_t rem = sz & 3;
-        if (rem)
-          __asm__ volatile("rep movsb"
-                           : "+S"(src), "+D"(dst), "+c"(rem)
-                           :
-                           : "memory");
-      }
-    }
-  }
-  g->fb = g->backbuf;
-}
-
-/* Blit backbuffer to the real framebuffer and restore fb pointer */
-static inline void gfx_backbuffer_end(struct gfx *g) {
-  if (!g->backbuf || !g->real_fb)
+static inline void gfx_flush(struct gfx *g) {
+  if (!g->fb || !g->gop)
+    return;
+  efi_graphics_output_protocol_t *gop =
+      (efi_graphics_output_protocol_t *)g->gop;
+  if (!gop->Blt)
     return;
 
-  /* Prefer GOP Blt when pixel layout matches BLT_PIXEL (BGRx) */
-  if (g->gop && g->bshift == 0 && g->gshift == 8 && g->rshift == 16) {
-    efi_graphics_output_protocol_t *gop =
-        (efi_graphics_output_protocol_t *)g->gop;
-    if (gop->Blt) {
-      typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
-                                           uint32_t, uint32_t, uint32_t,
-                                           uint32_t, uint32_t, uint32_t,
-                                           uint32_t);
-      ((blt_t)gop->Blt)(gop, g->backbuf, 2 /*EfiBltBufferToVideo*/,
-                        0, 0, 0, 0, g->width, g->height, g->pitch);
-      g->fb = g->real_fb;
-      return;
-    }
-  }
+  typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
+                                       uint32_t, uint32_t, uint32_t,
+                                       uint32_t, uint32_t, uint32_t,
+                                       uint32_t);
 
-  /* CPU fallback (only when ENABLE_UEFI_SLOW_BLIT is defined) */
-#ifdef ENABLE_UEFI_SLOW_BLIT
-  {
-    uint32_t sz = g->pitch * g->height;
-    uint8_t *dst = g->real_fb;
-    const uint8_t *src = (const uint8_t *)g->backbuf;
-    uint32_t dwords = sz >> 2;
-    __asm__ volatile("rep movsl"
-                     : "+S"(src), "+D"(dst), "+c"(dwords)
-                     :
-                     : "memory");
-    uint32_t rem = sz & 3;
-    if (rem)
-      __asm__ volatile("rep movsb"
-                       : "+S"(src), "+D"(dst), "+c"(rem)
-                       :
-                       : "memory");
-  }
-#endif
-  g->fb = g->real_fb;
+  /* Center canvas on hardware screen */
+  int ox = ((int)g->hw_width  - (int)g->width)  / 2;
+  int oy = ((int)g->hw_height - (int)g->height) / 2;
+  if (ox < 0) ox = 0;
+  if (oy < 0) oy = 0;
+
+  ((blt_t)gop->Blt)(gop, g->fb, 2 /*EfiBltBufferToVideo*/,
+                     0, 0, (uint32_t)ox, (uint32_t)oy,
+                     g->width, g->height, g->pitch);
 }
 
 #endif /* UEFI_GFX_H */

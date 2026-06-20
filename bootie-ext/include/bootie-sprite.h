@@ -12,75 +12,18 @@ static inline void gfx_sprite_init(struct gfx_sprite *s, unsigned w, unsigned h)
     s->pixels = (unsigned char *)zalloc(w * h * 4);
     s->w = w;
     s->h = h;
-    s->is_screen = 0;
 }
 
 /* Free pixel buffer. */
 static inline void gfx_sprite_destroy(struct gfx_sprite *s) {
-    if (s->pixels && !s->is_screen) {
+    if (s->pixels) {
         free(s->pixels);
     }
     s->pixels = 0;
 }
 
-/* Wrap the hardware framebuffer as a screen sprite. */
-static inline struct gfx_sprite gfx_sprite_from_fb(struct gfx *g) {
-    struct gfx_sprite s;
-    s.pixels = g->real_fb ? g->real_fb : g->fb;
-    s.w = g->width;
-    s.h = g->height;
-    s.is_screen = 1;
-    s.pitch = g->pitch;
-    s.rshift = g->rshift;
-    s.gshift = g->gshift;
-    s.bshift = g->bshift;
-    s.bpp = g->bpp;
-    return s;
-}
-
 /* ------------------------------------------------------------------ */
-/*  Pixel helpers                                                      */
-/* ------------------------------------------------------------------ */
-
-/* Composite src RGBA over dst RGBA, store result in dst. */
-static inline void composite_pixel(unsigned char *dst,
-                                    uint8_t sr, uint8_t sg, uint8_t sb, uint8_t sa) {
-    if (sa == 255) {
-        dst[0] = sr; dst[1] = sg; dst[2] = sb; dst[3] = 255;
-    } else if (sa == 0) {
-        return;
-    } else {
-        int inv = 255 - sa;
-        dst[0] = (sr * sa + dst[0] * inv + 128) >> 8;
-        dst[1] = (sg * sa + dst[1] * inv + 128) >> 8;
-        dst[2] = (sb * sa + dst[2] * inv + 128) >> 8;
-        dst[3] = (255 * sa + dst[3] * inv + 128) >> 8;
-    }
-}
-
-/* Pack RGBA into a native screen pixel (BPP 2, 3, or 4). */
-static inline uint32_t pack_native(uint8_t r, uint8_t g, uint8_t b,
-                                    uint8_t rshift, uint8_t gshift, uint8_t bshift,
-                                    uint8_t bpp) {
-    (void)bpp;
-    return ((uint32_t)r << rshift) | ((uint32_t)g << gshift) | ((uint32_t)b << bshift);
-}
-
-/* Write a packed native pixel to the screen framebuffer. */
-static inline void write_native(unsigned char *fb, uint32_t color, uint8_t bpp) {
-    if (bpp == 4) {
-        *(uint32_t *)fb = color;
-    } else if (bpp == 3) {
-        fb[0] = (uint8_t)(color & 0xFF);
-        fb[1] = (uint8_t)((color >> 8) & 0xFF);
-        fb[2] = (uint8_t)((color >> 16) & 0xFF);
-    } else if (bpp == 2) {
-        *(uint16_t *)fb = (uint16_t)color;
-    }
-}
-
-/* ------------------------------------------------------------------ */
-/*  Fill operations                                                     */
+/*  Sprite fill (RGBA)                                                 */
 /* ------------------------------------------------------------------ */
 
 static inline void gfx_sprite_fill(struct gfx_sprite *dst,
@@ -93,30 +36,24 @@ static inline void gfx_sprite_fill(struct gfx_sprite *dst,
     if ((unsigned)(x + w) > dst->w) w = dst->w - x;
     if ((unsigned)(y + h) > dst->h) h = dst->h - y;
 
-    if (dst->is_screen) {
-        uint32_t color = pack_native(r, g, b, dst->rshift, dst->gshift, dst->bshift, dst->bpp);
+    if (a == 255) {
+        uint32_t color = (uint32_t)r | ((uint32_t)g << 8) |
+                         ((uint32_t)b << 16) | ((uint32_t)255 << 24);
         for (int row = 0; row < h; row++) {
-            unsigned char *line = dst->pixels + (unsigned)(y + row) * dst->pitch + (unsigned)x * dst->bpp;
-            for (int col = 0; col < w; col++) {
-                write_native(line, color, dst->bpp);
-                line += dst->bpp;
-            }
+            uint32_t *p = (uint32_t *)(dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4);
+            uint32_t n = (uint32_t)w;
+            __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(color) : "memory");
         }
     } else {
-        if (a == 255) {
-            uint32_t color = (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16) | ((uint32_t)255 << 24);
-            for (int row = 0; row < h; row++) {
-                uint32_t *p = (uint32_t *)(dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4);
-                uint32_t n = (uint32_t)w;
-                __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(color) : "memory");
-            }
-        } else {
-            for (int row = 0; row < h; row++) {
-                unsigned char *p = dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4;
-                for (int col = 0; col < w; col++) {
-                    composite_pixel(p, r, g, b, a);
-                    p += 4;
-                }
+        for (int row = 0; row < h; row++) {
+            unsigned char *p = dst->pixels + ((unsigned)(y + row) * dst->w + (unsigned)x) * 4;
+            for (int col = 0; col < w; col++) {
+                int inv = 255 - a;
+                p[0] = (uint8_t)((r * a + p[0] * inv + 128) >> 8);
+                p[1] = (uint8_t)((g * a + p[1] * inv + 128) >> 8);
+                p[2] = (uint8_t)((b * a + p[2] * inv + 128) >> 8);
+                p[3] = (uint8_t)((255 * a + p[3] * inv + 128) >> 8);
+                p += 4;
             }
         }
     }
@@ -128,7 +65,7 @@ static inline void gfx_sprite_clear(struct gfx_sprite *dst,
 }
 
 /* ------------------------------------------------------------------ */
-/*  Blit (alpha-composited)                                            */
+/*  Sprite-to-sprite blit (RGBA → RGBA, alpha-composited)              */
 /* ------------------------------------------------------------------ */
 
 static inline void gfx_sprite_blit(struct gfx_sprite *dst,
@@ -138,7 +75,6 @@ static inline void gfx_sprite_blit(struct gfx_sprite *dst,
     int sx = 0, sy = 0;
     int sw = (int)src->w, sh = (int)src->h;
 
-    /* Clip source */
     if (dx < 0) { sx = -dx; sw += dx; dx = 0; }
     if (dy < 0) { sy = -dy; sh += dy; dy = 0; }
     if ((unsigned)dx >= dst->w || (unsigned)dy >= dst->h) return;
@@ -146,36 +82,113 @@ static inline void gfx_sprite_blit(struct gfx_sprite *dst,
     if (dy + sh > (int)dst->h) sh = dst->h - dy;
     if (sw <= 0 || sh <= 0) return;
 
-    if (dst->is_screen) {
-        for (int row = 0; row < sh; row++) {
-            const unsigned char *src_p = src->pixels + ((unsigned)(sy + row) * src->w + (unsigned)sx) * 4;
-            unsigned char *dst_p = dst->pixels + (unsigned)(dy + row) * dst->pitch + (unsigned)dx * dst->bpp;
-            for (int col = 0; col < sw; col++) {
-                uint8_t sa = src_p[3];
-                if (sa > 128) {
-                    uint32_t color = pack_native(src_p[0], src_p[1], src_p[2],
-                                                  dst->rshift, dst->gshift, dst->bshift, dst->bpp);
-                    write_native(dst_p, color, dst->bpp);
-                }
-                src_p += 4;
-                dst_p += dst->bpp;
+    for (int row = 0; row < sh; row++) {
+        const unsigned char *sp = src->pixels + ((unsigned)(sy + row) * src->w + (unsigned)sx) * 4;
+        unsigned char *dp = dst->pixels + ((unsigned)(dy + row) * dst->w + (unsigned)dx) * 4;
+        for (int col = 0; col < sw; col++) {
+            uint8_t sa = sp[3];
+            if (sa == 255) {
+                dp[0] = sp[0]; dp[1] = sp[1]; dp[2] = sp[2]; dp[3] = 255;
+            } else if (sa > 0) {
+                int inv = 255 - sa;
+                dp[0] = (uint8_t)((sp[0] * sa + dp[0] * inv + 128) >> 8);
+                dp[1] = (uint8_t)((sp[1] * sa + dp[1] * inv + 128) >> 8);
+                dp[2] = (uint8_t)((sp[2] * sa + dp[2] * inv + 128) >> 8);
+                dp[3] = (uint8_t)((255 * sa + dp[3] * inv + 128) >> 8);
             }
-        }
-    } else {
-        for (int row = 0; row < sh; row++) {
-            const unsigned char *src_p = src->pixels + ((unsigned)(sy + row) * src->w + (unsigned)sx) * 4;
-            unsigned char *dst_p = dst->pixels + ((unsigned)(dy + row) * dst->w + (unsigned)dx) * 4;
-            for (int col = 0; col < sw; col++) {
-                composite_pixel(dst_p, src_p[0], src_p[1], src_p[2], src_p[3]);
-                src_p += 4;
-                dst_p += 4;
-            }
+            sp += 4; dp += 4;
         }
     }
 }
 
 /* ------------------------------------------------------------------ */
-/*  Text rendering                                                     */
+/*  Draw sprite to gfx canvas (RGBA → native, alpha-composited)        */
+/*  This is the ONLY operation that reads sprite pixels and writes     */
+/*  to the native-format canvas.                                       */
+/* ------------------------------------------------------------------ */
+
+static inline void gfx_draw_sprite(struct gfx *g, const struct gfx_sprite *src,
+                                    int dx, int dy) {
+    if (!src->pixels || !g->fb) return;
+    int sx = 0, sy = 0;
+    int sw = (int)src->w, sh = (int)src->h;
+
+    if (dx < 0) { sx = -dx; sw += dx; dx = 0; }
+    if (dy < 0) { sy = -dy; sh += dy; dy = 0; }
+    if ((unsigned)dx >= g->width || (unsigned)dy >= g->height) return;
+    if (dx + sw > (int)g->width)  sw = g->width - dx;
+    if (dy + sh > (int)g->height) sh = g->height - dy;
+    if (sw <= 0 || sh <= 0) return;
+
+    for (int row = 0; row < sh; row++) {
+        const unsigned char *sp = src->pixels + ((unsigned)(sy + row) * src->w + (unsigned)sx) * 4;
+        unsigned char *dp = g->fb + (unsigned)(dy + row) * g->pitch + (unsigned)dx * g->bpp;
+
+        for (int col = 0; col < sw; col++) {
+            uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
+
+            if (sa == 255) {
+                /* Opaque: write native directly */
+                uint32_t color = ((uint32_t)sr << g->rshift) |
+                                 ((uint32_t)sg << g->gshift) |
+                                 ((uint32_t)sb << g->bshift);
+                if (g->bpp == 4) {
+                    *(uint32_t *)dp = color;
+                } else if (g->bpp == 3) {
+                    dp[0] = color & 0xFF;
+                    dp[1] = (color >> 8) & 0xFF;
+                    dp[2] = (color >> 16) & 0xFF;
+                } else if (g->bpp == 2) {
+                    *(uint16_t *)dp = (uint16_t)(((sr >> 3) << 11) | ((sg >> 2) << 5) | (sb >> 3));
+                }
+            } else if (sa > 0) {
+                /* Alpha composite: read native dst, blend, write native */
+                uint32_t dst_color = 0;
+                uint8_t dr, dg, db;
+                if (g->bpp == 4) {
+                    dst_color = *(uint32_t *)dp;
+                } else if (g->bpp == 3) {
+                    dst_color = dp[0] | ((uint32_t)dp[1] << 8) | ((uint32_t)dp[2] << 16);
+                } else if (g->bpp == 2) {
+                    dst_color = *(uint16_t *)dp;
+                    /* Expand 5-6-5 to 8-bit for blending */
+                    dr = (uint8_t)(((dst_color >> 11) & 0x1F) << 3);
+                    dg = (uint8_t)(((dst_color >> 5)  & 0x3F) << 2);
+                    db = (uint8_t)((dst_color & 0x1F) << 3);
+                    int inv = 255 - sa;
+                    uint8_t fr = (uint8_t)((sr * sa + dr * inv + 128) >> 8);
+                    uint8_t fg = (uint8_t)((sg * sa + dg * inv + 128) >> 8);
+                    uint8_t fb_ = (uint8_t)((sb * sa + db * inv + 128) >> 8);
+                    *(uint16_t *)dp = (uint16_t)(((fr >> 3) << 11) | ((fg >> 2) << 5) | (fb_ >> 3));
+                    sp += 4; dp += g->bpp;
+                    continue;
+                }
+                dr = (uint8_t)((dst_color >> g->rshift) & 0xFF);
+                dg = (uint8_t)((dst_color >> g->gshift) & 0xFF);
+                db = (uint8_t)((dst_color >> g->bshift) & 0xFF);
+                int inv = 255 - sa;
+                uint8_t fr = (uint8_t)((sr * sa + dr * inv + 128) >> 8);
+                uint8_t fg = (uint8_t)((sg * sa + dg * inv + 128) >> 8);
+                uint8_t fb_ = (uint8_t)((sb * sa + db * inv + 128) >> 8);
+                uint32_t result = ((uint32_t)fr << g->rshift) |
+                                  ((uint32_t)fg << g->gshift) |
+                                  ((uint32_t)fb_ << g->bshift);
+                if (g->bpp == 4) {
+                    *(uint32_t *)dp = result;
+                } else if (g->bpp == 3) {
+                    dp[0] = result & 0xFF;
+                    dp[1] = (result >> 8) & 0xFF;
+                    dp[2] = (result >> 16) & 0xFF;
+                }
+            }
+            sp += 4;
+            dp += g->bpp;
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Text rendering (RGBA sprites)                                      */
 /* ------------------------------------------------------------------ */
 
 static inline void gfx_sprite_draw_str(struct gfx_sprite *dst, struct gfx *ctx,
@@ -184,15 +197,9 @@ static inline void gfx_sprite_draw_str(struct gfx_sprite *dst, struct gfx *ctx,
                                         uint8_t a, int px_size) {
     if (!str || !str[0]) return;
 
-    if (dst->is_screen) {
-        draw_str(ctx, x, y, str, r, g, b, px_size);
-        return;
-    }
-
-    /* Memory sprite: build a fake gfx pointing to the sprite buffer
-       and use the font renderer. The font renderer writes a 32-bit
-       packed value that sets R,G,B but leaves byte 3 (alpha) = 0.
-       We fix up alpha in the text bounding box after rendering. */
+    /* Build a fake gfx pointing to the sprite buffer in RGBA format.
+       The font renderer writes using the ctx's rshift/gshift/bshift
+       and now handles alpha compositing correctly. */
     struct gfx fake;
     fake.fb = dst->pixels;
     fake.width = dst->w;
@@ -203,29 +210,6 @@ static inline void gfx_sprite_draw_str(struct gfx_sprite *dst, struct gfx *ctx,
     fake.gshift = 8;
     fake.bshift = 16;
     draw_str(&fake, x, y, str, r, g, b, px_size);
-
-    /* Re-assert alpha=255 in the text region (font renderer zeroed it). */
-    int tw = gfx_text_width(str, px_size);
-    int th = px_size + 8;
-    if (tw < 1) tw = 1;
-    if (th < 1) th = 1;
-
-    int x0 = x;
-    int y0 = y;
-    int x1 = x + tw;
-    int y1 = y + th;
-    if (x0 < 0) x0 = 0;
-    if (y0 < 0) y0 = 0;
-    if (x1 > (int)dst->w) x1 = (int)dst->w;
-    if (y1 > (int)dst->h) y1 = (int)dst->h;
-
-    for (int row = y0; row < y1; row++) {
-        unsigned char *p = dst->pixels + ((unsigned)row * dst->w + (unsigned)x0) * 4 + 3;
-        for (int col = x0; col < x1; col++) {
-            *p = 255;
-            p += 4;
-        }
-    }
 }
 
 #endif /* BOOTIE_SPRITE_H */

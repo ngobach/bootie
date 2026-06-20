@@ -360,6 +360,8 @@ int gmain(int argc, char *argv[], int flags) {
     draw_str(&g, x_off + (grid_w - gfx_text_width(prompt1, 16)) / 2, y_off + grid_h / 2 - 10, prompt1, 200, 200, 200, 16);
     draw_str(&g, x_off + (grid_w - gfx_text_width(prompt2, 16)) / 2, y_off + grid_h / 2 + 10, prompt2, 200, 200, 200, 16);
 
+    gfx_flush(&g);
+
     while (!gfx_checkkey(&g)) {
         gfx_delay_ms(&g, 25);
     }
@@ -508,7 +510,6 @@ int gmain(int argc, char *argv[], int flags) {
             }
 
             /* --- Rendering Frame --- */
-            gfx_backbuffer_begin(&g);
             // Clear entire frame to remove previous frame's side-panel text artifacts
             fill_rect(&g, 0, 0, W, H, 10, 10, 15);
             // Clear play arena
@@ -545,7 +546,7 @@ int gmain(int argc, char *argv[], int flags) {
             draw_border(&g, x_off, y_off, grid_w, grid_h);
             draw_next_box(&g, x_off, y_off, grid_w, next_shape);
             draw_info_panel(&g, x_off, y_off, grid_w, score, level, lines, session_high_score);
-            gfx_backbuffer_end(&g);
+            gfx_flush(&g);
 
             bt_fps_wait(&fps); // ~40 FPS tick rate
         }

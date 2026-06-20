@@ -96,7 +96,6 @@ int gmain(int argc, char *argv[], int flags) {
             }
         }
 
-        gfx_backbuffer_begin(&g);
         fill_rect(&g, 0, 0, W, H, bg_color.r, bg_color.g, bg_color.b);
 
         if (elapsed > DELAY_MS) {
@@ -116,7 +115,7 @@ int gmain(int argc, char *argv[], int flags) {
             }
         }
 
-        gfx_backbuffer_end(&g);
+        gfx_flush(&g);
         bt_fps_wait(&fps);
     }
 
