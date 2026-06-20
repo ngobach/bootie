@@ -130,7 +130,7 @@ static void test_mem(void) {
         print_result(fails == 0, "100x random", buf);
     }
 
-    /* 2.2 MB alloc -- same size as menu.c back sprite */
+    /* 2.2 MB alloc -- same size as menu.c screen sprite */
     {
         unsigned int sz = 820 * 680 * 4;
         void *p = malloc(sz);
@@ -139,7 +139,7 @@ static void test_mem(void) {
             for (unsigned int i = 0; i < sz; i += 4096) vp[i] = (unsigned char)(i & 0xFF);
             free(p);
         }
-        print_result(p != 0, "2.2MB alloc", p ? "back-sprite size OK" : "FAILED");
+        print_result(p != 0, "2.2MB alloc", p ? "screen-sprite size OK" : "FAILED");
     }
 
     /* Realloc growth: 4KB -> 8KB, verify old data preserved */
@@ -390,23 +390,23 @@ static void test_output(void) {
 
     uint32_t W = gfx_width(&g), H = gfx_height(&g);
 
-    struct gfx_sprite back;
-    gfx_sprite_init(&back, W, H);
-    gfx_sprite_clear(&back, 15, 15, 30, 255);
+    struct gfx_sprite screen;
+    gfx_sprite_init(&screen, W, H);
+    gfx_sprite_clear(&screen, 15, 15, 30, 255);
 
     /* Color gradient strip */
     for (uint32_t x = 0; x < W; x++) {
         uint8_t r = (uint8_t)((x * 255) / (W > 1 ? W - 1 : 1));
         uint8_t b = (uint8_t)(255 - r);
-        gfx_sprite_fill(&back, (int)x, 0, 1, 16, r, 40, b, 255);
+        gfx_sprite_fill(&screen, (int)x, 0, 1, 16, r, 40, b, 255);
     }
 
     /* Text at 3 sizes */
-    gfx_sprite_draw_str(&back, 8, 24, "OUTPUT: font 14px",
+    gfx_sprite_draw_str(&screen, 8, 24, "OUTPUT: font 14px",
                         220, 220, 255, 255, 14);
-    gfx_sprite_draw_str(&back, 8, 50, "OUTPUT: font 20px",
+    gfx_sprite_draw_str(&screen, 8, 50, "OUTPUT: font 20px",
                         200, 255, 200, 255, 20);
-    gfx_sprite_draw_str(&back, 8, 82, "OUTPUT: font 28px",
+    gfx_sprite_draw_str(&screen, 8, 82, "OUTPUT: font 28px",
                         255, 200, 200, 255, 28);
 
     /* Text width measurement */
@@ -422,23 +422,23 @@ static void test_output(void) {
         fmt_u32(tmp, (uint32_t)tw);
         { int i = 0; while (tmp[i]) buf[n++] = tmp[i++]; }
         buf[n++] = 'p'; buf[n++] = 'x'; buf[n] = '\0';
-        gfx_sprite_draw_str(&back, 8, 124, buf,
+        gfx_sprite_draw_str(&screen, 8, 124, buf,
                             180, 180, 220, 255, 16);
     }
 
     /* Sample paragraph */
-    gfx_sprite_draw_str(&back, 8, 156,
+    gfx_sprite_draw_str(&screen, 8, 156,
                         "Pack my box with five dozen liquor jugs!",
                         200, 200, 220, 255, 14);
 
-    gfx_sprite_draw_str(&back, 8, (int)H - 24,
+    gfx_sprite_draw_str(&screen, 8, (int)H - 24,
                         "Press any key to exit...",
                         120, 120, 160, 255, 14);
-    gfx_flush_sprite(&g, &back);
+    gfx_flush_sprite(&g, &screen);
 
     gfx_getkey(&g);
 
-    gfx_sprite_destroy(&back);
+    gfx_sprite_destroy(&screen);
     gfx_close(&g);
 
     print_result(tw > 0, "text width", tw > 0 ? "OK" : "FAILED");

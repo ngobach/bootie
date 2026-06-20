@@ -260,7 +260,7 @@ static void merge_piece(const struct piece *p, uint8_t board[BOARD_ROWS][BOARD_C
     }
 }
 
-static void animate_line_clear(struct gfx_sprite *g, uint8_t board[BOARD_ROWS][BOARD_COLS],
+static void animate_line_clear(struct gfx *ctx, struct gfx_sprite *g, uint8_t board[BOARD_ROWS][BOARD_COLS],
                                const int full_lines[BOARD_ROWS], int x_off, int y_off,
                                int grid_w, int grid_h, int score, int level, int lines,
                                int next_shape) {
@@ -294,6 +294,7 @@ static void animate_line_clear(struct gfx_sprite *g, uint8_t board[BOARD_ROWS][B
         draw_next_box(g, x_off, y_off, grid_w, next_shape);
         draw_info_panel(g, x_off, y_off, grid_w, score, level, lines, session_high_score);
 
+        gfx_flush_sprite(ctx, g);
         pit_delay_ms(60); // Delay for animation timing (5 * 60ms = 300ms total clear animation)
     }
 }
@@ -486,7 +487,7 @@ int gmain(int argc, char *argv[], int flags) {
 
                     if (cleared > 0) {
                         // Play block dissolving animation from center outward
-                        animate_line_clear(&screen, board, full_lines, x_off, y_off, grid_w, grid_h,
+                        animate_line_clear(&g, &screen, board, full_lines, x_off, y_off, grid_w, grid_h,
                                            score, level, lines, next_shape);
                         // Shift blocks down
                         shift_cleared_lines(board, full_lines);

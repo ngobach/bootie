@@ -134,7 +134,7 @@ struct ctx_blit { struct gfx_sprite *dst; struct gfx_sprite *src; };
 static void bench_blit(void *ctx, uint64_t iter) {
     struct ctx_blit *c = (struct ctx_blit *)ctx;
     for (uint64_t i = 0; i < iter; i++)
-        gfx_sprite_blit(c->dst, c->src, 0, 0);
+        gfx_sprite_draw_sprite(c->dst, c->src, 0, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -144,7 +144,7 @@ struct ctx_blit_fs { struct gfx_sprite *dst; struct gfx_sprite *src; };
 static void bench_blit_fs(void *ctx, uint64_t iter) {
     struct ctx_blit_fs *c = (struct ctx_blit_fs *)ctx;
     for (uint64_t i = 0; i < iter; i++)
-        gfx_sprite_blit(c->dst, c->src, 0, 0);
+        gfx_sprite_draw_sprite(c->dst, c->src, 0, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -209,8 +209,8 @@ int gmain(int argc, char *argv[], int flags) {
     int cw, ch, pad_x, pad_y;
     bt_gui_canvas(W, H, 820, 680, &cw, &ch, &pad_x, &pad_y);
 
-    struct gfx_sprite back;
-    gfx_sprite_init(&back, cw, ch);
+    struct gfx_sprite screen;
+    gfx_sprite_init(&screen, cw, ch);
 
     scratch_src = (unsigned char *)malloc(SCRATCH_SIZE);
     scratch_dst = (unsigned char *)malloc(SCRATCH_SIZE);
@@ -263,10 +263,10 @@ int gmain(int argc, char *argv[], int flags) {
     results[nres++] = run_bench("png",      bench_png,    &(struct ctx_png){ICON_DISC_24_PNG, (int)sizeof(ICON_DISC_24_PNG)}, 100, target_tsc);
     results[nres++] = run_bench("ease",     bench_ease,   &(struct ctx_ease){0}, 10000, target_tsc);
 
-    gfx_sprite_clear(&back, 15, 15, 30, 255);
+    gfx_sprite_clear(&screen, 15, 15, 30, 255);
     int yy = 20;
 
-    gfx_sprite_draw_str(&back, 20, yy,
+    gfx_sprite_draw_str(&screen, 20, yy,
                         "=== BENCHMARK (iters in ~300ms, higher=better) ===",
                         220, 220, 255, 255, 18);
     yy += 30;
@@ -274,19 +274,18 @@ int gmain(int argc, char *argv[], int flags) {
     char line[128];
     for (int i = 0; i < nres; i++) {
         sprintf(line, "%s %d iters", results[i].name, results[i].iters);
-        gfx_sprite_draw_str(&back, 24, yy, line,
+        gfx_sprite_draw_str(&screen, 24, yy, line,
                             200, 200, 220, 255, 15);
         yy += 22;
         if (yy > ch - 40) break;
     }
 
     yy += 12;
-    gfx_sprite_draw_str(&back, 24, yy,
+    gfx_sprite_draw_str(&screen, 24, yy,
                         "[Esc] exit",
                         140, 140, 180, 255, 14);
 
-    gfx_draw_sprite(&g, &back, pad_x, pad_y);
-    gfx_flush(&g);
+    gfx_flush_sprite(&g, &screen);
 
     while (1) {
         int key = gfx_getkey(&g);
@@ -299,7 +298,7 @@ int gmain(int argc, char *argv[], int flags) {
     gfx_sprite_destroy(&test_sprite);
     free(scratch_src);
     free(scratch_dst);
-    gfx_sprite_destroy(&back);
+    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

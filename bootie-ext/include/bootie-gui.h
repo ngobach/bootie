@@ -132,15 +132,12 @@ static void bt_gui_window(struct gfx_sprite *s, struct gfx *ctx,
 /* ------------------------------------------------------------------ */
 
 static inline void bt_gui_overlay_flip(struct gfx *g,
-                                        struct gfx_sprite *back,
-                                        int pad_x, int pad_y) {
-    gfx_draw_sprite(g, back, pad_x, pad_y);
-    gfx_flush(g);
+                                        struct gfx_sprite *screen) {
+    gfx_flush_sprite(g, screen);
 }
 
 static int bt_gui_confirm(struct gfx *g, struct gfx_sprite *s,
                            int cw, int ch,
-                           int pad_x, int pad_y,
                            const char *prompt, const char *detail) {
     gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 180);
 
@@ -162,7 +159,7 @@ static int bt_gui_confirm(struct gfx *g, struct gfx_sprite *s,
                         "[Enter] Confirm   [Esc] Cancel",
                         180, 180, 200, 255, 16);
 
-    bt_gui_overlay_flip(g, s, pad_x, pad_y);
+    bt_gui_overlay_flip(g, s);
 
     while (1) {
         int key = gfx_getkey(g);
@@ -173,8 +170,7 @@ static int bt_gui_confirm(struct gfx *g, struct gfx_sprite *s,
 }
 
 static void bt_gui_show_info(struct gfx *g, struct gfx_sprite *s,
-                               int cw, int ch,
-                               int pad_x, int pad_y, const char *msg) {
+                               int cw, int ch, const char *msg) {
     gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 180);
 
     int dw = 400;
@@ -191,13 +187,12 @@ static void bt_gui_show_info(struct gfx *g, struct gfx_sprite *s,
                         "Press any key to continue",
                         150, 150, 180, 255, 16);
 
-    bt_gui_overlay_flip(g, s, pad_x, pad_y);
+    bt_gui_overlay_flip(g, s);
     gfx_getkey(g);
 }
 
 static void bt_gui_show_log(struct gfx *g, struct gfx_sprite *s,
                              int cw, int ch,
-                             int pad_x, int pad_y,
                              const char *title, const char *log) {
     gfx_sprite_fill(s, 0, 0, cw, ch, 0, 0, 0, 200);
 
@@ -243,7 +238,7 @@ static void bt_gui_show_log(struct gfx *g, struct gfx_sprite *s,
     gfx_sprite_draw_str(s, mx + 12, my + mh - 24,
                         "[Esc] Close", 150, 150, 180, 255, 14);
 
-    bt_gui_overlay_flip(g, s, pad_x, pad_y);
+    bt_gui_overlay_flip(g, s);
 
     while (1) {
         int key = gfx_getkey(g);

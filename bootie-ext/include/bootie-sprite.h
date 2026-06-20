@@ -109,9 +109,9 @@ static inline void gfx_sprite_clear(struct gfx_sprite *dst,
 /*  Sprite-to-sprite blit (RGBA → RGBA, alpha-composited)              */
 /* ------------------------------------------------------------------ */
 
-static inline void gfx_sprite_blit(struct gfx_sprite *dst,
-                                    const struct gfx_sprite *src,
-                                    int dx, int dy) {
+static inline void gfx_sprite_draw_sprite(struct gfx_sprite *dst,
+                                           const struct gfx_sprite *src,
+                                           int dx, int dy) {
     if (!src->pixels || !dst->pixels) return;
     int sx = 0, sy = 0;
     int sw = (int)src->w, sh = (int)src->h;
@@ -143,92 +143,6 @@ static inline void gfx_sprite_blit(struct gfx_sprite *dst,
 }
 
 /* ------------------------------------------------------------------ */
-/*  Draw sprite to gfx canvas (RGBA → native, alpha-composited)        */
-/*  This is the ONLY operation that reads sprite pixels and writes     */
-/*  to the native-format canvas.                                       */
-/* ------------------------------------------------------------------ */
-
-static inline void gfx_draw_sprite(struct gfx *g, const struct gfx_sprite *src,
-                                    int dx, int dy) {
-    if (!src->pixels || !g->fb) return;
-    int sx = 0, sy = 0;
-    int sw = (int)src->w, sh = (int)src->h;
-
-    if (dx < 0) { sx = -dx; sw += dx; dx = 0; }
-    if (dy < 0) { sy = -dy; sh += dy; dy = 0; }
-    if ((unsigned)dx >= g->width || (unsigned)dy >= g->height) return;
-    if (dx + sw > (int)g->width)  sw = g->width - dx;
-    if (dy + sh > (int)g->height) sh = g->height - dy;
-    if (sw <= 0 || sh <= 0) return;
-
-    for (int row = 0; row < sh; row++) {
-        const unsigned char *sp = src->pixels + ((unsigned)(sy + row) * src->w + (unsigned)sx) * 4;
-        unsigned char *dp = g->fb + (unsigned)(dy + row) * g->pitch + (unsigned)dx * g->bpp;
-
-        for (int col = 0; col < sw; col++) {
-            uint8_t sr = sp[0], sg = sp[1], sb = sp[2], sa = sp[3];
-
-            if (sa == 255) {
-                /* Opaque: write native directly */
-                uint32_t color = ((uint32_t)sr << g->rshift) |
-                                 ((uint32_t)sg << g->gshift) |
-                                 ((uint32_t)sb << g->bshift);
-                if (g->bpp == 4) {
-                    *(uint32_t *)dp = color;
-                } else if (g->bpp == 3) {
-                    dp[0] = color & 0xFF;
-                    dp[1] = (color >> 8) & 0xFF;
-                    dp[2] = (color >> 16) & 0xFF;
-                } else if (g->bpp == 2) {
-                    *(uint16_t *)dp = (uint16_t)(((sr >> 3) << 11) | ((sg >> 2) << 5) | (sb >> 3));
-                }
-            } else if (sa > 0) {
-                /* Alpha composite: read native dst, blend, write native */
-                uint32_t dst_color = 0;
-                uint8_t dr, dg, db;
-                if (g->bpp == 4) {
-                    dst_color = *(uint32_t *)dp;
-                } else if (g->bpp == 3) {
-                    dst_color = dp[0] | ((uint32_t)dp[1] << 8) | ((uint32_t)dp[2] << 16);
-                } else if (g->bpp == 2) {
-                    dst_color = *(uint16_t *)dp;
-                    /* Expand 5-6-5 to 8-bit for blending */
-                    dr = (uint8_t)(((dst_color >> 11) & 0x1F) << 3);
-                    dg = (uint8_t)(((dst_color >> 5)  & 0x3F) << 2);
-                    db = (uint8_t)((dst_color & 0x1F) << 3);
-                    int inv = 255 - sa;
-                    uint8_t fr = (uint8_t)((sr * sa + dr * inv + 128) >> 8);
-                    uint8_t fg = (uint8_t)((sg * sa + dg * inv + 128) >> 8);
-                    uint8_t fb_ = (uint8_t)((sb * sa + db * inv + 128) >> 8);
-                    *(uint16_t *)dp = (uint16_t)(((fr >> 3) << 11) | ((fg >> 2) << 5) | (fb_ >> 3));
-                    sp += 4; dp += g->bpp;
-                    continue;
-                }
-                dr = (uint8_t)((dst_color >> g->rshift) & 0xFF);
-                dg = (uint8_t)((dst_color >> g->gshift) & 0xFF);
-                db = (uint8_t)((dst_color >> g->bshift) & 0xFF);
-                int inv = 255 - sa;
-                uint8_t fr = (uint8_t)((sr * sa + dr * inv + 128) >> 8);
-                uint8_t fg = (uint8_t)((sg * sa + dg * inv + 128) >> 8);
-                uint8_t fb_ = (uint8_t)((sb * sa + db * inv + 128) >> 8);
-                uint32_t result = ((uint32_t)fr << g->rshift) |
-                                  ((uint32_t)fg << g->gshift) |
-                                  ((uint32_t)fb_ << g->bshift);
-                if (g->bpp == 4) {
-                    *(uint32_t *)dp = result;
-                } else if (g->bpp == 3) {
-                    dp[0] = result & 0xFF;
-                    dp[1] = (result >> 8) & 0xFF;
-                    dp[2] = (result >> 16) & 0xFF;
-                }
-            }
-            sp += 4;
-            dp += g->bpp;
-        }
-    }
-}
-
-/* ------------------------------------------------------------------ */
 /*  Flush RGBA sprite directly to hardware screen                      */
 /*  Converts RGBA → native and pushes to screen.                       */
 /* ------------------------------------------------------------------ */
@@ -254,8 +168,8 @@ static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr)
      * extremely slow on UC memory.
      */
     if (!g->hw_fb) return;
-    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
-    int oy = ((int)g->hw_height - (int)g->height) / 2;
+    int ox = ((int)g->hw_width  - (int)spr->w)  / 2;
+    int oy = ((int)g->hw_height - (int)spr->h) / 2;
     if (ox < 0) ox = 0;
     if (oy < 0) oy = 0;
 
@@ -389,13 +303,13 @@ static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr)
                                          uint32_t, uint32_t, uint32_t,
                                          uint32_t, uint32_t, uint32_t,
                                          uint32_t);
-    int ox = ((int)g->hw_width  - (int)g->width)  / 2;
-    int oy = ((int)g->hw_height - (int)g->height) / 2;
+    int ox = ((int)g->hw_width  - (int)spr->w)  / 2;
+    int oy = ((int)g->hw_height - (int)spr->h) / 2;
     if (ox < 0) ox = 0;
     if (oy < 0) oy = 0;
     ((blt_t)gop->Blt)(gop, g->fb, 2 /*EfiBltBufferToVideo*/,
                        0, 0, (uint32_t)ox, (uint32_t)oy,
-                       g->width, g->height, g->pitch);
+                       w, h, g->pitch);
 #endif
 }
 
