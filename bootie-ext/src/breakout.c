@@ -39,9 +39,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
-
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
+    struct gfx_sprite *screen = gfx_screen(&g);
 
 #define BORDER_T  3
 #define WND_PAD   8
@@ -60,23 +58,23 @@ int gmain(int argc, char *argv[], int flags) {
     int paddle_x;
 
     /* --- Start Screen --- */
-    gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
-    gfx_sprite_fill_rect(&screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
-    gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
+    gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
+    gfx_sprite_fill_rect(screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
+    gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
               wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-    gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_b,
+    gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_b,
               wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-    gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
+    gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
               wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
-    gfx_sprite_fill_rect(&screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
+    gfx_sprite_fill_rect(screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
               wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
     const char *title = "BREAKOUT";
     const char *ctrl = "LEFT/RIGHT or A/D to move";
     const char *prompt = "Press any key to start...";
-    draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 28);
-    draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(ctrl, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 16);
-    draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(prompt, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 16);
-    gfx_flush_sprite(&g, &screen);
+    draw_str(screen, (wnd_l + wnd_r - gfx_text_width(title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, title, 255, 255, 255, 28);
+    draw_str(screen, (wnd_l + wnd_r - gfx_text_width(ctrl, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 - 20, ctrl, 200, 200, 200, 16);
+    draw_str(screen, (wnd_l + wnd_r - gfx_text_width(prompt, 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2 + 24, prompt, 200, 200, 200, 16);
+    gfx_flush(&g);
     while (!gfx_checkkey(&g)) gfx_delay_ms(&g, 25);
     gfx_getkey(&g);
 
@@ -234,16 +232,16 @@ int gmain(int argc, char *argv[], int flags) {
             /* --- Rendering --- */
 
             /* Clear window area */
-            gfx_sprite_fill_rect(&screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
+            gfx_sprite_fill_rect(screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
 
             /* Draw border around window (like snake.c) */
-            gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
+            gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
                       wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-            gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_b,
+            gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_b,
                       wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-            gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
+            gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
                       wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
-            gfx_sprite_fill_rect(&screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
+            gfx_sprite_fill_rect(screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
                       wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
 
             /* Draw bricks */
@@ -253,65 +251,65 @@ int gmain(int argc, char *argv[], int flags) {
                     int bx = x_off + c * (BRICK_W + BRICK_GAP);
                     int by = y_off + r * (BRICK_H + BRICK_GAP);
                     const struct color *col = &BRICK_COLORS[r];
-                    gfx_sprite_fill_rect(&screen, bx + 1, by + 1, BRICK_W - 2, BRICK_H - 2, col->r, col->g, col->b, 255);
-                    gfx_sprite_fill_rect(&screen, bx + 1, by + 1, BRICK_W - 2, 1,
+                    gfx_sprite_fill_rect(screen, bx + 1, by + 1, BRICK_W - 2, BRICK_H - 2, col->r, col->g, col->b, 255);
+                    gfx_sprite_fill_rect(screen, bx + 1, by + 1, BRICK_W - 2, 1,
                               col->r + (255 - col->r) / 2, col->g + (255 - col->g) / 2, col->b + (255 - col->b) / 2, 255);
-                    gfx_sprite_fill_rect(&screen, bx + 1, by + 1, 1, BRICK_H - 2,
+                    gfx_sprite_fill_rect(screen, bx + 1, by + 1, 1, BRICK_H - 2,
                               col->r + (255 - col->r) / 2, col->g + (255 - col->g) / 2, col->b + (255 - col->b) / 2, 255);
-                    gfx_sprite_fill_rect(&screen, bx + 1, by + BRICK_H - 2, BRICK_W - 2, 1, col->r / 2, col->g / 2, col->b / 2, 255);
-                    gfx_sprite_fill_rect(&screen, bx + BRICK_W - 2, by + 1, 1, BRICK_H - 2, col->r / 2, col->g / 2, col->b / 2, 255);
+                    gfx_sprite_fill_rect(screen, bx + 1, by + BRICK_H - 2, BRICK_W - 2, 1, col->r / 2, col->g / 2, col->b / 2, 255);
+                    gfx_sprite_fill_rect(screen, bx + BRICK_W - 2, by + 1, 1, BRICK_H - 2, col->r / 2, col->g / 2, col->b / 2, 255);
                 }
             }
 
             /* Draw paddle */
             int py = paddle_y - PADDLE_H / 2;
-            gfx_sprite_fill_rect(&screen, paddle_x, py, PADDLE_W, PADDLE_H, 100, 180, 255, 255);
-            gfx_sprite_fill_rect(&screen, paddle_x, py, PADDLE_W, 1, 180, 220, 255, 255);
-            gfx_sprite_fill_rect(&screen, paddle_x, py, 1, PADDLE_H, 180, 220, 255, 255);
-            gfx_sprite_fill_rect(&screen, paddle_x, py + PADDLE_H - 1, PADDLE_W, 1, 40, 80, 140, 255);
-            gfx_sprite_fill_rect(&screen, paddle_x + PADDLE_W - 1, py, 1, PADDLE_H, 40, 80, 140, 255);
+            gfx_sprite_fill_rect(screen, paddle_x, py, PADDLE_W, PADDLE_H, 100, 180, 255, 255);
+            gfx_sprite_fill_rect(screen, paddle_x, py, PADDLE_W, 1, 180, 220, 255, 255);
+            gfx_sprite_fill_rect(screen, paddle_x, py, 1, PADDLE_H, 180, 220, 255, 255);
+            gfx_sprite_fill_rect(screen, paddle_x, py + PADDLE_H - 1, PADDLE_W, 1, 40, 80, 140, 255);
+            gfx_sprite_fill_rect(screen, paddle_x + PADDLE_W - 1, py, 1, PADDLE_H, 40, 80, 140, 255);
 
             /* Draw ball */
-            gfx_sprite_fill_rect(&screen, ball_x - BALL_SZ / 2, ball_y - BALL_SZ / 2, BALL_SZ, BALL_SZ, 255, 255, 255, 255);
+            gfx_sprite_fill_rect(screen, ball_x - BALL_SZ / 2, ball_y - BALL_SZ / 2, BALL_SZ, BALL_SZ, 255, 255, 255, 255);
 
             /* Score & Lives */
             /* Clear and draw title bar above the window */
-            gfx_sprite_fill_rect(&screen, 0, 0, W, wnd_t - BORDER_T, 10, 10, 15, 255);
+            gfx_sprite_fill_rect(screen, 0, 0, W, wnd_t - BORDER_T, 10, 10, 15, 255);
             int top_label_y = (wnd_t - 20) / 2;
-    draw_strf(&screen, 10, top_label_y, 200, 200, 255, 16, "SCORE: %d", score);
-    draw_strf(&screen, W - 100, top_label_y, 200, 200, 255, 16, "LIVES: %d", lives);
+    draw_strf(screen, 10, top_label_y, 200, 200, 255, 16, "SCORE: %d", score);
+    draw_strf(screen, W - 100, top_label_y, 200, 200, 255, 16, "LIVES: %d", lives);
 
             if (serving) {
-                draw_str(&screen, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", 16)) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 16);
+                draw_str(screen, (wnd_l + wnd_r - gfx_text_width("SPACE to launch", 16)) / 2, paddle_y - 30, "SPACE to launch", 200, 200, 200, 16);
             }
 
-            gfx_flush_sprite(&g, &screen);
+            gfx_flush(&g);
             bt_fps_wait(&fps);
         }
 
         /* --- Game Over Screen --- */
-        gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
+        gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
+        gfx_sprite_fill_rect(screen, wnd_l, wnd_t, wnd_r - wnd_l, wnd_b - wnd_t, 20, 20, 30, 255);
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
                   wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_b,
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_b,
                   wnd_r - wnd_l + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
                   wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
+        gfx_sprite_fill_rect(screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
                   wnd_b - wnd_t + BORDER_T * 2, 100, 100, 150, 255);
 
         const char *go_title = "GAME OVER";
         const char *restart = "SPACE to Play Again, ESC to Exit";
 
-        draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(go_title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 28);
+        draw_str(screen, (wnd_l + wnd_r - gfx_text_width(go_title, 28)) / 2, wnd_t + (wnd_b - wnd_t) / 3, go_title, 220, 50, 50, 28);
         if (lives <= 0)
-            draw_strf(&screen, (wnd_l + wnd_r - gfx_text_width("Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+            draw_strf(screen, (wnd_l + wnd_r - gfx_text_width("Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
                       255, 255, 255, 16, "Score: %d", score);
         else
-            draw_strf(&screen, (wnd_l + wnd_r - gfx_text_width("You Win! Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
+            draw_strf(screen, (wnd_l + wnd_r - gfx_text_width("You Win! Score: 99999", 16)) / 2, wnd_t + (wnd_b - wnd_t) / 2,
                       255, 255, 255, 16, "You Win! Score: %d", score);
-        draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(restart, 16)) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 16);
+        draw_str(screen, (wnd_l + wnd_r - gfx_text_width(restart, 16)) / 2, wnd_t + (wnd_b - wnd_t) * 2 / 3, restart, 200, 200, 200, 16);
 
         int exit_req = 0;
         while (1) {
@@ -324,8 +322,6 @@ int gmain(int argc, char *argv[], int flags) {
         }
         if (exit_req) break;
     }
-
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

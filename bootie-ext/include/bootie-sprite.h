@@ -143,10 +143,18 @@ static inline void gfx_sprite_draw_sprite(struct gfx_sprite *dst,
 }
 
 /* ------------------------------------------------------------------ */
-/*  Flush RGBA sprite directly to hardware screen                      */
+/*  Screen sprite accessor                                             */
+/* ------------------------------------------------------------------ */
+static inline struct gfx_sprite *gfx_screen(struct gfx *g) {
+    return &g->screen;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Flush RGBA screen sprite directly to hardware screen               */
 /*  Converts RGBA → native and pushes to screen.                       */
 /* ------------------------------------------------------------------ */
-static inline void gfx_flush_sprite(struct gfx *g, const struct gfx_sprite *spr) {
+static inline void gfx_flush(struct gfx *g) {
+    const struct gfx_sprite *spr = &g->screen;
     if (!spr->pixels) return;
 
     uint32_t w = g->width < spr->w ? g->width : spr->w;

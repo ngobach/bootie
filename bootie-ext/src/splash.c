@@ -62,9 +62,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
-
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
+    struct gfx_sprite *screen = gfx_screen(&g);
 
     const char *text = "Bootie!";
     int text_len = strlen(text);
@@ -99,7 +97,7 @@ int gmain(int argc, char *argv[], int flags) {
             }
         }
 
-        gfx_sprite_fill_rect(&screen, 0, 0, W, H, bg_color.r, bg_color.g, bg_color.b, 255);
+        gfx_sprite_fill_rect(screen, 0, 0, W, H, bg_color.r, bg_color.g, bg_color.b, 255);
 
         if (elapsed > DELAY_MS) {
             struct char_anim ca;
@@ -113,16 +111,15 @@ int gmain(int argc, char *argv[], int flags) {
                 memcpy(prefix, text, i);
                 prefix[i] = '\0';
                 int cx = tx + gfx_text_width(prefix, FONT_SZ);
-                draw_str(&screen, cx, ty + ca.y_off, ch,
+                draw_str(screen, cx, ty + ca.y_off, ch,
                          ca.color.r, ca.color.g, ca.color.b, FONT_SZ);
             }
         }
 
-        gfx_flush_sprite(&g, &screen);
+        gfx_flush(&g);
         bt_fps_wait(&fps);
     }
 
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     run_line("%moddir%/menu", BUILTIN_CMDLINE);
     return 0;

@@ -48,16 +48,21 @@ static void pit_delay_ms(unsigned int ms) {
 static inline int gfx_font_load(void);
 static inline void gfx_font_unload(void);
 
+struct gfx_sprite {
+    unsigned char *pixels;      /* RGBA pixel data */
+    unsigned w, h;              /* dimensions */
+};
+
+/* Forward declarations for sprite lifecycle functions used by
+   platform gfx_init/gfx_close before bootie-sprite.h is included. */
+static inline void gfx_sprite_init(struct gfx_sprite *s, unsigned w, unsigned h);
+static inline void gfx_sprite_destroy(struct gfx_sprite *s);
+
 #if defined(__i386__)
   #include <bios/gfx.h>
 #else
   #include <uefi/gfx.h>
 #endif
-
-struct gfx_sprite {
-    unsigned char *pixels;      /* RGBA pixel data */
-    unsigned w, h;              /* dimensions */
-};
 
 /* Include TTF font rendering (overrides draw_str with a TTF-aware macro
    when a font is loaded via gfx_font_load()). */

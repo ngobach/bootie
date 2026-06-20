@@ -855,9 +855,7 @@ int gmain(int argc, char *argv[], int flags) {
 
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
-
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
+    struct gfx_sprite *screen = gfx_screen(&g);
 
     int scale = 8;
     // Downscale slightly for smaller screens
@@ -870,7 +868,7 @@ int gmain(int argc, char *argv[], int flags) {
     int y_off = (H - frame_size) / 2;
 
     /* Fill background initially */
-    gfx_sprite_clear(&screen, 15, 77, 143, 255);
+    gfx_sprite_clear(screen, 15, 77, 143, 255);
 
     int current_frame = 0;
     struct bt_fps fps;
@@ -886,8 +884,8 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         /* Render frame */
-        draw_nyan_frame(&screen, frames[current_frame], x_off, y_off, scale);
-        gfx_flush_sprite(&g, &screen);
+        draw_nyan_frame(screen, frames[current_frame], x_off, y_off, scale);
+        gfx_flush(&g);
 
         current_frame = (current_frame + 1) % 12;
 
@@ -895,7 +893,6 @@ int gmain(int argc, char *argv[], int flags) {
         bt_fps_wait(&fps);
     }
 
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

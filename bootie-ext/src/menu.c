@@ -131,7 +131,7 @@ static void draw(struct menu *m, struct gfx_sprite *s, struct gfx *ctx,
     }
 }
 
-static void handle_disk_image(struct gfx *g, struct gfx_sprite *s,
+static void handle_disk_image(struct gfx *g,
                                 int cw, int ch,
                                 const char *target) {
     int tlen = strlen(target);
@@ -150,11 +150,11 @@ static void handle_disk_image(struct gfx *g, struct gfx_sprite *s,
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
-        bt_gui_show_log(g, s, cw, ch,
+        bt_gui_show_log(g, cw, ch,
                         "Boot failed", log);
 }
 
-static void handle_chainload(struct gfx *g, struct gfx_sprite *s,
+static void handle_chainload(struct gfx *g,
                                int cw, int ch,
                                const char *target) {
     char cmd[PATH_MAX + 128];
@@ -164,30 +164,30 @@ static void handle_chainload(struct gfx *g, struct gfx_sprite *s,
     log[0] = '\0';
     int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
-        bt_gui_show_log(g, s, cw, ch,
+        bt_gui_show_log(g, cw, ch,
                         "Boot failed", log);
 }
 
-static void handle_reboot(struct gfx *g, struct gfx_sprite *s,
+static void handle_reboot(struct gfx *g,
                             int cw, int ch) {
-    if (bt_gui_confirm(g, s, cw, ch,
+    if (bt_gui_confirm(g, cw, ch,
                        "Restart system?", NULL)) {
         char log[10240];
         log[0] = '\0';
         int bt_ret = bt_eval_ex("reboot", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(g, s, cw, ch,
+        bt_gui_show_log(g, cw, ch,
                         "Failed to reboot", log);
     }
 }
 
-static void handle_poweroff(struct gfx *g, struct gfx_sprite *s,
+static void handle_poweroff(struct gfx *g,
                               int cw, int ch) {
-    if (bt_gui_confirm(g, s, cw, ch,
+    if (bt_gui_confirm(g, cw, ch,
                        "Shut down system?", NULL)) {
         char log[10240];
         log[0] = '\0';
         int bt_ret = bt_eval_ex("halt", log, sizeof(log), BT_EVAL_F_ERRMSG);
-        bt_gui_show_log(g, s, cw, ch,
+        bt_gui_show_log(g, cw, ch,
                         "Failed to shut down", log);
     }
 }
@@ -428,13 +428,11 @@ int gmain(int argc, char *argv[], int flags) {
     load_ini_items(m);
     rebuild_view(m);
 
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, cw, ch);
-
+    struct gfx_sprite *screen = gfx_screen(&g);
     while (1) {
-        gfx_sprite_clear(&screen, 15, 15, 30, 255);
-        draw(m, &screen, &g, cw, ch);
-        gfx_flush_sprite(&g, &screen);
+        gfx_sprite_clear(screen, 15, 15, 30, 255);
+        draw(m, screen, &g, cw, ch);
+        gfx_flush(&g);
 
         int key = gfx_getkey(&g);
         int scan = (key >> 8) & 0xFF;
@@ -452,7 +450,7 @@ int gmain(int argc, char *argv[], int flags) {
                 m->cur = 0;
                 m->top = 0;
             } else {
-                 if (!m->confirm_exit || bt_gui_confirm(&g, &screen, cw, ch, "Quit Boot Menu?", NULL))
+                 if (!m->confirm_exit || bt_gui_confirm(&g, cw, ch, "Quit Boot Menu?", NULL))
                     goto done;
             }
         } else if (ascii == 0x0D) {
@@ -461,7 +459,7 @@ int gmain(int argc, char *argv[], int flags) {
                 struct menu_item *item = &m->items[m->view[m->cur]];
                 switch (item->action.type) {
                 case ACTION_DISK_IMAGE:
-                    handle_disk_image(&g, &screen, cw, ch,
+                    handle_disk_image(&g, cw, ch,
                                       item->action.target);
                     break;
                 case ACTION_FILE_BROWSER:
@@ -473,14 +471,14 @@ int gmain(int argc, char *argv[], int flags) {
                     }
                     break;
                 case ACTION_CHAINLOAD:
-                    handle_chainload(&g, &screen, cw, ch,
+                    handle_chainload(&g, cw, ch,
                                      item->action.target);
                     break;
                 case ACTION_REBOOT:
-                    handle_reboot(&g, &screen, cw, ch);
+                    handle_reboot(&g, cw, ch);
                     break;
                 case ACTION_POWEROFF:
-                    handle_poweroff(&g, &screen, cw, ch);
+                    handle_poweroff(&g, cw, ch);
                     break;
                 case ACTION_OPEN_CATEGORY:
                     {
@@ -539,7 +537,6 @@ done:
     arrfree(m->view);
     free(m->current_category);
     free(m->current_category_display);
-    gfx_sprite_destroy(&screen);
     bt_gui_icons_destroy(&m->icons);
     arrfree(m->items);
     free(m);

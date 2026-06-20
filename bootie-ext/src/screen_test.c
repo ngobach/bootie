@@ -212,8 +212,7 @@ int gmain(int argc, char *argv[], int flags) {
         return 0;
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
+    struct gfx_sprite *screen = gfx_screen(&g);
     fps_init(&g);
 
     int test = 0;
@@ -225,23 +224,23 @@ int gmain(int argc, char *argv[], int flags) {
     while (running) {
 
         if (clear_on_next) {
-            gfx_sprite_fill_rect(&screen, 0, 0, W, H, 0, 0, 0, 255);
+            gfx_sprite_fill_rect(screen, 0, 0, W, H, 0, 0, 0, 255);
             clear_on_next = 0;
         }
 
         switch (test) {
-        case TEST_STATIC:    test_static(&screen, first_frame);    break;
-        case TEST_RECT_FILL: test_rect_fill(&screen, first_frame); break;
-        case TEST_TEXT_FILL: test_text_fill(&screen, first_frame); break;
+        case TEST_STATIC:    test_static(screen, first_frame);    break;
+        case TEST_RECT_FILL: test_rect_fill(screen, first_frame); break;
+        case TEST_TEXT_FILL: test_text_fill(screen, first_frame); break;
         }
 
         if (first_frame)
             first_frame = 0;
 
-        draw_overlays(&screen, test, W, H);
+        draw_overlays(screen, test, W, H);
         fps_tick();
 
-        gfx_flush_sprite(&g, &screen);
+        gfx_flush(&g);
 
         gfx_delay_ms(&g, test_delay[test]);
 
@@ -257,7 +256,6 @@ int gmain(int argc, char *argv[], int flags) {
         }
     }
 
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

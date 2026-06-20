@@ -17,8 +17,7 @@ int gmain(int argc, char *argv[], int flags) {
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
 
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
+    struct gfx_sprite *screen = gfx_screen(&g);
 
     int wnd_l = (W - WND_W) / 2;
     int wnd_t = (H - WND_H) / 2;
@@ -66,19 +65,19 @@ int gmain(int argc, char *argv[], int flags) {
         }
 
         /* --- Rendering --- */
-        gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
+        gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
 
         /* Window background */
-        gfx_sprite_fill_rect(&screen, wnd_l, wnd_t, WND_W, WND_H, 20, 20, 30, 255);
+        gfx_sprite_fill_rect(screen, wnd_l, wnd_t, WND_W, WND_H, 20, 20, 30, 255);
 
         /* Border */
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T,
                   WND_W + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_b,
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_b,
                   WND_W + BORDER_T * 2, BORDER_T, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
+        gfx_sprite_fill_rect(screen, wnd_l - BORDER_T, wnd_t - BORDER_T, BORDER_T,
                   WND_H + BORDER_T * 2, 100, 100, 150, 255);
-        gfx_sprite_fill_rect(&screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
+        gfx_sprite_fill_rect(screen, wnd_r, wnd_t - BORDER_T, BORDER_T,
                   WND_H + BORDER_T * 2, 100, 100, 150, 255);
 
         /* Format & draw elapsed time */
@@ -90,7 +89,7 @@ int gmain(int argc, char *argv[], int flags) {
         int px_size = 28;
         int tx = (wnd_l + wnd_r - gfx_text_width("00:00:00.00", px_size)) / 2;
         int ty = (wnd_t + wnd_b - px_size) / 2 - 10;
-        draw_strf(&screen, tx, ty, 0, 220, 220, px_size,
+        draw_strf(screen, tx, ty, 0, 220, 220, px_size,
                   "%02d:%02d:%02d.%02d", hrs, mins, secs, centis);
 
         /* State indicator */
@@ -106,21 +105,20 @@ int gmain(int argc, char *argv[], int flags) {
             state = "PAUSED";
             state_r = 220; state_g = 220; state_b = 0;
         }
-        draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(state, 16)) / 2,
+        draw_str(screen, (wnd_l + wnd_r - gfx_text_width(state, 16)) / 2,
                  ty + px_size + 8, state, state_r, state_g, state_b, 16);
 
         /* Controls */
         const char *help1 = "SPACE: Start/Stop  R: Reset";
         const char *help2 = "ESC: Reset when running, Exit when stopped";
-        draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(help1, 16)) / 2,
+        draw_str(screen, (wnd_l + wnd_r - gfx_text_width(help1, 16)) / 2,
                  wnd_b - 34, help1, 150, 150, 160, 16);
-        draw_str(&screen, (wnd_l + wnd_r - gfx_text_width(help2, 16)) / 2,
+        draw_str(screen, (wnd_l + wnd_r - gfx_text_width(help2, 16)) / 2,
                  wnd_b - 20, help2, 150, 150, 160, 16);
 
-        gfx_flush_sprite(&g, &screen);
+        gfx_flush(&g);
     }
 
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }

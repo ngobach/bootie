@@ -63,6 +63,9 @@ struct gfx {
   /* Hardware screen info (for flush centering) */
   uint32_t hw_width, hw_height;
 
+  /* Screen sprite — RGBA pixel buffer for drawing */
+  struct gfx_sprite screen;
+
   /* UEFI */
   void *gop;
   uint32_t saved_mode;
@@ -203,6 +206,8 @@ static inline int gfx_init(struct gfx *ctx) {
     __asm__ __volatile__("rep stosl" : "+D"(p), "+c"(n) : "a"(0) : "memory");
   }
 
+  gfx_sprite_init(&ctx->screen, ctx->width, ctx->height);
+
   ctx->gop = gop;
   ctx->has_key = 0;
   ctx->buffered_key = 0;
@@ -218,6 +223,7 @@ static inline int gfx_init(struct gfx *ctx) {
 }
 
 static inline void gfx_close(struct gfx *ctx) {
+  gfx_sprite_destroy(&ctx->screen);
   gfx_font_unload();
   if (ctx->gop) {
     efi_graphics_output_protocol_t *gop =
@@ -293,34 +299,5 @@ static inline int gfx_getkey(struct gfx *ctx) {
   ctx->has_key = 0;
   return ctx->buffered_key;
 }
-
-/* ------------------------------------------------------------------ */
-/*  Flush canvas to hardware screen                                   */
-/*  Canvas is native format — just Blt it, centered on screen.        */
-/* ------------------------------------------------------------------ */
-static inline void gfx_flush(struct gfx *g) {
-  if (!g->fb || !g->gop)
-    return;
-  efi_graphics_output_protocol_t *gop =
-      (efi_graphics_output_protocol_t *)g->gop;
-  if (!gop->Blt)
-    return;
-
-  typedef efi_status_t(EFIAPI *blt_t)(void *, void *, uint32_t,
-                                       uint32_t, uint32_t, uint32_t,
-                                       uint32_t, uint32_t, uint32_t,
-                                       uint32_t);
-
-  /* Center canvas on hardware screen */
-  int ox = ((int)g->hw_width  - (int)g->width)  / 2;
-  int oy = ((int)g->hw_height - (int)g->height) / 2;
-  if (ox < 0) ox = 0;
-  if (oy < 0) oy = 0;
-
-  ((blt_t)gop->Blt)(gop, g->fb, 2 /*EfiBltBufferToVideo*/,
-                     0, 0, (uint32_t)ox, (uint32_t)oy,
-                     g->width, g->height, g->pitch);
-}
-
 
 #endif /* UEFI_GFX_H */

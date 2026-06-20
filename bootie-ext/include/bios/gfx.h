@@ -93,6 +93,9 @@ struct gfx {
   uint32_t hw_width, hw_height, hw_pitch;
 
   uint16_t prev_vbe_mode;
+
+  /* Screen sprite — RGBA pixel buffer for drawing */
+  struct gfx_sprite screen;
 };
 
 static inline uint32_t gfx_width(const struct gfx *g) { return g->width; }
@@ -270,12 +273,15 @@ static inline int gfx_init(struct gfx *ctx) {
     ctx->height = CANVAS_H;
     ctx->pitch  = CANVAS_W * ctx->bpp;
 
+    gfx_sprite_init(&ctx->screen, ctx->width, ctx->height);
+
     if (gfx_font_load() < 0)
         return 0;
     return 1;
 }
 
 static inline void gfx_close(struct gfx *ctx) {
+    gfx_sprite_destroy(&ctx->screen);
     gfx_font_unload();
     if (ctx->prev_vbe_mode) {
         bios_int10(0x4F02, ctx->prev_vbe_mode, 0, 0, (unsigned long)-1, 0);
@@ -300,10 +306,7 @@ static inline void gfx_delay_ms(struct gfx *ctx, unsigned int ms) {
     pit_delay_ms(ms);
 }
 
-/* On BIOS the sprite pipeline (gfx_flush_sprite) writes directly to
-   hw_fb, so there is no software canvas to flush. */
-static inline void gfx_flush(struct gfx *g) {
-    (void)g;
-}
+/* On BIOS the sprite pipeline (gfx_flush in bootie-sprite.h) writes
+   directly to hw_fb, so there is no software canvas to flush. */
 
 #endif /* BIOS_GFX_H */

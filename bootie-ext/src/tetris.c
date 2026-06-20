@@ -260,7 +260,7 @@ static void merge_piece(const struct piece *p, uint8_t board[BOARD_ROWS][BOARD_C
     }
 }
 
-static void animate_line_clear(struct gfx *ctx, struct gfx_sprite *g, uint8_t board[BOARD_ROWS][BOARD_COLS],
+static void animate_line_clear(struct gfx *ctx, uint8_t board[BOARD_ROWS][BOARD_COLS],
                                const int full_lines[BOARD_ROWS], int x_off, int y_off,
                                int grid_w, int grid_h, int score, int level, int lines,
                                int next_shape) {
@@ -278,6 +278,7 @@ static void animate_line_clear(struct gfx *ctx, struct gfx_sprite *g, uint8_t bo
         }
 
         // Redraw play arena
+        struct gfx_sprite *g = gfx_screen(ctx);
         gfx_sprite_fill_rect(g, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
 
         // Draw board blocks
@@ -294,7 +295,7 @@ static void animate_line_clear(struct gfx *ctx, struct gfx_sprite *g, uint8_t bo
         draw_next_box(g, x_off, y_off, grid_w, next_shape);
         draw_info_panel(g, x_off, y_off, grid_w, score, level, lines, session_high_score);
 
-        gfx_flush_sprite(ctx, g);
+        gfx_flush(ctx);
         pit_delay_ms(60); // Delay for animation timing (5 * 60ms = 300ms total clear animation)
     }
 }
@@ -342,28 +343,27 @@ int gmain(int argc, char *argv[], int flags) {
     uint32_t W = gfx_width(&g);
     uint32_t H = gfx_height(&g);
 
-    struct gfx_sprite screen;
-    gfx_sprite_init(&screen, W, H);
-
     int grid_w = BOARD_COLS * CELL_SIZE;
     int grid_h = BOARD_ROWS * CELL_SIZE;
     int x_off = (W - grid_w) / 2 - 30; // Shift left slightly to make room for NEXT box
     int y_off = (H - grid_h) / 2 + 10;
 
+    struct gfx_sprite *screen = gfx_screen(&g);
+
     /* --- Start Screen --- */
-    gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
-    draw_border(&screen, x_off, y_off, grid_w, grid_h);
+    gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
+    draw_border(screen, x_off, y_off, grid_w, grid_h);
 
     const char *title = "Tetris";
     const char *prompt1 = "Press any key";
     const char *prompt2 = "to start...";
 
     // Align title and prompt relative to the playfield border to keep it centered visually
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3, title, 0, 220, 220, 28);
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(prompt1, 16)) / 2, y_off + grid_h / 2 - 10, prompt1, 200, 200, 200, 16);
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(prompt2, 16)) / 2, y_off + grid_h / 2 + 10, prompt2, 200, 200, 200, 16);
+    draw_str(screen, x_off + (grid_w - gfx_text_width(title, 28)) / 2, y_off + grid_h / 3, title, 0, 220, 220, 28);
+    draw_str(screen, x_off + (grid_w - gfx_text_width(prompt1, 16)) / 2, y_off + grid_h / 2 - 10, prompt1, 200, 200, 200, 16);
+    draw_str(screen, x_off + (grid_w - gfx_text_width(prompt2, 16)) / 2, y_off + grid_h / 2 + 10, prompt2, 200, 200, 200, 16);
 
-    gfx_flush_sprite(&g, &screen);
+    gfx_flush(&g);
 
     while (!gfx_checkkey(&g)) {
         gfx_delay_ms(&g, 25);
@@ -375,8 +375,8 @@ int gmain(int argc, char *argv[], int flags) {
 
     while (1) {
         // Clear screen to background color on startup/restart
-        gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
-        draw_border(&screen, x_off, y_off, grid_w, grid_h);
+        gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
+        draw_border(screen, x_off, y_off, grid_w, grid_h);
 
         /* Reset Game Variables */
         memset(board, 0, sizeof(board));
@@ -408,7 +408,6 @@ int gmain(int argc, char *argv[], int flags) {
             while (gfx_checkkey(&g)) {
                 int key = gfx_getkey(&g);
                 if (key == 27) { // ESC to exit game completely
-                    gfx_sprite_destroy(&screen);
                     gfx_close(&g);
                     return 0;
                 }
@@ -486,7 +485,7 @@ int gmain(int argc, char *argv[], int flags) {
 
                     if (cleared > 0) {
                         // Play block dissolving animation from center outward
-                        animate_line_clear(&g, &screen, board, full_lines, x_off, y_off, grid_w, grid_h,
+                        animate_line_clear(&g, board, full_lines, x_off, y_off, grid_w, grid_h,
                                            score, level, lines, next_shape);
                         // Shift blocks down
                         shift_cleared_lines(board, full_lines);
@@ -515,59 +514,59 @@ int gmain(int argc, char *argv[], int flags) {
 
             /* --- Rendering Frame --- */
             // Clear entire frame to remove previous frame's side-panel text artifacts
-            gfx_sprite_fill_rect(&screen, 0, 0, W, H, 10, 10, 15, 255);
+            gfx_sprite_fill_rect(screen, 0, 0, W, H, 10, 10, 15, 255);
             // Clear play arena
-            gfx_sprite_fill_rect(&screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
+            gfx_sprite_fill_rect(screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
 
-            // 3. Draw Ghost Piece (hollow preview)
-            for (int i = 0; i < 4; i++) {
-                int gx = ghost_piece.x + ghost_piece.blocks[i].x;
-                int gy = ghost_piece.y + ghost_piece.blocks[i].y;
-                if (gy >= 0) {
-                    draw_block(&screen, gx, gy, active_piece.shape_idx + 1, 1, x_off, y_off);
-                }
-            }
-
-            // 4. Draw Active Piece
-            for (int i = 0; i < 4; i++) {
-                int gx = active_piece.x + active_piece.blocks[i].x;
-                int gy = active_piece.y + active_piece.blocks[i].y;
-                if (gy >= 0) {
-                    draw_block(&screen, gx, gy, active_piece.shape_idx + 1, 0, x_off, y_off);
-                }
-            }
-
-            // 5. Draw Frozen Board Blocks
-            for (int r = 0; r < BOARD_ROWS; r++) {
-                for (int c = 0; c < BOARD_COLS; c++) {
-                    if (board[r][c] > 0) {
-                        draw_block(&screen, c, r, board[r][c], 0, x_off, y_off);
+                // 3. Draw Ghost Piece (hollow preview)
+                for (int i = 0; i < 4; i++) {
+                    int gx = ghost_piece.x + ghost_piece.blocks[i].x;
+                    int gy = ghost_piece.y + ghost_piece.blocks[i].y;
+                    if (gy >= 0) {
+                        draw_block(screen, gx, gy, active_piece.shape_idx + 1, 1, x_off, y_off);
                     }
                 }
-            }
 
-            // 6. Draw Borders & Side Panel Panels
-            draw_border(&screen, x_off, y_off, grid_w, grid_h);
-            draw_next_box(&screen, x_off, y_off, grid_w, next_shape);
-            draw_info_panel(&screen, x_off, y_off, grid_w, score, level, lines, session_high_score);
-            gfx_flush_sprite(&g, &screen);
+                    // 4. Draw Active Piece
+                    for (int i = 0; i < 4; i++) {
+                        int gx = active_piece.x + active_piece.blocks[i].x;
+                        int gy = active_piece.y + active_piece.blocks[i].y;
+                        if (gy >= 0) {
+                            draw_block(screen, gx, gy, active_piece.shape_idx + 1, 0, x_off, y_off);
+                        }
+                    }
+
+                    // 5. Draw Frozen Board Blocks
+                    for (int r = 0; r < BOARD_ROWS; r++) {
+                        for (int c = 0; c < BOARD_COLS; c++) {
+                            if (board[r][c] > 0) {
+                                draw_block(screen, c, r, board[r][c], 0, x_off, y_off);
+                            }
+                        }
+                    }
+
+                    // 6. Draw Borders & Side Panel Panels
+                    draw_border(screen, x_off, y_off, grid_w, grid_h);
+                    draw_next_box(screen, x_off, y_off, grid_w, next_shape);
+                    draw_info_panel(screen, x_off, y_off, grid_w, score, level, lines, session_high_score);
+                gfx_flush(&g);
 
             bt_fps_wait(&fps); // ~40 FPS tick rate
         }
 
         /* --- Game Over Screen --- */
-        gfx_sprite_fill_rect(&screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
-        draw_border(&screen, x_off, y_off, grid_w, grid_h);
+        gfx_sprite_fill_rect(screen, x_off, y_off, grid_w, grid_h, 20, 20, 30, 255);
+        draw_border(screen, x_off, y_off, grid_w, grid_h);
 
         const char *go_title = "GAME OVER";
     const char *restart_line1 = "SPACE to Restart";
     const char *restart_line2 = "ESC to Exit";
 
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 28);
-    draw_strf(&screen, x_off + (grid_w - gfx_text_width("Score: 99999", 16)) / 2, y_off + grid_h / 2,
+    draw_str(screen, x_off + (grid_w - gfx_text_width(go_title, 28)) / 2, y_off + grid_h / 3, go_title, 220, 50, 50, 28);
+    draw_strf(screen, x_off + (grid_w - gfx_text_width("Score: 99999", 16)) / 2, y_off + grid_h / 2,
               255, 255, 255, 16, "Score: %d", score);
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(restart_line1, 16)) / 2, y_off + 2 * grid_h / 3 - 10, restart_line1, 200, 200, 200, 16);
-    draw_str(&screen, x_off + (grid_w - gfx_text_width(restart_line2, 16)) / 2, y_off + 2 * grid_h / 3 + 10, restart_line2, 200, 200, 200, 16);
+    draw_str(screen, x_off + (grid_w - gfx_text_width(restart_line1, 16)) / 2, y_off + 2 * grid_h / 3 - 10, restart_line1, 200, 200, 200, 16);
+    draw_str(screen, x_off + (grid_w - gfx_text_width(restart_line2, 16)) / 2, y_off + 2 * grid_h / 3 + 10, restart_line2, 200, 200, 200, 16);
 
         int exit_requested = 0;
         while (1) {
@@ -589,7 +588,6 @@ int gmain(int argc, char *argv[], int flags) {
         }
     }
 
-    gfx_sprite_destroy(&screen);
     gfx_close(&g);
     return 0;
 }
