@@ -81,6 +81,7 @@ int gmain(int argc, char *argv[], int flags) {
     while (1) {
         while (gfx_checkkey(&g)) {
             gfx_getkey(&g);
+            done = 1;
             hold_ms = 0;
         }
 

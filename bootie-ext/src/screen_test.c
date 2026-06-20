@@ -19,7 +19,7 @@ enum {
     TEST_COUNT
 };
 
-static const char *test_names[TEST_COUNT] = {
+static const char test_names[TEST_COUNT][24] = {
     "Static Demo",
     "Rectangle Fill Bench",
     "Text Fill Bench"
@@ -70,18 +70,7 @@ static void fps_tick(void) {
     }
 }
 
-static void fps_draw(struct gfx_sprite *g) {
-    int px = 14;
-    char buf[32];
-    sprintf(buf, "%d FPS", fps_display);
-    int tw = gfx_text_width(buf, px);
-    int x = (int)g->w - tw - 6;
-    int y = 2;
-    int pw = tw + 12;
-    int ph = px + 10;
-    gfx_sprite_fill_rect(g, x, y, pw, ph, 10, 12, 22, 255);
-    draw_str(g, x + 2, y + 3, buf, 80, 220, 80, px);
-}
+
 
 /* ------------------------------------------------------------------ */
 /*  Test 1: static demo                                                 */
@@ -123,8 +112,7 @@ static void draw_static(struct gfx_sprite *g) {
                    (W - gfx_text_width(sub, 28)) / 2 : 0;
     draw_str(g, sx2, ty + px_size + 8, sub, 160, 180, 200, 28);
 
-    draw_strf(g, 8, 8, 120, 200, 100, 16, "Mode: %dx%d bpp=%d",
-              (int)W, (int)H, 32);
+
 
     uint32_t bw = 3;
     gfx_sprite_fill_rect(g, 0, 0, W, bw, 80, 120, 200, 255);
@@ -173,17 +161,44 @@ static void test_text_fill(struct gfx_sprite *g, int first_frame) {
 /* ------------------------------------------------------------------ */
 /*  Common UI overlays                                                  */
 /* ------------------------------------------------------------------ */
-static void draw_overlays(struct gfx_sprite *g, int test) {
-    fps_draw(g);
-
-    draw_str(g, 8, (int)g->h - 20, test_names[test], 160, 160, 160, 14);
-
-    const char *hint = "SPACE: Next   ESC: Exit";
+static void draw_overlays(struct gfx_sprite *g, int test, uint32_t W, uint32_t H) {
     int px = 14;
-    int tw = gfx_text_width(hint, px);
-    int x = ((int)g->w - tw) / 2;
-    draw_str(g, x + 1, (int)g->h - 20 + 1, hint, 0, 0, 0, px);
-    draw_str(g, x, (int)g->h - 20, hint, 200, 200, 200, px);
+    int line_h = px + 4;
+    int pad = 8;
+
+    char mode_buf[48];
+    sprintf(mode_buf, "Mode: %dx%d bpp=%d", (int)W, (int)H, 32);
+    char fps_buf[16];
+    sprintf(fps_buf, "%d FPS", fps_display);
+    const char *hint = "SPACE: Next   ESC: Exit";
+
+    /* Measure all lines to size the panel */
+    int w1 = gfx_text_width(test_names[test], px);
+    int w2 = gfx_text_width(mode_buf, px);
+    int w3 = gfx_text_width(fps_buf, px);
+    int w4 = gfx_text_width(hint, px);
+    int max_w = w1;
+    if (w2 > max_w) max_w = w2;
+    if (w3 > max_w) max_w = w3;
+    if (w4 > max_w) max_w = w4;
+
+    int pw = max_w + pad * 2;
+    int ph = 4 * line_h + pad * 2;
+    int panel_x = (int)g->w - pw - 4;
+    int panel_y = 4;
+
+    /* Black background */
+    gfx_sprite_fill_rect(g, panel_x, panel_y, pw, ph, 0, 0, 0, 255);
+
+    /* White text */
+    int ty = panel_y + pad;
+    draw_str(g, panel_x + pad, ty, test_names[test], 255, 255, 255, px);
+    ty += line_h;
+    draw_str(g, panel_x + pad, ty, mode_buf, 255, 255, 255, px);
+    ty += line_h;
+    draw_str(g, panel_x + pad, ty, fps_buf, 255, 255, 255, px);
+    ty += line_h;
+    draw_str(g, panel_x + pad, ty, hint, 255, 255, 255, px);
 }
 
 /* ------------------------------------------------------------------ */
@@ -223,7 +238,7 @@ int gmain(int argc, char *argv[], int flags) {
         if (first_frame)
             first_frame = 0;
 
-        draw_overlays(&screen, test);
+        draw_overlays(&screen, test, W, H);
         fps_tick();
 
         gfx_flush_sprite(&g, &screen);
