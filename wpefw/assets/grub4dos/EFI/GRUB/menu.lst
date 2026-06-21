@@ -1,0 +1,6 @@
+title Find and boot /winpe.wim
+find --devices=h --set-root /winpe.wim
+uuid ()
+kernel /ntloader hires=no uuid=%?_UUID% wim=/winpe.wim
+initrd /initrd.cpio
+boot
