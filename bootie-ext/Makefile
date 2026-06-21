@@ -5,12 +5,12 @@ OBJCOPY := $(or $(shell command -v $(CROSS_PREFIX)objcopy 2>/dev/null),objcopy)
 RM      := rm -f
 MKDIR   := mkdir -p
 
-# Optional TrueType font to embed (path to a .ttf file).
-# When set, the font is converted to a C array and compiled into every module.
+# TrueType font to embed (path to a .ttf file).
+# Converted to a C array and compiled into every module.
 TTF_FONT ?= fonts/SpaceGrotesk-Regular.ttf
 FONT_HEADER := include/bootie-fonts.h
 
-# Icon pack: 16x16 PNGs are converted to a C header at build time.
+# Icon pack: PNGs are converted to a C header at build time.
 ICON_DIR  := icons
 ICON_HEADER := include/bootie-icons.h
 
@@ -23,6 +23,10 @@ CFLAGS_BIOS := -O2 -Wl,--build-id=none -m32 -mno-sse -nostdlib \
                -Wl,--no-dynamic-linker -Wl,-z,norelro -Wl,--no-warn-rwx-segments \
                -Ilibs/schrift -Ilibs/lodepng -Ilibs/stb -MD -MP
 
+# -mno-red-zone: required for x86_64 bare-metal because async callbacks (UEFI
+# timer interrupts, etc.) run on the same stack and would corrupt red-zone data.
+# -fshort-wchar: UEFI uses 16-bit wchar_t internally (MS ABI convention).
+# -fno-asynchronous-unwind-tables: no need for .eh_frame in a flat binary.
 CFLAGS_UEFI := -O2 -Wl,--build-id=none -m64 -mno-red-zone -nostdlib \
                -fshort-wchar -fno-tree-loop-distribute-patterns \
                -fno-asynchronous-unwind-tables -Wl,-N -Wl,-T,ld/linker_uefi.ld -fPIE \
@@ -55,17 +59,11 @@ DEPFLAGS = -MT $@
 # ------------------------------------------------------------------
 font-header: $(FONT_HEADER)
 
-ifneq ($(wildcard $(TTF_FONT)),)
 $(FONT_HEADER): $(TTF_FONT) scripts/ttf_to_c.py
 	python3 scripts/ttf_to_c.py "$(TTF_FONT)" "$(FONT_HEADER)"
-else
-$(FONT_HEADER):
-	@echo "No TTF font found at $(TTF_FONT); building without TrueType support."
-	@echo "Set TTF_FONT=path/to/font.ttf to enable TrueType rendering."
-endif
 
 # ------------------------------------------------------------------
-# Generate icon header from 16x16 RGBA PNGs in $(ICON_DIR)
+# Generate icon header from PNGs in $(ICON_DIR)
 # ------------------------------------------------------------------
 $(ICON_HEADER): $(wildcard $(ICON_DIR)/*.png) scripts/icons_to_c.py
 	python3 scripts/icons_to_c.py "$(ICON_DIR)" "$(ICON_HEADER)"

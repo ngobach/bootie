@@ -24,9 +24,10 @@ default: all
 # Bootie-ext modules
 MOD_DEST := $(BOOTIE_GO_DIR)/resources/data-part/mod
 
-# Build and copy bootie-ext modules
+# Build and copy bootie-ext modules (strip .d dependency files)
 mod:
 	$(MAKE) -C bootie-ext
+	find bootie-ext/mod -name '*.d' -delete
 	rm -rf $(MOD_DEST)
 	cp -r bootie-ext/mod $(MOD_DEST)
 
