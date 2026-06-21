@@ -73,18 +73,18 @@ $(ICON_HEADER): $(wildcard $(ICON_DIR)/*.png) scripts/icons_to_c.py
 # ------------------------------------------------------------------
 mod/bios/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
-	$(CC) $(CFLAGS_BIOS) $(DEPFLAGS) -Iinclude $< -o $@.o
-	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
-	$(RM) $@.o
+	$(CC) $(CFLAGS_BIOS) $(DEPFLAGS) -Iinclude $< -o $@.elf
+	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.elf $@
+	$(RM) $@.elf
 
 # ------------------------------------------------------------------
 # Generic UEFI module build
 # ------------------------------------------------------------------
 mod/uefi/%: src/%.c $(FONT_HEADER) $(ICON_HEADER)
 	$(MKDIR) $(dir $@)
-	$(CC) $(CFLAGS_UEFI) $(DEPFLAGS) -Iinclude -Iinclude/uefi $< -o $@.o
-	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.o $@
-	$(RM) $@.o
+	$(CC) $(CFLAGS_UEFI) $(DEPFLAGS) -Iinclude -Iinclude/uefi $< -o $@.elf
+	$(OBJCOPY) -R .note.gnu.property -R .note.gnu.build-id -O binary $@.elf $@
+	$(RM) $@.elf
 
 # ------------------------------------------------------------------
 clean:
