@@ -15,6 +15,10 @@
 static int is_bios;
 
 #define PATH_MAX 260
+
+/* Shared buffers to avoid large stack allocations in bare-metal/firmware */
+static char boot_cmd[PATH_MAX + 256];
+static char boot_log[10240];
 #define LINE_H   48
 #define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
@@ -28,6 +32,7 @@ enum action_type {
     ACTION_POWEROFF,
     ACTION_OPEN_CATEGORY,
     ACTION_PROGRAM,
+    ACTION_BOOT_WIM,
 };
 
 struct menu_action {
@@ -138,48 +143,43 @@ static void handle_disk_image(struct gfx *g,
                                 int cw, int ch,
                                 const char *target) {
     int tlen = strlen(target);
-    char cmd[PATH_MAX + 128];
     if (tlen >= 4 &&
         (strnicmp(target + tlen - 4, ".ima", 4) == 0 ||
          strnicmp(target + tlen - 4, ".img", 4) == 0)) {
-        sprintf(cmd, "map --mem %s (fd0) ;; map --hook ;; root (fd0) ;; chainloader +1 ;; boot",
+        sprintf(boot_cmd, "map --mem %s (fd0) ;; map --hook ;; root (fd0) ;; chainloader +1 ;; boot",
                 target);
     } else {
-        sprintf(cmd, "map %s (0xff) ;; map --hook ;; root (0xff) ;; chainloader (0xff) ;; boot",
+        sprintf(boot_cmd, "map %s (0xff) ;; map --hook ;; root (0xff) ;; chainloader (0xff) ;; boot",
                 target);
     }
 
-    char log[10240];
-    log[0] = '\0';
-    int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+    boot_log[0] = '\0';
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
         bt_gui_show_log(g, cw, ch,
-                        "Boot failed", log);
+                        "Boot failed", boot_log);
 }
 
 static void handle_chainload(struct gfx *g,
                                int cw, int ch,
                                const char *target) {
-    char cmd[PATH_MAX + 128];
-    sprintf(cmd, "chainloader %s ;; boot", target);
+    sprintf(boot_cmd, "chainloader %s ;; boot", target);
 
-    char log[10240];
-    log[0] = '\0';
-    int bt_ret = bt_eval_ex(cmd, log, sizeof(log), BT_EVAL_F_ERRMSG);
+    boot_log[0] = '\0';
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
         bt_gui_show_log(g, cw, ch,
-                        "Boot failed", log);
+                        "Boot failed", boot_log);
 }
 
 static void handle_reboot(struct gfx *g,
                             int cw, int ch) {
     if (bt_gui_confirm(g, cw, ch,
                        "Restart system?", NULL)) {
-        char log[10240];
-        log[0] = '\0';
-        int bt_ret = bt_eval_ex("reboot", log, sizeof(log), BT_EVAL_F_ERRMSG);
+        boot_log[0] = '\0';
+        int bt_ret = bt_eval_ex("reboot", boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
         bt_gui_show_log(g, cw, ch,
-                        "Failed to reboot", log);
+                        "Failed to reboot", boot_log);
     }
 }
 
@@ -187,12 +187,27 @@ static void handle_poweroff(struct gfx *g,
                               int cw, int ch) {
     if (bt_gui_confirm(g, cw, ch,
                        "Shut down system?", NULL)) {
-        char log[10240];
-        log[0] = '\0';
-        int bt_ret = bt_eval_ex("halt", log, sizeof(log), BT_EVAL_F_ERRMSG);
+        boot_log[0] = '\0';
+        int bt_ret = bt_eval_ex("halt", boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
         bt_gui_show_log(g, cw, ch,
-                        "Failed to shut down", log);
+                        "Failed to shut down", boot_log);
     }
+}
+
+static void handle_boot_wim(struct gfx *g,
+                             int cw, int ch,
+                             const char *target) {
+    sprintf(boot_cmd,
+            "find --set-root %s ;; uuid () ;; "
+            "kernel /ntloader hires=no uuid=%%?_UUID%% wim=%s ;; "
+            "initrd /initrd.cpio ;; boot",
+            target, target);
+
+    boot_log[0] = '\0';
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+    if (bt_ret != 0)
+        bt_gui_show_log(g, cw, ch,
+                        "Boot failed", boot_log);
 }
 
 static int action_type_from_name(const char *name) {
@@ -204,6 +219,7 @@ static int action_type_from_name(const char *name) {
     if (stricmp(name, "poweroff") == 0) return ACTION_POWEROFF;
     if (stricmp(name, "open-category") == 0) return ACTION_OPEN_CATEGORY;
     if (stricmp(name, "program") == 0) return ACTION_PROGRAM;
+    if (stricmp(name, "boot-wim") == 0) return ACTION_BOOT_WIM;
     return ACTION_NONE;
 }
 
@@ -285,6 +301,7 @@ static void expand_wildcard_items(struct menu *m,
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
         case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
         case ACTION_PROGRAM:       strcpy(type_icon, "console"); break;
+        case ACTION_BOOT_WIM:      strcpy(type_icon, "windows"); break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(sec, "icon");
@@ -370,6 +387,7 @@ static void load_ini_items(struct menu *m) {
         case ACTION_POWEROFF:     strcpy(type_icon, "poweroff"); break;
         case ACTION_OPEN_CATEGORY: strcpy(type_icon, "menu");    break;
         case ACTION_PROGRAM:       strcpy(type_icon, "console"); break;
+        case ACTION_BOOT_WIM:      strcpy(type_icon, "windows"); break;
         }
 
         const char *custom_icon = bt_ini_section_get_value(&ini.sections[i], "icon");
@@ -516,6 +534,10 @@ int gmain(int argc, char *argv[], int flags) {
                         sprintf(cmd, "%%moddir%%/%s", item->action.target);
                         run_line(cmd, BUILTIN_CMDLINE);
                     }
+                    break;
+                case ACTION_BOOT_WIM:
+                    handle_boot_wim(&g, cw, ch,
+                                    item->action.target);
                     break;
                 default:
                     break;

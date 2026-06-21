@@ -482,10 +482,16 @@ static void enter_dir(struct browser *br, const char *name) {
 }
 
 static int handle_boot(const char *drive, const char *path) {
-    char cmd[PATH_MAX + 128];
+    char cmd[PATH_MAX + 256];
     int plen = strlen(path);
     if (plen >= 4 && strnicmp(path + plen - 4, ".efi", 4) == 0) {
         sprintf(cmd, "chainloader %s%s ;; boot", drive, path);
+    } else if (plen >= 4 && strnicmp(path + plen - 4, ".wim", 4) == 0) {
+        sprintf(cmd,
+                "root %s ;; uuid () ;; "
+                "kernel /ntloader hires=no uuid=%%?_UUID%% wim=%s ;; "
+                "initrd /initrd.cpio ;; boot",
+                drive, path);
     } else {
         if (plen >= 4 &&
             (strnicmp(path + plen - 4, ".ima", 4) == 0 ||
