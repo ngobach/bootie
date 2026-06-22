@@ -7,7 +7,7 @@ BUILD_WIM     := build/wim/winpe.wim
 
 NTLOADER_URL  := https://github.com/grub4dos/ntloader/releases/download/v3.0.7/ntloader.zip
 ULUA_URL      := https://ulua.io/download/ulua~latest.zip
-WINXSHELL_7Z := assets/winxshell/WinXShell_rc4.0b218.7z
+WINXSHELL_ZIP := assets/winxshell/WinXShell_RC5.1.4_beta4.zip
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
 PECMD_7Z       := assets/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
 
@@ -39,15 +39,15 @@ check-deps:
 
 $(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp
 	mkdir -p $(BUILD_OVERLAY)
-	cp -r $(SRC_OVERLAY)/. $(BUILD_OVERLAY)/
 	cp -r build/ulua $(BUILD_OVERLAY)/
-	cp -r build/winxshell/WinXShell_x64/. $(BUILD_OVERLAY)/WinXShell/
+	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
 	cp assets/winxshell/WinXShell.jcfg $(BUILD_OVERLAY)/WinXShell/WinXShell.jcfg
 	mkdir -p "$(BUILD_OVERLAY)/Program Files/Explorer++"
 	cp -r build/explorerpp/. "$(BUILD_OVERLAY)/Program Files/Explorer++/"
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32
 	cp build/pecmd/PECMD.EXE $(BUILD_OVERLAY)/Windows/System32/PECMD.EXE
 	cp "$(BUILD_OVERLAY)/Program Files/Explorer++/Explorer++.exe" $(BUILD_OVERLAY)/Windows/explorer.exe
+	cp -r $(SRC_OVERLAY)/. $(BUILD_OVERLAY)/
 
 $(BUILD_WIM): check-deps $(BUILD_OVERLAY)
 	@if [ ! -f "$(SRC_WIM)" ]; then \
@@ -91,10 +91,10 @@ build/.ulua.stamp:
 	unzip -o build/ulua.zip -d build/
 	touch $@
 
-build/.winxshell.stamp: $(WINXSHELL_7Z)
+build/.winxshell.stamp: $(WINXSHELL_ZIP)
 	rm -rf build/winxshell
 	mkdir -p build/winxshell
-	7z x -y "$(WINXSHELL_7Z)" -obuild/winxshell WinXShell_x64
+	unzip -o "$(WINXSHELL_ZIP)" -d build/winxshell/
 	touch $@
 
 build/.explorerpp.stamp:
