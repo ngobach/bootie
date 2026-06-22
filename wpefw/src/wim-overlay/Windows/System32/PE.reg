@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+; Override shell open handlers so folders, drives, directories, and all
+; unassociated files open in Explorer++ instead of the WinPE default.
+[HKEY_CLASSES_ROOT\Folder\shell\open\command]
+@="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
+[HKEY_CLASSES_ROOT\Drive\shell\open\command]
+@="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
+[HKEY_CLASSES_ROOT\Directory\shell\open\command]
+@="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
+[HKEY_CLASSES_ROOT\*\shell\open\command]
+@="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
