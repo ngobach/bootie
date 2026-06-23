@@ -10,3 +10,10 @@ Windows Registry Editor Version 5.00
 @="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
 [HKEY_CLASSES_ROOT\*\shell\open\command]
 @="\"X:\\Program Files\\Explorer++\\Explorer++.exe\" \"%1\""
+
+; PENetwork — start minimized to system tray, no startup window
+[HKEY_CURRENT_USER\Software\PENetwork]
+"StartToTray"=dword:00000001
+"MinimizeToTray"=dword:00000001
+"CloseToTray"=dword:00000001
+"StartMode"=dword:00000000

@@ -10,6 +10,7 @@ ULUA_URL      := https://ulua.io/download/ulua~latest.zip
 WINXSHELL_ZIP := assets/winxshell/WinXShell_RC5.1.4_beta4.zip
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
 PECMD_7Z       := assets/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
+PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
 
 WIM_BINS     := wimappend wiminfo
 WIM_PATHS    := $(foreach bin,$(WIM_BINS),$(shell command -v $(bin) 2>/dev/null))
@@ -37,7 +38,7 @@ check-deps:
 	fi; \
 	wimlib-imagex --version
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
@@ -47,6 +48,8 @@ $(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32
 	cp build/pecmd/PECMD.EXE $(BUILD_OVERLAY)/Windows/System32/PECMD.EXE
 	cp "$(BUILD_OVERLAY)/Program Files/Explorer++/Explorer++.exe" $(BUILD_OVERLAY)/Windows/explorer.exe
+	mkdir -p $(BUILD_OVERLAY)/PENetwork
+	cp -r build/penetwork/. $(BUILD_OVERLAY)/PENetwork/
 	cp -r $(SRC_OVERLAY)/. $(BUILD_OVERLAY)/
 
 $(BUILD_WIM): check-deps $(BUILD_OVERLAY)
@@ -111,6 +114,14 @@ build/.pecmd.stamp: $(PECMD_7Z)
 	7z x -y "$(PECMD_7Z)" -obuild/pecmd PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE
 	mv build/pecmd/PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE build/pecmd/PECMD.EXE
 	rm -rf build/pecmd/PECMD88.05.62-26-05-15x64-EN
+	touch $@
+
+build/.penetwork.stamp:
+	rm -rf build/penetwork
+	mkdir -p build/penetwork
+	curl -L -o build/penetwork/penetwork.7z "$(PENETWORK_URL)"
+	7z x -y build/penetwork/penetwork.7z -obuild/penetwork/
+	rm -f build/penetwork/penetwork.7z
 	touch $@
 
 .PHONY: clean
