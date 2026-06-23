@@ -38,11 +38,11 @@ check-deps:
 	fi; \
 	wimlib-imagex --version
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
-	cp assets/winxshell/WinXShell.jcfg $(BUILD_OVERLAY)/WinXShell/WinXShell.jcfg
+	cp src/configs/WinXShell.jcfg $(BUILD_OVERLAY)/WinXShell/WinXShell.jcfg
 	mkdir -p "$(BUILD_OVERLAY)/Program Files/Explorer++"
 	cp -r build/explorerpp/. "$(BUILD_OVERLAY)/Program Files/Explorer++/"
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32
