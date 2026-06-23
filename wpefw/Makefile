@@ -12,6 +12,12 @@ EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_
 PECMD_7Z       := assets/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
 PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
 
+APPS_SRC   := src/apps
+APPS_BUILD := build/apps
+APPS_IMG   := build/apps.img
+APPS_QCOW2 := build/apps.qcow2
+APPS_SIZE  := 64
+
 WIM_BINS     := wimappend wiminfo
 WIM_PATHS    := $(foreach bin,$(WIM_BINS),$(shell command -v $(bin) 2>/dev/null))
 
@@ -36,7 +42,21 @@ check-deps:
 		echo "Install wimlib (e.g. brew install wimlib)"; \
 		exit 1; \
 	fi; \
-	wimlib-imagex --version
+	wimlib-imagex --version; \
+	missing_apps=""; \
+	for bin in qemu-img mformat mcopy; do \
+		path=$$(command -v $$bin 2>/dev/null); \
+		if [ -z "$$path" ]; then \
+			missing_apps="$$missing_apps $$bin"; \
+		else \
+			echo "  found: $$path"; \
+		fi \
+	done; \
+	if [ -n "$$missing_apps" ]; then \
+		echo "WARNING: missing apps image tools:$$missing_apps"; \
+		echo "Install mtools (e.g. brew install mtools)"; \
+		echo "The apps drive will not be built."; \
+	fi
 
 $(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp
 	mkdir -p $(BUILD_OVERLAY)
@@ -66,7 +86,8 @@ $(BUILD_WIM): check-deps $(BUILD_OVERLAY)
 build: $(BUILD_WIM)
 
 .PHONY: run
-run: $(BUILD_WIM) build/.ntloader.stamp
+run: $(BUILD_WIM) build/.ntloader.stamp build/.apps.stamp
+	rm -f /tmp/qmp.sock
 	qemu-system-x86_64 \
 		-M q35 \
         -m 1G \
@@ -75,8 +96,10 @@ run: $(BUILD_WIM) build/.ntloader.stamp
 		-bios ../resources/OVMF.fd \
 		-s \
 		-debugcon file:/tmp/debugcon.log \
+		-device usb-ehci,id=ehci \
 		-drive file=fat:rw:build/wim,format=raw \
-		-drive file=fat:rw:assets/grub4dos,format=raw
+		-drive file=fat:rw:assets/grub4dos,format=raw \
+		-qmp unix:/tmp/qmp.sock,server,nowait
 
 build/.ntloader.stamp:
 	mkdir -p build/ntloader
@@ -123,6 +146,35 @@ build/.penetwork.stamp:
 	7z x -y build/penetwork/penetwork.7z -obuild/penetwork/
 	rm -f build/penetwork/penetwork.7z
 	touch $@
+
+build/.apps.stamp: $(APPS_SRC)
+	rm -rf $(APPS_BUILD) $(APPS_IMG) $(APPS_QCOW2)
+	cp -r $(APPS_SRC) $(APPS_BUILD)
+	dd if=/dev/zero of=$(APPS_IMG) bs=1M count=$(APPS_SIZE)
+	mformat -i $(APPS_IMG) -F ::
+	mcopy -i $(APPS_IMG) -s $(APPS_BUILD)/* ::
+	qemu-img convert -O qcow2 $(APPS_IMG) $(APPS_QCOW2)
+	rm -f $(APPS_IMG)
+	touch $@
+
+.PHONY: apps-attach
+apps-attach:
+	scripts/qmp.py '{"execute":"blockdev-add","arguments":{"node-name":"apps_node","driver":"qcow2","file":{"driver":"file","filename":"$(APPS_QCOW2)"}}}'
+	scripts/qmp.py '{"execute":"device_add","arguments":{"driver":"usb-storage","drive":"apps_node","id":"apps_usb","removable":true}}'
+
+.PHONY: apps-detach
+apps-detach:
+	scripts/qmp.py '{"execute":"device_del","arguments":{"id":"apps_usb"}}'
+	scripts/qmp.py '{"execute":"blockdev-del","arguments":{"node-name":"apps_node"}}'
+
+.PHONY: apps-replug
+apps-replug:
+	scripts/qmp.py '{"execute":"device_del","arguments":{"id":"apps_usb"}}' || true
+	scripts/qmp.py '{"execute":"blockdev-del","arguments":{"node-name":"apps_node"}}' || true
+	$(RM) build/.apps.stamp
+	$(MAKE) build/.apps.stamp
+	scripts/qmp.py '{"execute":"blockdev-add","arguments":{"node-name":"apps_node","driver":"qcow2","file":{"driver":"file","filename":"$(APPS_QCOW2)"}}}'
+	scripts/qmp.py '{"execute":"device_add","arguments":{"driver":"usb-storage","drive":"apps_node","id":"apps_usb","removable":true}}'
 
 .PHONY: clean
 clean:
