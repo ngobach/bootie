@@ -11,6 +11,7 @@ WINXSHELL_ZIP := assets/winxshell/WinXShell_RC5.1.4_beta4.zip
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
 PECMD_7Z       := assets/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
 PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
+E7ZIP_URL      := http://www.e7z.org/easy7zip_portable.zip
 
 APPS_SRC   := src/apps
 APPS_BUILD := build/apps
@@ -58,7 +59,7 @@ check-deps:
 		echo "The apps drive will not be built."; \
 	fi
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp build/.e7zip.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
@@ -70,6 +71,8 @@ $(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp bu
 	cp "$(BUILD_OVERLAY)/Program Files/Explorer++/Explorer++.exe" $(BUILD_OVERLAY)/Windows/explorer.exe
 	mkdir -p $(BUILD_OVERLAY)/PENetwork
 	cp -r build/penetwork/. $(BUILD_OVERLAY)/PENetwork/
+	mkdir -p "$(BUILD_OVERLAY)/Program Files/easy7zip"
+	cp -r build/e7zip/x64/. "$(BUILD_OVERLAY)/Program Files/easy7zip/"
 	cp -r $(SRC_OVERLAY)/. $(BUILD_OVERLAY)/
 
 $(BUILD_WIM): check-deps $(BUILD_OVERLAY)
@@ -145,6 +148,14 @@ build/.penetwork.stamp:
 	curl -L -o build/penetwork/penetwork.7z "$(PENETWORK_URL)"
 	7z x -y build/penetwork/penetwork.7z -obuild/penetwork/
 	rm -f build/penetwork/penetwork.7z
+	touch $@
+
+build/.e7zip.stamp:
+	rm -rf build/e7zip
+	mkdir -p build/e7zip
+	curl -L -o build/e7zip/e7zip.zip "$(E7ZIP_URL)"
+	unzip -o build/e7zip/e7zip.zip -d build/e7zip/
+	rm -f build/e7zip/e7zip.zip
 	touch $@
 
 build/.apps.stamp: $(APPS_SRC)
