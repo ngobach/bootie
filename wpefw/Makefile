@@ -24,6 +24,22 @@ APP_WIMS  := $(addprefix $(APPS_BUILD)/,$(addsuffix .wim,$(APPS)))
 WIM_BINS     := wimappend wiminfo
 WIM_PATHS    := $(foreach bin,$(WIM_BINS),$(shell command -v $(bin) 2>/dev/null))
 
+.PHONY: help
+help:
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all        Build the WinPE WIM (default)"
+	@echo "  build      Build the WinPE WIM"
+	@echo "  run        Boot the WinPE WIM in QEMU"
+	@echo "  clean      Remove build artifacts"
+	@echo "  verify     List contents of app WIM files"
+	@echo "  check-deps Check required dependencies"
+	@echo "  apps        Build app WIM files"
+	@echo "  apps-attach  Hot-plug apps drive into QEMU"
+	@echo "  apps-detach  Remove apps drive from QEMU"
+	@echo "  apps-replug  Rebuild and replug apps drive"
+
 .PHONY: all
 all: check-deps build
 
@@ -163,6 +179,9 @@ FORCE:
 $(APPS_BUILD)/%.wim: FORCE
 	mkdir -p $(APPS_BUILD)
 	$(MAKE) -C $(APPS_SRC)/$* WIM_OUT=$(abspath $@)
+
+.PHONY: apps
+apps: $(APP_WIMS)
 
 build/.apps.stamp: $(APPS_SRC) $(APP_WIMS)
 	rm -rf $(APPS_IMG) $(APPS_QCOW2)

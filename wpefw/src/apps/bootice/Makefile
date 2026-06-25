@@ -6,7 +6,7 @@ all: $(WIM_OUT)
 $(WIM_OUT): autoexec.ini bootice.zip
 	rm -rf build
 	mkdir -p build
-	unzip -oj bootice.zip '*/BOOTICEx64*.exe' -d build/
+	unzip -oj bootice.zip 'BOOTICEx64*.exe' -d build/
 	for f in build/BOOTICEx64*.exe; do mv "$$f" build/BOOTICE.exe; done
 	cp autoexec.ini build/
 	wimcapture build $@ --compress=LZX --check
