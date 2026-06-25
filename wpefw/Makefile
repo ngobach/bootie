@@ -61,11 +61,10 @@ check-deps:
 		echo "The apps drive will not be built."; \
 	fi
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) src/configs/WinXShell.jcfg build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp build/.e7zip.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp build/.e7zip.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
-	cp src/configs/WinXShell.jcfg $(BUILD_OVERLAY)/WinXShell/WinXShell.jcfg
 	mkdir -p "$(BUILD_OVERLAY)/Program Files/Explorer++"
 	cp -r build/explorerpp/. "$(BUILD_OVERLAY)/Program Files/Explorer++/"
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32
