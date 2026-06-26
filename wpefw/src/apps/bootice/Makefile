@@ -1,4 +1,5 @@
-BOOTICE_OCI := zot.ngobach.com/bootie/bootice:v1
+REGISTRY   ?= zot.ngobach.com
+BOOTICE_OCI := $(REGISTRY)/bootie/bootice:v1
 WIM_OUT ?= ../../build/apps/bootice.wim
 
 .PHONY: all clean

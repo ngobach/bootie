@@ -5,11 +5,12 @@ BUILD_DIR     := build
 BUILD_OVERLAY := build/overlay
 BUILD_WIM     := build/wim/winpe.wim
 
+REGISTRY      := zot.ngobach.com
 NTLOADER_URL  := https://github.com/grub4dos/ntloader/releases/download/v3.0.7/ntloader.zip
 ULUA_URL      := https://ulua.io/download/ulua~latest.zip
-WINXSHELL_OCI := zot.ngobach.com/bootie/winxshell:v1
+WINXSHELL_OCI := $(REGISTRY)/bootie/winxshell:v1
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
-PECMD_OCI      := zot.ngobach.com/bootie/pecmd:v1
+PECMD_OCI      := $(REGISTRY)/bootie/pecmd:v1
 PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
 E7ZIP_URL      := http://www.e7z.org/easy7zip_portable.zip
 
@@ -181,7 +182,7 @@ build/.e7zip.stamp:
 FORCE:
 $(APPS_BUILD)/%.wim: FORCE
 	mkdir -p $(APPS_BUILD)
-	$(MAKE) -C $(APPS_SRC)/$* WIM_OUT=$(abspath $@)
+	$(MAKE) -C $(APPS_SRC)/$* REGISTRY=$(REGISTRY) WIM_OUT=$(abspath $@)
 
 .PHONY: apps
 apps: $(APP_WIMS)
