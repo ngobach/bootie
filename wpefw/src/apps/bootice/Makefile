@@ -1,13 +1,16 @@
+BOOTICE_OCI := zot.ngobach.com/bootie/bootice:v1
 WIM_OUT ?= ../../build/apps/bootice.wim
 
 .PHONY: all clean
 all: $(WIM_OUT)
 
-$(WIM_OUT): autoexec.ini bootice.zip
+$(WIM_OUT): autoexec.ini
 	rm -rf build
-	mkdir -p build
-	unzip -oj bootice.zip 'BOOTICEx64*.exe' -d build/
+	mkdir -p build $(dir $@)
+	oras pull $(BOOTICE_OCI) -o build
+	unzip -oj build/bootice.zip 'BOOTICEx64*.exe' -d build/
 	for f in build/BOOTICEx64*.exe; do mv "$$f" build/BOOTICE.exe; done
+	rm -f build/bootice.zip
 	cp autoexec.ini build/
 	wimcapture build $@ --compress=LZX --check
 	rm -rf build

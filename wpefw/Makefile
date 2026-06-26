@@ -7,9 +7,9 @@ BUILD_WIM     := build/wim/winpe.wim
 
 NTLOADER_URL  := https://github.com/grub4dos/ntloader/releases/download/v3.0.7/ntloader.zip
 ULUA_URL      := https://ulua.io/download/ulua~latest.zip
-WINXSHELL_ZIP := assets/winxshell/WinXShell_RC5.1.4_beta4.zip
+WINXSHELL_OCI := zot.ngobach.com/bootie/winxshell:v1
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
-PECMD_7Z       := assets/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
+PECMD_OCI      := zot.ngobach.com/bootie/pecmd:v1
 PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
 E7ZIP_URL      := http://www.e7z.org/easy7zip_portable.zip
 
@@ -137,10 +137,12 @@ build/.ulua.stamp:
 	unzip -o build/ulua.zip -d build/
 	touch $@
 
-build/.winxshell.stamp: $(WINXSHELL_ZIP)
+build/.winxshell.stamp:
 	rm -rf build/winxshell
 	mkdir -p build/winxshell
-	unzip -o "$(WINXSHELL_ZIP)" -d build/winxshell/
+	oras pull $(WINXSHELL_OCI) -o build/winxshell
+	unzip -o build/winxshell/WinXShell_RC5.1.4_beta4.zip -d build/winxshell/
+	rm -f build/winxshell/WinXShell_RC5.1.4_beta4.zip
 	touch $@
 
 build/.explorerpp.stamp:
@@ -151,10 +153,11 @@ build/.explorerpp.stamp:
 	rm -f build/explorerpp/explorerpp.zip
 	touch $@
 
-build/.pecmd.stamp: $(PECMD_7Z)
+build/.pecmd.stamp:
 	rm -rf build/pecmd
 	mkdir -p build/pecmd
-	7z x -y "$(PECMD_7Z)" -obuild/pecmd PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE
+	oras pull $(PECMD_OCI) -o build/pecmd
+	7z x -y build/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z -obuild/pecmd/ PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE
 	mv build/pecmd/PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE build/pecmd/PECMD.EXE
 	rm -rf build/pecmd/PECMD88.05.62-26-05-15x64-EN
 	touch $@
