@@ -144,6 +144,10 @@ build/.winxshell.stamp:
 	oras pull $(WINXSHELL_OCI) -o build/winxshell
 	unzip -o build/winxshell/WinXShell_RC5.1.4_beta4.zip -d build/winxshell/
 	rm -f build/winxshell/WinXShell_RC5.1.4_beta4.zip
+	rm -f build/winxshell/WinXShell/WinXShell_x86.exe
+	rm -f build/winxshell/WinXShell/WinXShellC_x86.exe
+	rm -f build/winxshell/WinXShell/wxsStub32.dll
+	mv build/winxshell/WinXShell/WinXShell_x64.exe build/winxshell/WinXShell/WinXShell.exe
 	touch $@
 
 build/.explorerpp.stamp:
