@@ -11,6 +11,7 @@ ULUA_URL      := https://ulua.io/download/ulua~latest.zip
 WINXSHELL_OCI := $(REGISTRY)/bootie/winxshell:v1
 EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
 PECMD_OCI      := $(REGISTRY)/bootie/pecmd:v1
+IMDISK_OCI     := $(REGISTRY)/bootie/imdisk:v1
 PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
 E7ZIP_URL      := http://www.e7z.org/easy7zip_portable.zip
 
@@ -78,7 +79,7 @@ check-deps:
 		echo "The apps drive will not be built."; \
 	fi
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.penetwork.stamp build/.e7zip.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.imdisk.stamp build/.penetwork.stamp build/.e7zip.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
@@ -87,6 +88,8 @@ $(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32
 	cp build/pecmd/PECMD.EXE $(BUILD_OVERLAY)/Windows/System32/PECMD.EXE
 	cp "$(BUILD_OVERLAY)/Program Files/Explorer++/Explorer++.exe" $(BUILD_OVERLAY)/Windows/explorer.exe
+	mkdir -p $(BUILD_OVERLAY)/Windows/System32/drivers
+	cp -r build/imdisk/driver $(BUILD_OVERLAY)/Windows/System32/imdisk
 	mkdir -p $(BUILD_OVERLAY)/PENetwork
 	cp -r build/penetwork/. $(BUILD_OVERLAY)/PENetwork/
 	mkdir -p "$(BUILD_OVERLAY)/Program Files/easy7zip"
@@ -133,9 +136,10 @@ build/.ntloader.stamp:
 
 build/.ulua.stamp:
 	rm -rf build/ulua
-	mkdir -p build
-	curl -L -o build/ulua.zip "$(ULUA_URL)"
-	unzip -o build/ulua.zip -d build/
+	mkdir -p build/ulua
+	curl -L -o build/ulua/ulua.zip "$(ULUA_URL)"
+	unzip -o build/ulua/ulua.zip -d build/ulua/
+	rm -f build/ulua/ulua.zip
 	touch $@
 
 build/.winxshell.stamp:
@@ -147,7 +151,11 @@ build/.winxshell.stamp:
 	rm -f build/winxshell/WinXShell/WinXShell_x86.exe
 	rm -f build/winxshell/WinXShell/WinXShellC_x86.exe
 	rm -f build/winxshell/WinXShell/wxsStub32.dll
+	rm -f build/winxshell/WinXShell/wallpaper.jpg
 	mv build/winxshell/WinXShell/WinXShell_x64.exe build/winxshell/WinXShell/WinXShell.exe
+	oras pull $(REGISTRY)/bootie/wallpaper:v1 -o build/winxshell/WinXShell/
+	ffmpeg -y -i build/winxshell/WinXShell/wallpaper.png build/winxshell/WinXShell/wallpaper.jpg
+	rm -f build/winxshell/WinXShell/wallpaper.png
 	touch $@
 
 build/.explorerpp.stamp:
@@ -156,6 +164,16 @@ build/.explorerpp.stamp:
 	curl -L -o build/explorerpp/explorerpp.zip "$(EXPLORERPP_URL)"
 	unzip -o build/explorerpp/explorerpp.zip -d build/explorerpp/
 	rm -f build/explorerpp/explorerpp.zip
+	touch $@
+
+build/.imdisk.stamp:
+	rm -rf build/imdisk
+	mkdir -p build/imdisk
+	oras pull $(IMDISK_OCI) -o build/imdisk
+	unzip -o build/imdisk/ImDiskTk-x64.zip -d build/imdisk/
+	rm -f build/imdisk/ImDiskTk-x64.zip
+	7z x -y build/imdisk/ImDiskTk*/files.cab -obuild/imdisk/
+	rm -rf build/imdisk/ImDiskTk*
 	touch $@
 
 build/.pecmd.stamp:
