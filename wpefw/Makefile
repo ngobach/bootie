@@ -6,14 +6,14 @@ BUILD_OVERLAY := build/overlay
 BUILD_WIM     := build/wim/winpe.wim
 
 REGISTRY      := zot.ngobach.com
-NTLOADER_URL  := https://github.com/grub4dos/ntloader/releases/download/v3.0.7/ntloader.zip
-ULUA_URL      := https://ulua.io/download/ulua~latest.zip
+NTLOADER_OCI  := $(REGISTRY)/bootie/ntloader:v1
+ULUA_OCI      := $(REGISTRY)/bootie/ulua:v1
 WINXSHELL_OCI := $(REGISTRY)/bootie/winxshell:v1
-EXPLORERPP_URL := https://download.explorerplusplus.com/stable/1.4.0/explorerpp_x64.zip
+EXPLORERPP_OCI := $(REGISTRY)/bootie/explorerpp:v1
 PECMD_OCI      := $(REGISTRY)/bootie/pecmd:v1
 IMDISK_OCI     := $(REGISTRY)/bootie/imdisk:v1
-PENETWORK_URL  := https://www.penetworkmanager.de/scripts/PENetwork_x64.7z
-E7ZIP_URL      := http://www.e7z.org/easy7zip_portable.zip
+PENETWORK_OCI  := $(REGISTRY)/bootie/penetwork:v1
+E7ZIP_OCI      := $(REGISTRY)/bootie/e7zip:v1
 
 APPS_SRC   := src/apps
 APPS_BUILD := build/apps
@@ -126,9 +126,11 @@ run: $(BUILD_WIM) build/.ntloader.stamp build/.apps.stamp
 		-qmp unix:/tmp/qmp.sock,server,nowait
 
 build/.ntloader.stamp:
+	rm -rf build/ntloader
 	mkdir -p build/ntloader
-	curl -L -o build/ntloader/ntloader.zip "$(NTLOADER_URL)"
+	oras pull $(NTLOADER_OCI) -o build/ntloader
 	unzip -o build/ntloader/ntloader.zip ntloader initrd.cpio -d build/ntloader/
+	rm -f build/ntloader/ntloader.zip
 	mkdir -p build/wim
 	cp build/ntloader/ntloader build/wim/ntloader
 	cp build/ntloader/initrd.cpio build/wim/initrd.cpio
@@ -137,7 +139,7 @@ build/.ntloader.stamp:
 build/.ulua.stamp:
 	rm -rf build/ulua
 	mkdir -p build/ulua
-	curl -L -o build/ulua/ulua.zip "$(ULUA_URL)"
+	oras pull $(ULUA_OCI) -o build/ulua
 	unzip -o build/ulua/ulua.zip -d build/ulua/
 	rm -f build/ulua/ulua.zip
 	touch $@
@@ -153,15 +155,13 @@ build/.winxshell.stamp:
 	rm -f build/winxshell/WinXShell/wxsStub32.dll
 	rm -f build/winxshell/WinXShell/wallpaper.jpg
 	mv build/winxshell/WinXShell/WinXShell_x64.exe build/winxshell/WinXShell/WinXShell.exe
-	oras pull $(REGISTRY)/bootie/wallpaper:v1 -o build/winxshell/WinXShell/
-	ffmpeg -y -i build/winxshell/WinXShell/wallpaper.png build/winxshell/WinXShell/wallpaper.jpg
-	rm -f build/winxshell/WinXShell/wallpaper.png
+	oras pull $(REGISTRY)/bootie/wallpaper:v3 -o build/winxshell/WinXShell/
 	touch $@
 
 build/.explorerpp.stamp:
 	rm -rf build/explorerpp
 	mkdir -p build/explorerpp
-	curl -L -o build/explorerpp/explorerpp.zip "$(EXPLORERPP_URL)"
+	oras pull $(EXPLORERPP_OCI) -o build/explorerpp
 	unzip -o build/explorerpp/explorerpp.zip -d build/explorerpp/
 	rm -f build/explorerpp/explorerpp.zip
 	touch $@
@@ -181,6 +181,7 @@ build/.pecmd.stamp:
 	mkdir -p build/pecmd
 	oras pull $(PECMD_OCI) -o build/pecmd
 	7z x -y build/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z -obuild/pecmd/ PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE
+	rm -f build/pecmd/PECMD88.05.62-26-05-15x64-EN2ba2.7z
 	mv build/pecmd/PECMD88.05.62-26-05-15x64-EN/X64/PECMD.EXE build/pecmd/PECMD.EXE
 	rm -rf build/pecmd/PECMD88.05.62-26-05-15x64-EN
 	touch $@
@@ -188,7 +189,7 @@ build/.pecmd.stamp:
 build/.penetwork.stamp:
 	rm -rf build/penetwork
 	mkdir -p build/penetwork
-	curl -L -o build/penetwork/penetwork.7z "$(PENETWORK_URL)"
+	oras pull $(PENETWORK_OCI) -o build/penetwork
 	7z x -y build/penetwork/penetwork.7z -obuild/penetwork/
 	rm -f build/penetwork/penetwork.7z
 	touch $@
@@ -196,7 +197,7 @@ build/.penetwork.stamp:
 build/.e7zip.stamp:
 	rm -rf build/e7zip
 	mkdir -p build/e7zip
-	curl -L -o build/e7zip/e7zip.zip "$(E7ZIP_URL)"
+	oras pull $(E7ZIP_OCI) -o build/e7zip
 	unzip -o build/e7zip/e7zip.zip -d build/e7zip/
 	rm -f build/e7zip/e7zip.zip
 	touch $@
