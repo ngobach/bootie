@@ -14,6 +14,7 @@ PECMD_OCI      := $(REGISTRY)/bootie/pecmd:v1
 IMDISK_OCI     := $(REGISTRY)/bootie/imdisk:v1
 PENETWORK_OCI  := $(REGISTRY)/bootie/penetwork:v1
 E7ZIP_OCI      := $(REGISTRY)/bootie/e7zip:v1
+WIN_DLLS_OCI   := $(REGISTRY)/bootie/windlls:v1
 
 APPS_SRC   := src/apps
 APPS_BUILD := build/apps
@@ -79,7 +80,7 @@ check-deps:
 		echo "The apps drive will not be built."; \
 	fi
 
-$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.imdisk.stamp build/.penetwork.stamp build/.e7zip.stamp
+$(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/.explorerpp.stamp build/.pecmd.stamp build/.imdisk.stamp build/.penetwork.stamp build/.e7zip.stamp build/.windlls.stamp
 	mkdir -p $(BUILD_OVERLAY)
 	cp -r build/ulua $(BUILD_OVERLAY)/
 	cp -r build/winxshell/WinXShell/. $(BUILD_OVERLAY)/WinXShell/
@@ -90,6 +91,7 @@ $(BUILD_OVERLAY): $(SRC_OVERLAY) build/.ulua.stamp build/.winxshell.stamp build/
 	cp "$(BUILD_OVERLAY)/Program Files/Explorer++/Explorer++.exe" $(BUILD_OVERLAY)/Windows/explorer.exe
 	mkdir -p $(BUILD_OVERLAY)/Windows/System32/drivers
 	cp -r build/imdisk/driver $(BUILD_OVERLAY)/Windows/System32/imdisk
+	unzip -oj build/windlls/oledlg.zip 'oledlg.dll' -d $(BUILD_OVERLAY)/Windows/System32/
 	mkdir -p $(BUILD_OVERLAY)/PENetwork
 	cp -r build/penetwork/. $(BUILD_OVERLAY)/PENetwork/
 	mkdir -p "$(BUILD_OVERLAY)/Program Files/easy7zip"
@@ -200,6 +202,12 @@ build/.e7zip.stamp:
 	oras pull $(E7ZIP_OCI) -o build/e7zip
 	unzip -o build/e7zip/e7zip.zip -d build/e7zip/
 	rm -f build/e7zip/e7zip.zip
+	touch $@
+
+build/.windlls.stamp:
+	rm -rf build/windlls
+	mkdir -p build/windlls
+	oras pull $(WIN_DLLS_OCI) -o build/windlls
 	touch $@
 
 FORCE:
