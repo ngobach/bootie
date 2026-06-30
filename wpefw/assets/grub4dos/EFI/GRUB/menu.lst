@@ -1,5 +1,5 @@
 timeout 1
-
+graphicsmode -1 1024 -1
 title Find and boot /winpe.wim
 find --devices=h --set-root /winpe.wim
 uuid ()

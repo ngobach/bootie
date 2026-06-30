@@ -21,7 +21,7 @@ APPS_IMG   := build/apps.img
 APPS_QCOW2 := build/apps.qcow2
 APPS_SIZE  := 64
 APPS      := $(patsubst $(APPS_SRC)/%/,%,$(wildcard $(APPS_SRC)/*/))
-APP_WIMS  := $(addprefix $(APPS_BUILD)/,$(addsuffix .wim,$(APPS)))
+APP_WIMS  := $(addprefix $(APPS_BUILD)/pkgs/,$(addsuffix .wim,$(APPS)))
 
 WIM_BINS     := wimappend wiminfo
 WIM_PATHS    := $(foreach bin,$(WIM_BINS),$(shell command -v $(bin) 2>/dev/null))
@@ -203,8 +203,8 @@ build/.e7zip.stamp:
 	touch $@
 
 FORCE:
-$(APPS_BUILD)/%.wim: FORCE
-	mkdir -p $(APPS_BUILD)
+$(APPS_BUILD)/pkgs/%.wim: FORCE
+	mkdir -p $(APPS_BUILD)/pkgs
 	$(MAKE) -C $(APPS_SRC)/$* REGISTRY=$(REGISTRY) WIM_OUT=$(abspath $@)
 
 .PHONY: apps
@@ -215,7 +215,7 @@ build/.apps.stamp: $(APPS_SRC) $(APP_WIMS)
 	mkdir -p $(APPS_BUILD)
 	cp $(APPS_SRC)/* $(APPS_BUILD)/ 2>/dev/null || true
 	rm -f $(APPS_BUILD)/Makefile 2>/dev/null || true
-	for w in $(APPS_BUILD)/*.wim; do \
+	for w in $(APPS_BUILD)/pkgs/*.wim; do \
 		[ -f "$$w" ] || continue; \
 		name=$$(basename "$$w" .wim); \
 		[ -d "$(APPS_SRC)/$$name" ] || rm -f "$$w"; \
@@ -246,7 +246,7 @@ apps-replug:
 	scripts/qmp.py '{"execute":"blockdev-add","arguments":{"node-name":"apps_node","driver":"qcow2","file":{"driver":"file","filename":"$(APPS_QCOW2)"}}}'
 	scripts/qmp.py '{"execute":"device_add","arguments":{"driver":"usb-storage","drive":"apps_node","id":"apps_usb","removable":true}}'
 
-VERIFY_WIMS := $(if $(APP),$(APPS_BUILD)/$(APP).wim,$(APP_WIMS))
+VERIFY_WIMS := $(if $(APP),$(APPS_BUILD)/pkgs/$(APP).wim,$(APP_WIMS))
 
 .PHONY: verify
 verify: $(VERIFY_WIMS)
