@@ -144,6 +144,8 @@ build/.ulua.stamp:
 	oras pull $(ULUA_OCI) -o build/ulua
 	unzip -o build/ulua/ulua.zip -d build/ulua/
 	rm -f build/ulua/ulua.zip
+	mv build/ulua/ulua/* build/ulua/ 2>/dev/null || true
+	rm -rf build/ulua/ulua 2>/dev/null || true
 	touch $@
 
 build/.winxshell.stamp:
