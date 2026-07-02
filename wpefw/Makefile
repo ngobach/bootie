@@ -268,6 +268,10 @@ verify: $(VERIFY_WIMS)
 		echo; \
 	done
 
+.PHONY: deploy-server
+deploy-server:
+	python3 scripts/deploy_server.py
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
