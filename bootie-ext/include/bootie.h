@@ -7,11 +7,13 @@
 #if defined(__i386__)
   #include <bios/grub4dos.h>
   /* Linker symbols defining the BSS segment boundaries.
-     In 32-bit BIOS mode, they are declared as standard extern variables. Their
-     addresses are retrieved using the address-of operator (&__BSS_START) in
-     bootie.h. */
-  extern int __BSS_END;
-  extern int __BSS_START;
+     Declared as hidden character arrays (same as the UEFI path below) so that
+     GCC compiles position-independent, PC-relative address calculations instead
+     of GOT dereferences. The module is loaded without processing dynamic/GOT
+     relocations, so a GOT-based access would yield the link-time address and the
+     BSS clear in main() would zero unrelated memory instead of the module's BSS. */
+  __attribute__((visibility("hidden"))) extern char __BSS_END[];
+  __attribute__((visibility("hidden"))) extern char __BSS_START[];
 #else
   #include <uefi/grub4dos.h>
   #include <uefi/uefi.h>
@@ -301,13 +303,8 @@ extern int gmain(int argc, char *argv[], int flags);
 
 int main(char *arg, int flags) {
   /* Zero BSS section */
-#if defined(__i386__)
-  char *bss = (char *)&__BSS_START;
-  char *bss_end = (char *)&__BSS_END;
-#else
   char *bss = __BSS_START;
   char *bss_end = __BSS_END;
-#endif
   {
     unsigned long len = (unsigned long)(bss_end - bss);
     unsigned char *p = bss;

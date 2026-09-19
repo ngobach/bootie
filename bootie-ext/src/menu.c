@@ -16,9 +16,15 @@ static int is_bios;
 
 #define PATH_MAX 260
 
-/* Shared buffers to avoid large stack allocations in bare-metal/firmware */
-static char boot_cmd[PATH_MAX + 256];
-static char boot_log[10240];
+/* Shared buffers to avoid large stack allocations in bare-metal/firmware.
+   They are allocated once from the heap in gmain(). They must NOT be file-scope
+   arrays: the loader does not reserve the module's .bss, so a large .bss (a few
+   KB or more) overlaps the region the first heap allocation is taken from —
+   which is the 1.92 MB screen sprite, clobbering the statics (font handle, etc.). */
+#define BOOT_CMD_SIZE (PATH_MAX + 256)
+#define BOOT_LOG_SIZE 10240
+static char *boot_cmd;
+static char *boot_log;
 #define LINE_H   48
 #define HEADER_H 72
 #define FOOTER_H BT_GUI_FOOTER_H
@@ -154,7 +160,7 @@ static void handle_disk_image(struct gfx *g,
     }
 
     boot_log[0] = '\0';
-    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, BOOT_LOG_SIZE, BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
         bt_gui_show_log(g, cw, ch,
                         "Boot failed", boot_log);
@@ -166,7 +172,7 @@ static void handle_chainload(struct gfx *g,
     sprintf(boot_cmd, "chainloader %s ;; boot", target);
 
     boot_log[0] = '\0';
-    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, BOOT_LOG_SIZE, BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
         bt_gui_show_log(g, cw, ch,
                         "Boot failed", boot_log);
@@ -177,7 +183,7 @@ static void handle_reboot(struct gfx *g,
     if (bt_gui_confirm(g, cw, ch,
                        "Restart system?", NULL)) {
         boot_log[0] = '\0';
-        int bt_ret = bt_eval_ex("reboot", boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+        int bt_ret = bt_eval_ex("reboot", boot_log, BOOT_LOG_SIZE, BT_EVAL_F_ERRMSG);
         bt_gui_show_log(g, cw, ch,
                         "Failed to reboot", boot_log);
     }
@@ -188,7 +194,7 @@ static void handle_poweroff(struct gfx *g,
     if (bt_gui_confirm(g, cw, ch,
                        "Shut down system?", NULL)) {
         boot_log[0] = '\0';
-        int bt_ret = bt_eval_ex("halt", boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+        int bt_ret = bt_eval_ex("halt", boot_log, BOOT_LOG_SIZE, BT_EVAL_F_ERRMSG);
         bt_gui_show_log(g, cw, ch,
                         "Failed to shut down", boot_log);
     }
@@ -204,7 +210,7 @@ static void handle_boot_wim(struct gfx *g,
             target, target);
 
     boot_log[0] = '\0';
-    int bt_ret = bt_eval_ex(boot_cmd, boot_log, sizeof(boot_log), BT_EVAL_F_ERRMSG);
+    int bt_ret = bt_eval_ex(boot_cmd, boot_log, BOOT_LOG_SIZE, BT_EVAL_F_ERRMSG);
     if (bt_ret != 0)
         bt_gui_show_log(g, cw, ch,
                         "Boot failed", boot_log);
@@ -438,6 +444,15 @@ int gmain(int argc, char *argv[], int flags) {
         gfx_close(&g);
         return 1;
     }
+    boot_cmd = zalloc(BOOT_CMD_SIZE);
+    boot_log = zalloc(BOOT_LOG_SIZE);
+    if (!boot_cmd || !boot_log) {
+        free(boot_cmd);
+        free(boot_log);
+        free(m);
+        gfx_close(&g);
+        return 1;
+    }
     memset(m, 0, sizeof(struct menu));
     m->view_rows = (ch - HEADER_H - FOOTER_H) / LINE_H;
     m->current_category = malloc(8);
@@ -575,6 +590,8 @@ done:
     free(m->current_category_display);
     bt_gui_icons_destroy(&m->icons);
     arrfree(m->items);
+    free(boot_cmd);
+    free(boot_log);
     free(m);
     gfx_close(&g);
     return 0;
