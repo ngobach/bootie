@@ -56,10 +56,9 @@ A collection of graphical external modules loaded by GRUB4DOS (BIOS) or GRUB4EFI
 
 | Module | Description |
 |--------|-------------|
-| **menu** | Category-based boot menu with splash, file browser, log modals |
+| **menu** | Category-based boot menu with splash, built-in file browser, log modals |
 | **splash** | Animated "Bootie!" splash screen, auto-launches menu |
 | **timer** | On-screen stopwatch |
-| **file_browser** | Graphical file picker for booting ISOs/IMGs/EFIs |
 | **tetris** | Classic tetris game |
 | **snake** | Classic snake game |
 | **breakout** | Breakout game |
