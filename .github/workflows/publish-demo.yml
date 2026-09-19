@@ -12,7 +12,10 @@ jobs:
   publish-demo:
     runs-on: ubuntu-latest
     env:
-      DISK_IMG_SIZE: 6M
+      # The "combined" layout reserves 1 MiB at each end of the image, so the
+      # FAT32 partition gets DISK_IMG_SIZE - 2M. The module payload needs ~4.2
+      # MiB, which no longer fit in a 6M image (4 MiB partition); 8M gives 6 MiB.
+      DISK_IMG_SIZE: 8M
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
