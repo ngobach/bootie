@@ -81,7 +81,7 @@ Output: `bootie-ext/mod/bios/` and `bootie-ext/mod/uefi/`.
 ## Structure
 
 ```
-├── bootie-go/        — Go CLI toolkit (commands, exfat/, resources/)
+├── bootie-go/        — Go CLI toolkit (commands, core/, resources/)
 ├── bootie-ext/       — Bare-metal C GRUB4DOS/GRUB4EFI externals
 │   ├── src/          — Module source files
 │   ├── include/      — Shared headers (bootie.h, bootie-gfx.h, …)

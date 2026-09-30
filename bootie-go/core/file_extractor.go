@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	log "github.com/charmbracelet/log"
-	"github.com/diskfs/go-diskfs/filesystem"
+	"github.com/ngobach/go-diskfs/filesystem"
 )
 
 func CopyToLocalFilesystem(root fs.FS, source, dest string) error {

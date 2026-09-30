@@ -5,15 +5,14 @@ import (
 	"runtime"
 	"strings"
 
-	diskfs "github.com/diskfs/go-diskfs"
-	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
-	diskfsDisk "github.com/diskfs/go-diskfs/disk"
-	"github.com/diskfs/go-diskfs/filesystem"
-	"github.com/diskfs/go-diskfs/partition/gpt"
+	diskfs "github.com/ngobach/go-diskfs"
+	diskfsFile "github.com/ngobach/go-diskfs/backend/file"
+	diskfsDisk "github.com/ngobach/go-diskfs/disk"
+	"github.com/ngobach/go-diskfs/filesystem"
+	"github.com/ngobach/go-diskfs/partition/gpt"
 	humanize "github.com/dustin/go-humanize"
 
 	log "github.com/charmbracelet/log"
-	"ngobach.com/bootie-go/exfat"
 	"ngobach.com/bootie-go/resources"
 )
 
@@ -63,6 +62,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 	case "combined":
 		partitions = []*gpt.Partition{
 			{
+				Index: 1,
 				Start: 1 * 1024 * 1024 / 512,
 				End:   uint64(disk.Size)/512 - 1*1024*1024/512,
 				Type:  gpt.MicrosoftBasicData,
@@ -72,12 +72,14 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 	case "separate":
 		partitions = []*gpt.Partition{
 			{
+				Index: 1,
 				Start: 1 * 1024 * 1024 / 512,
 				Size:  200 * 1024 * 1024,
 				Type:  gpt.EFISystemPartition,
 				Name:  "EFI",
 			},
 			{
+				Index: 2,
 				Start: 201 * 1024 * 1024 / 512,
 				End:   uint64(disk.Size)/512 - 1*1024*1024/512,
 				Type:  gpt.MicrosoftBasicData,
@@ -171,58 +173,35 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 
 		{
 			log.Infof("Creating Bootie partition (%s)", strings.ToUpper(fsType))
-			partitions := disk.Table.GetPartitions()
-			part := partitions[1]
-			start := part.GetStart()
-			size := part.GetSize()
 
+			var fsKind filesystem.Type
 			switch fsType {
 			case "exfat":
-				w, err := disk.Backend.Writable()
-				if err != nil {
-					return fmt.Errorf("failed to get writable backend: %w", err)
-				}
-				if err := exfat.CreateExfat(w, start, size, "Bootie"); err != nil {
-					return fmt.Errorf("failed to create Bootie exFAT: %w", err)
-				}
-
-				ef, err := exfat.NewExfatFromBackend(disk.Backend, start)
-				if err != nil {
-					return fmt.Errorf("failed to mount exFAT: %w", err)
-				}
-
-				if !noDataCopy {
-					if err := CopyToFilesystem(resources.DataFiles, "data-part", ef); err != nil {
-						ef.Close()
-						return fmt.Errorf("failed to copy data files: %w", err)
-					}
-				}
-
-				if err := ef.Close(); err != nil {
-					return fmt.Errorf("failed to close exFAT: %w", err)
-				}
+				fsKind = filesystem.TypeExFAT
 			default:
-				fsSpec := diskfsDisk.FilesystemSpec{
-					Partition:   2,
-					FSType:      filesystem.TypeFat32,
-					VolumeLabel: "Bootie",
-				}
+				fsKind = filesystem.TypeFat32
+			}
 
-				dataFs, err := disk.CreateFilesystem(fsSpec)
-				if err != nil {
-					return fmt.Errorf("failed to create Bootie partition: %w", err)
-				}
+			fsSpec := diskfsDisk.FilesystemSpec{
+				Partition:   2,
+				FSType:      fsKind,
+				VolumeLabel: "Bootie",
+			}
 
-				if !noDataCopy {
-					if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
-						dataFs.Close()
-						return fmt.Errorf("failed to copy data files: %w", err)
-					}
-				}
+			dataFs, err := disk.CreateFilesystem(fsSpec)
+			if err != nil {
+				return fmt.Errorf("failed to create Bootie partition: %w", err)
+			}
 
-				if err := dataFs.Close(); err != nil {
-					return fmt.Errorf("failed to close FAT32: %w", err)
+			if !noDataCopy {
+				if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
+					dataFs.Close()
+					return fmt.Errorf("failed to copy data files: %w", err)
 				}
+			}
+
+			if err := dataFs.Close(); err != nil {
+				return fmt.Errorf("failed to close %s: %w", strings.ToUpper(fsType), err)
 			}
 		}
 	}

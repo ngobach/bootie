@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"runtime"
 
-	diskfs "github.com/diskfs/go-diskfs"
-	diskfsFile "github.com/diskfs/go-diskfs/backend/file"
-	"github.com/diskfs/go-diskfs/partition/gpt"
+	diskfs "github.com/ngobach/go-diskfs"
+	diskfsFile "github.com/ngobach/go-diskfs/backend/file"
+	"github.com/ngobach/go-diskfs/partition/gpt"
 	"ngobach.com/bootie-go/resources"
 
 	log "github.com/charmbracelet/log"
