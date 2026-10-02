@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en" class="dark h-full bg-black text-zinc-100">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bootie</title>
+  <meta name="description" content="Bootie rescue disk toolkit running in-browser via v86 x86 WebAssembly emulation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7.5' fill='%23000000'/%3E%3Crect x='0.75' y='0.75' width='30.5' height='30.5' rx='6.75' fill='none' stroke='%2327272a' stroke-width='1.5'/%3E%3Cpath d='M9 7h6.5a4 4 0 0 1 4 4 4 4 0 0 1-4 4H9zm0 8h7a4.5 4.5 0 0 1 4.5 4.5 4.5 4.5 0 0 1-4.5 4.5H9z' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- v86 Engine -->
+  <script src="https://unpkg.com/v86@0.5.367/build/libv86.js"></script>
+
+  <style>
+    #screen_container canvas {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto !important;
+      height: auto !important;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+    #screen_container div {
+      color: #fafafa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: clamp(10px, 1.4vw, 14px);
+      line-height: 1.15;
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="h-screen h-[100dvh] flex flex-col bg-black text-zinc-200 antialiased overflow-hidden">
+
+  <!-- Edge-to-Edge Display Stage -->
+  <main class="flex-1 w-full min-h-0 relative flex items-center justify-center bg-black overflow-hidden">
+    
+    <!-- v86 Screen Host -->
+    <div id="screen_container" class="w-full h-full flex items-center justify-center bg-black cursor-pointer">
+      <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+      <canvas style="display: none"></canvas>
+    </div>
+
+    <!-- Minimal Loading Indicator -->
+    <div id="loading" class="absolute inset-0 bg-black flex flex-col items-center justify-center gap-3 transition-opacity duration-300 z-10">
+      <div class="text-[11px] font-mono tracking-widest text-zinc-500 uppercase">Bootie</div>
+      <div class="w-40 h-[2px] bg-zinc-900 rounded-full overflow-hidden">
+        <div id="progress_bar" class="h-full bg-white w-0 transition-all duration-150"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Clean Monochrome Footer -->
+  <footer class="border-t border-zinc-900 bg-black text-zinc-500 py-2.5 px-4 text-xs font-mono shrink-0 select-none">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-3 text-[11px]">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 rounded" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="7.5" fill="#000000"/>
+          <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.75" fill="none" stroke="#27272a" stroke-width="1.5"/>
+          <path d="M9 7h6.5a4 4 0 0 1 4 4 4 4 0 0 1-4 4H9zm0 8h7a4.5 4.5 0 0 1 4.5 4.5 4.5 4.5 0 0 1-4.5 4.5H9z" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="text-zinc-400 font-bold">BOOTIE</span>
+        <span class="text-zinc-600 hidden sm:inline">— Freestanding Bootloader & Rescue Disk</span>
+      </div>
+      <div class="flex items-center gap-4 text-[11px]">
+        <a href="https://github.com/ngobach/super-rescue-disk" target="_blank" rel="noopener" class="hover:text-zinc-300 transition">GitHub</a>
+        <a href="https://github.com/ngobach/super-rescue-disk/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-zinc-300 transition">MIT</a>
+        <a href="https://github.com/copy/v86" target="_blank" rel="noopener" class="hover:text-zinc-300 transition">v86</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    "use strict";
+
+    const loading = document.getElementById("loading");
+    const progressBar = document.getElementById("progress_bar");
+    const screenContainer = document.getElementById("screen_container");
+
+    const downloadStats = { loaded: {}, total: 0 };
+    const ESTIMATED_TOTAL = 8.5 * 1024 * 1024;
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const emulator = window.emulator = new V86({
+        wasm_path: "https://unpkg.com/v86@0.5.367/build/v86.wasm",
+        memory_size: 256 * 1024 * 1024,
+        screen_container: screenContainer,
+        bios: { url: "seabios.bin" },
+        vga_bios: { url: "vgabios.bin" },
+        hda: { url: "disk.img" },
+        autostart: true,
+        boot_order: 0x12,
+      });
+
+      emulator.add_listener("download-progress", (e) => {
+        if (e.file_name) downloadStats.loaded[e.file_name] = e.loaded;
+        if (e.total && e.total > downloadStats.total) downloadStats.total = e.total;
+
+        let sum = 0;
+        for (const k in downloadStats.loaded) sum += downloadStats.loaded[k];
+        const total = Math.max(downloadStats.total, ESTIMATED_TOTAL);
+        const pct = Math.min(99, Math.round((sum / total) * 100));
+        progressBar.style.width = pct + "%";
+      });
+
+      emulator.add_listener("emulator-ready", () => {
+        progressBar.style.width = "100%";
+        setTimeout(() => {
+          loading.classList.add("opacity-0", "pointer-events-none");
+          const canvas = document.querySelector("#screen_container canvas");
+          if (canvas) canvas.focus();
+        }, 200);
+      });
+
+      screenContainer.addEventListener("click", () => {
+        const canvas = document.querySelector("#screen_container canvas");
+        if (canvas) canvas.focus();
+      });
+    });
+  </script>
+</body>
+</html>
