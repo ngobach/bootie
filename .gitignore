@@ -5,7 +5,7 @@
 build/
 /bootie-go/resources/data-part/NvVars
 bootie-go/bootie
-bootie-go/bootie-gui
+bootie-go/gbootie
 /bootie-ext/include/bootie-fonts.h
 /bootie-ext/include/bootie-icons.h
 /bootie-ext/mod/

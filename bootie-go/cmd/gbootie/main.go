@@ -34,7 +34,7 @@ func openFolder(dir string) {
 
 func main() {
 	// 1. Initialise the App Window
-	App.WmTitle("Bootie")
+	App.WmTitle("gbootie")
 	App.SetResizable(false, false)
 
 	// Create main container frame
@@ -44,7 +44,7 @@ func main() {
 	// 2. Setup Timestamped Temp Log File
 	tempDir := os.TempDir()
 	timestamp := time.Now().Format("20060102-150405")
-	logFilename := filepath.Join(tempDir, fmt.Sprintf("bootie-%s.log", timestamp))
+	logFilename := filepath.Join(tempDir, fmt.Sprintf("gbootie-%s.log", timestamp))
 	logFile, err := os.Create(logFilename)
 	if err == nil {
 		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
