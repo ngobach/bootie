@@ -65,7 +65,7 @@ func newAppState() *appState {
 		optBootloaders:  true,
 		optModules:      true,
 		optWinPE:        true,
-		themeMode:       0, // Dark
+		themeMode:       1, // Light
 	}
 	a.scanDisks()
 	return a
@@ -87,7 +87,7 @@ func (a *appState) scanDisks() {
 					IsRemovable: true,
 				}
 				a.drives = append(a.drives, item)
-				a.diskOptions = append(a.diskOptions, fmt.Sprintf("%s (%s) %s", item.Identifier, item.SizeStr, item.Label))
+				a.diskOptions = append(a.diskOptions, item.Identifier)
 			}
 		}
 	}
@@ -99,7 +99,7 @@ func (a *appState) scanDisks() {
 			{Identifier: "/dev/disk6", Label: "Samsung Portable SSD T7", SizeStr: "500.0 GB", BusType: "External SSD", IsRemovable: false},
 		}
 		for _, d := range a.drives {
-			a.diskOptions = append(a.diskOptions, fmt.Sprintf("%s (%s) %s", d.Identifier, d.SizeStr, d.Label))
+			a.diskOptions = append(a.diskOptions, d.Identifier)
 		}
 	}
 
@@ -109,8 +109,8 @@ func (a *appState) scanDisks() {
 }
 
 func (a *appState) selectedDrive() *DriveItem {
-	for i, opt := range a.diskOptions {
-		if opt == a.selectedDiskStr && i < len(a.drives) {
+	for i := range a.drives {
+		if a.drives[i].Identifier == a.selectedDiskStr {
 			return &a.drives[i]
 		}
 	}
@@ -173,25 +173,13 @@ func (a *appState) view(c *ui.Context) {
 	}
 	t := c.Theme()
 
-	ui.Column(c).Fill().Padding(18, 20).Gap(11).Background(t.Background).Children(func() {
+	ui.Column(c).Fill().Padding(16, 18).Gap(10).Background(t.Background).Children(func() {
 		// -------------------------------------------------------------
-		// Header Bar: Title, Subtitle, and Theme Selector
-		// -------------------------------------------------------------
-		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "GBootie").FontSize(17).Bold().TextColor(t.Text)
-				ui.Text(c, "Rescue Disk Creator").FontSize(12).TextColor(t.TextMuted)
-			})
-			ui.Spacer(c)
-			ui.Segmented(c, &a.themeMode, "Dark", "Light")
-		})
-
-		// -------------------------------------------------------------
-		// Card 1: Target Device Selection
+		// Card 1: Select target
 		// -------------------------------------------------------------
 		ui.Column(c).Padding(10, 14).Gap(8).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
 			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "Target Device").FontSize(13).Bold()
+				ui.Text(c, "Select target").FontSize(13).Bold()
 				ui.Spacer(c)
 				ui.Segmented(c, &a.targetModeIndex, "USB Drive", "Disk Image")
 			})
@@ -233,56 +221,81 @@ func (a *appState) view(c *ui.Context) {
 		ui.Row(c).Gap(10).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(c).Grow(1).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
 				ui.Text(c, "Partition Scheme").FontSize(13).Bold()
-				ui.Segmented(c, &a.layoutIndex, "Dual (EFI + Data)", "Single (FAT32)")
+				ui.Segmented(c, &a.layoutIndex, "Dual", "Single").AlignSelf(ui.Start)
 			})
 
 			ui.Column(c).Grow(1).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
 				ui.Text(c, "File System").FontSize(13).Bold()
 				if a.layoutIndex == 1 {
 					fsChoice := 1
-					ui.Segmented(c, &fsChoice, "exFAT (Default)", "FAT32").Disabled(true)
+					ui.Segmented(c, &fsChoice, "exFAT", "FAT32").Disabled(true).AlignSelf(ui.Start)
 				} else {
-					ui.Segmented(c, &a.fsIndex, "exFAT (Default)", "FAT32")
+					ui.Segmented(c, &a.fsIndex, "exFAT", "FAT32").AlignSelf(ui.Start)
 				}
 			})
 		})
 
 		// -------------------------------------------------------------
-		// Card 3: Partition Map Preview (Slim 26px track)
+		// Card 3: Target Details & Layout Preview (Equal items a, b, c, d)
 		// -------------------------------------------------------------
-		ui.Column(c).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
-			targetTitle := "Virtual Image"
+		ui.Column(c).Padding(10, 14).Gap(8).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
+			var destVal, devNameVal, sizeVal string
 			if a.targetModeIndex == 0 {
-				if d := a.selectedDrive(); d != nil {
-					targetTitle = fmt.Sprintf("%s (%s)", d.Identifier, d.SizeStr)
+				d := a.selectedDrive()
+				destVal = a.selectedDiskStr
+				if d != nil {
+					destVal = d.Identifier
+					devNameVal = d.Label
+					sizeVal = d.SizeStr
+				} else {
+					devNameVal = "USB Storage Device"
+					sizeVal = "--"
 				}
 			} else {
-				targetTitle = fmt.Sprintf("Image (%s)", []string{"1 GB", "2 GB", "4 GB"}[a.imageSizeIdx])
+				destVal = a.imageFilePath
+				devNameVal = "Disk image"
+				sizeVal = []string{"1 GB", "2 GB", "4 GB"}[a.imageSizeIdx]
 			}
 
-			ui.Row(c).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "Layout Preview").FontSize(11).Bold().TextColor(t.TextMuted)
-				ui.Spacer(c)
-				ui.Text(c, targetTitle).FontSize(11).Bold().TextColor(t.Accent)
+			// a. Destination
+			ui.Column(c).Gap(2).Children(func() {
+				ui.Text(c, "Destination").FontSize(13).Bold().TextColor(t.Text)
+				ui.Text(c, destVal).FontSize(11).TextColor(t.TextMuted)
 			})
 
-			ui.Row(c).Height(26).Radius(5).Border(1, t.Border).Clip().AlignItems(ui.Stretch).Children(func() {
-				ui.Column(c).Width(48).FillHeight().Center().Background(ui.Hex("#334155")).Children(func() {
-					ui.Text(c, "MBR").FontSize(10).Bold().TextColor(ui.Hex("#94a3b8"))
+			// b. Device name
+			ui.Column(c).Gap(2).Children(func() {
+				ui.Text(c, "Device name").FontSize(13).Bold().TextColor(t.Text)
+				ui.Text(c, devNameVal).FontSize(11).TextColor(t.TextMuted)
+			})
+
+			// c. Size
+			ui.Column(c).Gap(2).Children(func() {
+				ui.Text(c, "Size").FontSize(13).Bold().TextColor(t.Text)
+				ui.Text(c, sizeVal).FontSize(11).TextColor(t.TextMuted)
+			})
+
+			// d. Layout Preview
+			ui.Column(c).Gap(5).Children(func() {
+				ui.Text(c, "Layout Preview").FontSize(13).Bold().TextColor(t.Text)
+				ui.Row(c).Height(26).Radius(5).Border(1, t.Border).Clip().AlignItems(ui.Stretch).Children(func() {
+					ui.Column(c).Width(48).FillHeight().Center().Background(ui.Hex("#334155")).Children(func() {
+						ui.Text(c, "MBR").FontSize(10).Bold().TextColor(ui.Hex("#94a3b8"))
+					})
+					if a.layoutIndex == 0 {
+						ui.Column(c).Width(150).FillHeight().Center().Background(ui.Hex("#0284c7")).Children(func() {
+							ui.Text(c, "EFI (FAT32) 100 MB").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+						})
+						dataFsName := []string{"exFAT", "FAT32"}[a.fsIndex]
+						ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#059669")).Children(func() {
+							ui.Text(c, fmt.Sprintf("Rescue Data (%s)", dataFsName)).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+						})
+					} else {
+						ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#0d9488")).Children(func() {
+							ui.Text(c, "Boot & Rescue Data (FAT32)").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+						})
+					}
 				})
-				if a.layoutIndex == 0 {
-					ui.Column(c).Width(150).FillHeight().Center().Background(ui.Hex("#0284c7")).Children(func() {
-						ui.Text(c, "EFI (FAT32) 100 MB").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
-					})
-					dataFsName := []string{"exFAT", "FAT32"}[a.fsIndex]
-					ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#059669")).Children(func() {
-						ui.Text(c, fmt.Sprintf("Rescue Data (%s)", dataFsName)).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
-					})
-				} else {
-					ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#0d9488")).Children(func() {
-						ui.Text(c, "Boot & Rescue Data (FAT32)").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
-					})
-				}
 			})
 		})
 
@@ -315,7 +328,7 @@ func (a *appState) view(c *ui.Context) {
 
 func main() {
 	pngPath := flag.String("png", "", "render one frame to PNG and exit")
-	darkFlag := flag.Bool("dark", true, "start in dark mode")
+	darkFlag := flag.Bool("dark", false, "start in dark mode")
 	modeFlag := flag.Int("mode", -1, "target mode: 0 for USB, 1 for Disk Image")
 	sizeFlag := flag.Int("size", -1, "image size index: 0 for 1GB, 1 for 2GB, 2 for 4GB")
 	layoutFlag := flag.Int("layout", -1, "partition layout index: 0 for Dual, 1 for Single")
@@ -337,8 +350,8 @@ func main() {
 		app.layoutIndex = *layoutFlag
 	}
 
-	// Ultra-compact window size: 600 x 380
-	winW, winH := 600, 380
+	// Ultra-compact window size: 600 x 432
+	winW, winH := 600, 432
 
 	if *pngPath != "" {
 		img := ui.Render(app.view, winW, winH, 2)
@@ -356,12 +369,13 @@ func main() {
 
 	mygo.App.WhenReady(func() {
 		app.win = mygo.NewWindow(mygo.WindowOptions{
-			Title:     "GBootie - Rescue Disk Creator",
-			Width:     winW,
-			Height:    winH,
-			MinWidth:  540,
-			MinHeight: 350,
-			Content:   ui.View(app.view),
+			Title:          "Bootie",
+			Width:          winW,
+			Height:         winH,
+			MinWidth:       540,
+			MinHeight:      winH,
+			UseContentSize: true,
+			Content:        ui.View(app.view),
 		})
 	})
 
