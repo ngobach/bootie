@@ -7,9 +7,11 @@ type DiskManager interface {
 }
 
 type DiskEntry struct {
-	Identifier string
-	Label      string
-	Size       int64
+	Identifier  string
+	Label       string
+	Size        int64
+	IsRemovable bool
+	IsInternal  bool
 }
 
 var DefaultDiskManager DiskManager

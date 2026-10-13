@@ -16,11 +16,42 @@ import (
 	"ngobach.com/bootie-go/resources"
 )
 
+type InitProgressFunc func(percent float64, message string)
+
+type InitOptions struct {
+	Target     string
+	Layout     string // "separate" or "combined"
+	FsType     string // "exfat" or "fat32"
+	NoDataCopy bool
+	OnProgress InitProgressFunc
+}
+
 func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
+	return InitializeDiskWithOptions(InitOptions{
+		Target:     target,
+		Layout:     layout,
+		FsType:     fsType,
+		NoDataCopy: noDataCopy,
+	})
+}
+
+func InitializeDiskWithOptions(opts InitOptions) error {
+	target := opts.Target
+	layout := opts.Layout
+	fsType := opts.FsType
+	noDataCopy := opts.NoDataCopy
+
+	reportProgress := func(pct float64, msg string) {
+		if opts.OnProgress != nil {
+			opts.OnProgress(pct, msg)
+		}
+	}
+
 	if layout != "combined" && layout != "separate" {
 		return fmt.Errorf("unsupported layout %q (must be combined or separate)", layout)
 	}
 
+	reportProgress(0.05, "Opening target disk...")
 	log.Infof("Host OS: %s", runtime.GOOS)
 	log.Infof("Target to be initialized: %s", target)
 	log.Infof("Layout: %s", layout)
@@ -88,6 +119,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 		}
 	}
 
+	reportProgress(0.15, "Writing GPT partition table...")
 	if err = disk.Partition(&gpt.Table{
 		LogicalSectorSize:  512,
 		PhysicalSectorSize: 512,
@@ -112,6 +144,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 		return fmt.Errorf("failed to write MBR CHS end: %w", err)
 	}
 
+	reportProgress(0.30, "Installing boot sectors & GRLDR loader...")
 	log.Info("Installing boot sectors...")
 	if err := InstallTo(target); err != nil {
 		return fmt.Errorf("failed to install boot sectors: %w", err)
@@ -119,6 +152,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 
 	switch layout {
 	case "combined":
+		reportProgress(0.50, "Creating Bootie partition (FAT32)...")
 		log.Info("Creating Bootie partition (FAT32)")
 		fsSpec := diskfsDisk.FilesystemSpec{
 			Partition:   1,
@@ -131,12 +165,14 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 			return fmt.Errorf("failed to create Bootie partition: %w", err)
 		}
 
+		reportProgress(0.65, "Deploying EFI bootloaders (BOOTX64.EFI, GRUB)...")
 		if err := CopyToFilesystem(resources.EfiFiles, "efi-part", fs); err != nil {
 			fs.Close()
 			return fmt.Errorf("failed to copy EFI files: %w", err)
 		}
 
 		if !noDataCopy {
+			reportProgress(0.80, "Extracting payload modules & rescue tools...")
 			if err := CopyToFilesystem(resources.DataFiles, "data-part", fs); err != nil {
 				fs.Close()
 				return fmt.Errorf("failed to copy data files: %w", err)
@@ -149,6 +185,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 
 	case "separate":
 		{
+			reportProgress(0.45, "Creating EFI partition (FAT32)...")
 			log.Info("Creating EFI partition")
 			fsSpec := diskfsDisk.FilesystemSpec{
 				Partition:   1,
@@ -161,6 +198,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 				return fmt.Errorf("failed to create EFI partition: %w", err)
 			}
 
+			reportProgress(0.60, "Deploying EFI bootloaders (BOOTX64.EFI, GRUB)...")
 			if err := CopyToFilesystem(resources.EfiFiles, "efi-part", efiFs); err != nil {
 				efiFs.Close()
 				return fmt.Errorf("failed to copy EFI files: %w", err)
@@ -172,6 +210,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 		}
 
 		{
+			reportProgress(0.75, fmt.Sprintf("Creating Bootie partition (%s)...", strings.ToUpper(fsType)))
 			log.Infof("Creating Bootie partition (%s)", strings.ToUpper(fsType))
 
 			var fsKind filesystem.Type
@@ -194,6 +233,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 			}
 
 			if !noDataCopy {
+				reportProgress(0.85, "Extracting payload modules & rescue tools...")
 				if err := CopyToFilesystem(resources.DataFiles, "data-part", dataFs); err != nil {
 					dataFs.Close()
 					return fmt.Errorf("failed to copy data files: %w", err)
@@ -206,6 +246,7 @@ func InitializeDisk(target, layout, fsType string, noDataCopy bool) error {
 		}
 	}
 
+	reportProgress(1.00, fmt.Sprintf("Successfully initialized %s! Ready to boot.", target))
 	log.Default().Logf(SuccessLevel, "Successfully initialized to %s", target)
 	return nil
 }

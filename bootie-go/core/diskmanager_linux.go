@@ -57,10 +57,15 @@ func (l *linuxDiskManager) ScanDisks() ([]DiskEntry, error) {
 				model = "Unknown"
 			}
 
+			removableStr := strings.TrimSpace(l.readFileAsString(fmt.Sprintf("%s/%s/removable", basePath, file.Name())))
+			isRemovable := removableStr == "1"
+
 			entry := DiskEntry{
-				Identifier: fmt.Sprintf("/dev/%s", file.Name()),
-				Label:      model,
-				Size:       size,
+				Identifier:  fmt.Sprintf("/dev/%s", file.Name()),
+				Label:       model,
+				Size:        size,
+				IsRemovable: isRemovable,
+				IsInternal:  !isRemovable,
 			}
 
 			result = append(result, entry)

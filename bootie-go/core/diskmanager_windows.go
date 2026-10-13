@@ -59,10 +59,14 @@ func (w *windowsDiskManager) ScanDisks() ([]DiskEntry, error) {
 		if !disk.MediaLoaded {
 			continue
 		}
+		isRemovable := strings.Contains(strings.ToUpper(disk.MediaType), "REMOVABLE") ||
+			strings.EqualFold(disk.InterfaceType, "USB")
 		result = append(result, DiskEntry{
-			Identifier: disk.DeviceID,
-			Label:      disk.Model,
-			Size:       int64(disk.Size),
+			Identifier:  disk.DeviceID,
+			Label:       disk.Model,
+			Size:        int64(disk.Size),
+			IsRemovable: isRemovable,
+			IsInternal:  !isRemovable,
 		})
 	}
 

@@ -25,22 +25,74 @@ type darwinOutput struct {
 	WholeDisks []string
 }
 
-func (m *macDiskManager) entryFromDisk(disk string) DiskEntry {
-	cmd := exec.Command("diskutil", "info", disk)
-	raw, _ := cmd.Output()
-	lines := string(raw)
-	entry := DiskEntry{}
-	entry.Identifier = "/dev/" + disk
+type diskutilInfoPlist struct {
+	DeviceIdentifier               string `plist:"DeviceIdentifier"`
+	MediaName                      string `plist:"MediaName"`
+	IORegistryEntryName            string `plist:"IORegistryEntryName"`
+	TotalSize                      int64  `plist:"TotalSize"`
+	Internal                       bool   `plist:"Internal"`
+	Removable                      bool   `plist:"Removable"`
+	RemovableMedia                 bool   `plist:"RemovableMedia"`
+	RemovableMediaOrExternalDevice bool   `plist:"RemovableMediaOrExternalDevice"`
+	Ejectable                      bool   `plist:"Ejectable"`
+	VirtualOrPhysical              string `plist:"VirtualOrPhysical"`
+}
 
+func (m *macDiskManager) entryFromDisk(disk string) (DiskEntry, bool) {
+	cmd := exec.Command("diskutil", "info", "-plist", disk)
+	raw, err := cmd.Output()
+	if err == nil {
+		info := diskutilInfoPlist{}
+		if _, err := plist.Unmarshal(raw, &info); err == nil {
+			// Skip virtual / synthesized containers (e.g. APFS synthesized disk1, disk2)
+			if info.VirtualOrPhysical == "Virtual" {
+				return DiskEntry{}, false
+			}
+			isRemovable := info.Removable || info.RemovableMedia || info.RemovableMediaOrExternalDevice || info.Ejectable || !info.Internal
+			label := info.MediaName
+			if label == "" {
+				label = info.IORegistryEntryName
+			}
+			if label == "" {
+				label = "Storage Device"
+			}
+			return DiskEntry{
+				Identifier:  "/dev/" + disk,
+				Label:       label,
+				Size:        info.TotalSize,
+				IsRemovable: isRemovable,
+				IsInternal:  info.Internal && !isRemovable,
+			}, true
+		}
+	}
+
+	// Fallback to text parsing
+	cmdText := exec.Command("diskutil", "info", disk)
+	rawText, _ := cmdText.Output()
+	lines := string(rawText)
+	entry := DiskEntry{Identifier: "/dev/" + disk}
 	for line := range strings.SplitSeq(lines, "\n") {
-		var k, v string
 		if strings.Contains(line, ":") {
-			k = strings.TrimSpace(line[:strings.Index(line, ":")])
-			v = strings.TrimSpace(line[strings.Index(line, ":")+1:])
+			k := strings.TrimSpace(line[:strings.Index(line, ":")])
+			v := strings.TrimSpace(line[strings.Index(line, ":")+1:])
 
 			switch k {
 			case "Device / Media Name":
 				entry.Label = v
+			case "VirtualOrPhysical":
+				if v == "Virtual" {
+					return DiskEntry{}, false
+				}
+			case "Device Location":
+				if v == "External" {
+					entry.IsRemovable = true
+				} else if v == "Internal" {
+					entry.IsInternal = true
+				}
+			case "Removable Media":
+				if v == "Removable" {
+					entry.IsRemovable = true
+				}
 			case "Disk Size":
 				pattern := regexp.MustCompile(`\((\d+) Bytes\)`)
 				matches := pattern.FindStringSubmatch(v)
@@ -51,7 +103,7 @@ func (m *macDiskManager) entryFromDisk(disk string) DiskEntry {
 		}
 	}
 
-	return entry
+	return entry, true
 }
 
 func (m *macDiskManager) ScanDisks() ([]DiskEntry, error) {
@@ -66,7 +118,9 @@ func (m *macDiskManager) ScanDisks() ([]DiskEntry, error) {
 	}
 
 	for _, disk := range output.WholeDisks {
-		result = append(result, m.entryFromDisk(disk))
+		if entry, ok := m.entryFromDisk(disk); ok {
+			result = append(result, entry)
+		}
 	}
 
 	return result, nil
