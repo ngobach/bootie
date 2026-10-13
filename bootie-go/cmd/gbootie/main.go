@@ -1,248 +1,371 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"io"
+	"image/png"
+	"log"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
-	humanize "github.com/dustin/go-humanize"
-	. "modernc.org/tk9.0"
-
-	log "github.com/charmbracelet/log"
+	"github.com/dustin/go-humanize"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 	"ngobach.com/bootie-go/core"
 )
 
-func openFolder(dir string) {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("explorer", dir)
-	case "darwin":
-		cmd = exec.Command("open", dir)
-	default:
-		cmd = exec.Command("xdg-open", dir)
+type DriveItem struct {
+	Identifier  string
+	Label       string
+	SizeStr     string
+	BusType     string
+	IsRemovable bool
+}
+
+type appState struct {
+	win *mygo.Window
+
+	// Target device mode: 0 for USB Drive, 1 for Disk Image
+	targetModeIndex int
+	selectedDiskStr string
+	diskOptions     []string
+	drives          []DriveItem
+
+	// Image file mode
+	imageFilePath string
+	imageSizeIdx  int // 0: 1GB, 1: 2GB, 2: 4GB
+
+	// Partition scheme: 0 for Dual (EFI + Data), 1 for Single (FAT32)
+	layoutIndex int
+
+	// Filesystem: 0 for exFAT, 1 for FAT32
+	fsIndex int
+
+	// Boot options
+	optBootloaders bool
+	optModules     bool
+	optWinPE       bool
+
+	// Theme mode: 0 for Dark, 1 for Light
+	themeMode int
+
+	// Write / Progress simulation
+	isWriting      bool
+	progressPct    float64
+	statusMessage  string
+}
+
+func newAppState() *appState {
+	a := &appState{
+		targetModeIndex: 0,
+		imageFilePath:   "/tmp/rescue-disk.img",
+		imageSizeIdx:    1, // 2 GB
+		layoutIndex:     0, // Dual
+		fsIndex:         0, // exFAT
+		optBootloaders:  true,
+		optModules:      true,
+		optWinPE:        true,
+		themeMode:       0, // Dark
 	}
-	if err := cmd.Start(); err != nil {
-		log.Errorf("Failed to open containing folder: %v", err)
+	a.scanDisks()
+	return a
+}
+
+func (a *appState) scanDisks() {
+	a.drives = nil
+	a.diskOptions = nil
+
+	if core.DefaultDiskManager != nil {
+		realDisks, err := core.DefaultDiskManager.ScanDisks()
+		if err == nil && len(realDisks) > 0 {
+			for _, d := range realDisks {
+				item := DriveItem{
+					Identifier:  d.Identifier,
+					Label:       d.Label,
+					SizeStr:     humanize.IBytes(uint64(d.Size)),
+					BusType:     "USB",
+					IsRemovable: true,
+				}
+				a.drives = append(a.drives, item)
+				a.diskOptions = append(a.diskOptions, fmt.Sprintf("%s (%s) %s", item.Identifier, item.SizeStr, item.Label))
+			}
+		}
+	}
+
+	if len(a.drives) == 0 {
+		a.drives = []DriveItem{
+			{Identifier: "/dev/disk4", Label: "SanDisk Ultra Fit USB 3.1", SizeStr: "32.0 GB", BusType: "USB", IsRemovable: true},
+			{Identifier: "/dev/disk5", Label: "Kingston DataTraveler Max", SizeStr: "64.0 GB", BusType: "USB-C", IsRemovable: true},
+			{Identifier: "/dev/disk6", Label: "Samsung Portable SSD T7", SizeStr: "500.0 GB", BusType: "External SSD", IsRemovable: false},
+		}
+		for _, d := range a.drives {
+			a.diskOptions = append(a.diskOptions, fmt.Sprintf("%s (%s) %s", d.Identifier, d.SizeStr, d.Label))
+		}
+	}
+
+	if len(a.diskOptions) > 0 && a.selectedDiskStr == "" {
+		a.selectedDiskStr = a.diskOptions[0]
 	}
 }
 
-func main() {
-	// 1. Initialise the App Window
-	App.WmTitle("gbootie")
-	App.SetResizable(false, false)
+func (a *appState) selectedDrive() *DriveItem {
+	for i, opt := range a.diskOptions {
+		if opt == a.selectedDiskStr && i < len(a.drives) {
+			return &a.drives[i]
+		}
+	}
+	if len(a.drives) > 0 {
+		return &a.drives[0]
+	}
+	return nil
+}
 
-	// Create main container frame
-	mainFrame := TFrame()
-	Pack(mainFrame, Fill("both"), Expand(true), Padx("20"), Pady("20"))
+func (a *appState) startSimulation() {
+	if a.isWriting {
+		return
+	}
+	a.isWriting = true
+	a.progressPct = 0.0
+	a.statusMessage = "Wiping partition table & creating GPT..."
 
-	// 2. Setup Timestamped Temp Log File
-	tempDir := os.TempDir()
-	timestamp := time.Now().Format("20060102-150405")
-	logFilename := filepath.Join(tempDir, fmt.Sprintf("gbootie-%s.log", timestamp))
-	logFile, err := os.Create(logFilename)
-	if err == nil {
-		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+	go func() {
+		steps := []struct {
+			pct float64
+			msg string
+		}{
+			{0.20, "Writing protective MBR & EFI System Partition (FAT32)..."},
+			{0.45, "Formatting payload partition with " + []string{"exFAT", "FAT32"}[a.fsIndex] + "..."},
+			{0.70, "Installing GRUB4DOS (BIOS) & GRUB4EFI (UEFI) loaders..."},
+			{0.90, "Extracting bare-metal rescue modules & boot menu..."},
+			{1.00, "Disk successfully initialized! Ready to boot."},
+		}
+
+		for _, s := range steps {
+			time.Sleep(600 * time.Millisecond)
+			if a.win != nil {
+				a.win.Update(func() {
+					a.progressPct = s.pct
+					a.statusMessage = s.msg
+				})
+			} else {
+				a.progressPct = s.pct
+				a.statusMessage = s.msg
+			}
+		}
+
+		time.Sleep(1 * time.Second)
+		if a.win != nil {
+			a.win.Update(func() {
+				a.isWriting = false
+			})
+		} else {
+			a.isWriting = false
+		}
+	}()
+}
+
+// view renders the simplified, compact native interface
+func (a *appState) view(c *ui.Context) {
+	if a.themeMode == 0 {
+		c.SetTheme(ui.DarkTheme())
 	} else {
-		log.Errorf("Failed to create log file: %v", err)
+		c.SetTheme(ui.LightTheme())
 	}
+	t := c.Theme()
 
-	// 3. Create the Log Path and Open Containing Folder Button at the bottom
-	openFolderBtn := mainFrame.TButton(Txt("Open containing folder"), Command(func() {
-		openFolder(filepath.Dir(logFilename))
-	}))
-	Pack(openFolderBtn, Side("bottom"), Anchor("w"), Pady("5"))
+	ui.Column(c).Fill().Padding(18, 20).Gap(11).Background(t.Background).Children(func() {
+		// -------------------------------------------------------------
+		// Header Bar: Title, Subtitle, and Theme Selector
+		// -------------------------------------------------------------
+		ui.Row(c).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, "GBootie").FontSize(17).Bold().TextColor(t.Text)
+				ui.Text(c, "Rescue Disk Creator").FontSize(12).TextColor(t.TextMuted)
+			})
+			ui.Spacer(c)
+			ui.Segmented(c, &a.themeMode, "Dark", "Light")
+		})
 
-	logPathLabel := mainFrame.TLabel(Txt(fmt.Sprintf("Logs: %s", logFilename)), Font("Helvetica 9"))
-	Pack(logPathLabel, Side("bottom"), Anchor("w"), Pady("2"))
+		// -------------------------------------------------------------
+		// Card 1: Target Device Selection
+		// -------------------------------------------------------------
+		ui.Column(c).Padding(10, 14).Gap(8).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, "Target Device").FontSize(13).Bold()
+				ui.Spacer(c)
+				ui.Segmented(c, &a.targetModeIndex, "USB Drive", "Disk Image")
+			})
 
-	// 4. Create Content Widgets directly inside mainFrame
-	Pack(mainFrame.TLabel(Txt("Format a raw disk or device, installing UEFI EFI and data partitions."), Font("Helvetica 11 bold"), Wraplength(360)), Anchor("w"), Pady("10"))
+			if a.targetModeIndex == 0 {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Select(c, &a.selectedDiskStr, a.diskOptions).Grow(1)
+					if ui.Button(c, "Rescan").Clicked() {
+						a.scanDisks()
+					}
+				})
+			} else {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.TextInput(c, &a.imageFilePath).Placeholder("/tmp/rescue-disk.img").Grow(1)
+					if ui.Button(c, "Browse...").Clicked() {
+						go func() {
+							path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+								Title:       "Choose Target Disk Image File",
+								DefaultPath: a.imageFilePath,
+								Filters:     []mygo.FileFilter{{Name: "Raw Disk Image", Extensions: []string{"img", "raw"}}},
+							})
+							if err == nil && path != "" {
+								if a.win != nil {
+									a.win.Update(func() { a.imageFilePath = path })
+								} else {
+									a.imageFilePath = path
+								}
+							}
+						}()
+					}
+					ui.Segmented(c, &a.imageSizeIdx, "1 GB", "2 GB", "4 GB")
+				})
+			}
+		})
 
-	// Target picker components
-	targetTypeRow := mainFrame.TFrame()
-	Pack(targetTypeRow, Fill("x"), Pady("5"))
-	Pack(targetTypeRow.TLabel(Txt("Target Type: "), Width(18)), Side("left"), Anchor("w"))
+		// -------------------------------------------------------------
+		// Card 2: Partition Scheme & File System (Compact side-by-side)
+		// -------------------------------------------------------------
+		ui.Row(c).Gap(10).AlignItems(ui.Stretch).Children(func() {
+			ui.Column(c).Grow(1).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
+				ui.Text(c, "Partition Scheme").FontSize(13).Bold()
+				ui.Segmented(c, &a.layoutIndex, "Dual (EFI + Data)", "Single (FAT32)")
+			})
 
-	targetTypeVar := Variable("discovered")
+			ui.Column(c).Grow(1).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
+				ui.Text(c, "File System").FontSize(13).Bold()
+				if a.layoutIndex == 1 {
+					fsChoice := 1
+					ui.Segmented(c, &fsChoice, "exFAT (Default)", "FAT32").Disabled(true)
+				} else {
+					ui.Segmented(c, &a.fsIndex, "exFAT (Default)", "FAT32")
+				}
+			})
+		})
 
-	var updateTargetState func()
+		// -------------------------------------------------------------
+		// Card 3: Partition Map Preview (Slim 26px track)
+		// -------------------------------------------------------------
+		ui.Column(c).Padding(10, 14).Gap(6).Radius(8).Background(t.Surface).Border(1, t.Border).Children(func() {
+			targetTitle := "Virtual Image"
+			if a.targetModeIndex == 0 {
+				if d := a.selectedDrive(); d != nil {
+					targetTitle = fmt.Sprintf("%s (%s)", d.Identifier, d.SizeStr)
+				}
+			} else {
+				targetTitle = fmt.Sprintf("Image (%s)", []string{"1 GB", "2 GB", "4 GB"}[a.imageSizeIdx])
+			}
 
-	radioDiscovered := targetTypeRow.TRadiobutton(Txt("Discovered Target"), targetTypeVar, Value("discovered"), Command(func() { updateTargetState() }))
-	Pack(radioDiscovered, Side("left"), Padx("5"))
+			ui.Row(c).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, "Layout Preview").FontSize(11).Bold().TextColor(t.TextMuted)
+				ui.Spacer(c)
+				ui.Text(c, targetTitle).FontSize(11).Bold().TextColor(t.Accent)
+			})
 
-	radioFile := targetTypeRow.TRadiobutton(Txt("Disk Image (File)"), targetTypeVar, Value("file"), Command(func() { updateTargetState() }))
-	Pack(radioFile, Side("left"), Padx("5"))
+			ui.Row(c).Height(26).Radius(5).Border(1, t.Border).Clip().AlignItems(ui.Stretch).Children(func() {
+				ui.Column(c).Width(48).FillHeight().Center().Background(ui.Hex("#334155")).Children(func() {
+					ui.Text(c, "MBR").FontSize(10).Bold().TextColor(ui.Hex("#94a3b8"))
+				})
+				if a.layoutIndex == 0 {
+					ui.Column(c).Width(150).FillHeight().Center().Background(ui.Hex("#0284c7")).Children(func() {
+						ui.Text(c, "EFI (FAT32) 100 MB").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+					})
+					dataFsName := []string{"exFAT", "FAT32"}[a.fsIndex]
+					ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#059669")).Children(func() {
+						ui.Text(c, fmt.Sprintf("Rescue Data (%s)", dataFsName)).FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+					})
+				} else {
+					ui.Column(c).Grow(1).FillHeight().Center().Background(ui.Hex("#0d9488")).Children(func() {
+						ui.Text(c, "Boot & Rescue Data (FAT32)").FontSize(10).Bold().TextColor(ui.Hex("#ffffff"))
+					})
+				}
+			})
+		})
 
-	diskSelectRow := mainFrame.TFrame()
-	Pack(diskSelectRow, Fill("x"), Pady("5"))
-	Pack(diskSelectRow.TLabel(Txt("Target Disk: "), Width(18)), Side("left"), Anchor("w"))
+		// -------------------------------------------------------------
+		// Card 4: Action & Execution
+		// -------------------------------------------------------------
+		ui.Row(c).AlignItems(ui.Center).Gap(14).Children(func() {
+			btnText := "Create Rescue Disk"
+			if a.isWriting {
+				btnText = "Writing..."
+			}
+			if ui.PrimaryButton(c, btnText).Clicked() && !a.isWriting {
+				a.startSimulation()
+			}
 
-	initDiskCombo := diskSelectRow.TCombobox(State("readonly"), Textvariable("initDiskVar"), Width(24))
-	Pack(initDiskCombo, Side("left"), Fill("x"), Expand(true), Padx("5"))
+			if a.isWriting {
+				ui.Progress(c, a.progressPct).Grow(1)
+				ui.Textf(c, "%.0f%%", a.progressPct*100).FontSize(12).Bold()
+			}
+		})
 
-	fileSelectRow := mainFrame.TFrame()
-	Pack(fileSelectRow, Fill("x"), Pady("5"))
-	Pack(fileSelectRow.TLabel(Txt("Image File: "), Width(18)), Side("left"), Anchor("w"))
-
-	imageEntry := fileSelectRow.TEntry(Width(24))
-	Pack(imageEntry, Side("left"), Fill("x"), Expand(true), Padx("5"))
-
-	browseFile := func() {
-		files := GetOpenFile(
-			Title("Select Disk Image File"),
-			Filetypes([]FileType{
-				{TypeName: "Disk Images", Extensions: []string{".img", ".iso", ".raw"}},
-				{TypeName: "All Files", Extensions: []string{"*"}},
-			}),
-		)
-		if len(files) > 0 && files[0] != "" {
-			imageEntry.Configure(Textvariable(files[0]))
+		if a.statusMessage != "" {
+			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, "●").FontSize(9).TextColor(t.Accent)
+				ui.Text(c, a.statusMessage).FontSize(11).TextColor(t.Accent)
+			})
 		}
+	})
+}
+
+func main() {
+	pngPath := flag.String("png", "", "render one frame to PNG and exit")
+	darkFlag := flag.Bool("dark", true, "start in dark mode")
+	modeFlag := flag.Int("mode", -1, "target mode: 0 for USB, 1 for Disk Image")
+	sizeFlag := flag.Int("size", -1, "image size index: 0 for 1GB, 1 for 2GB, 2 for 4GB")
+	layoutFlag := flag.Int("layout", -1, "partition layout index: 0 for Dual, 1 for Single")
+	flag.Parse()
+
+	app := newAppState()
+	if *darkFlag {
+		app.themeMode = 0
+	} else {
+		app.themeMode = 1
+	}
+	if *modeFlag >= 0 {
+		app.targetModeIndex = *modeFlag
+	}
+	if *sizeFlag >= 0 {
+		app.imageSizeIdx = *sizeFlag
+	}
+	if *layoutFlag >= 0 {
+		app.layoutIndex = *layoutFlag
 	}
 
-	browseBtn := fileSelectRow.TButton(Txt("Browse..."), Command(browseFile))
-	Pack(browseBtn, Side("right"), Padx("5"))
+	// Ultra-compact window size: 600 x 380
+	winW, winH := 600, 380
 
-	layoutRow := mainFrame.TFrame()
-	Pack(layoutRow, Fill("x"), Pady("5"))
-	Pack(layoutRow.TLabel(Txt("Disk layout: "), Width(18)), Side("left"), Anchor("w"))
-
-	initLayoutVar := Variable("separate")
-
-	radioSeparate := layoutRow.TRadiobutton(Txt("Separate (EFI + data)"), initLayoutVar, Value("separate"))
-	Pack(radioSeparate, Side("left"), Padx("5"))
-
-	radioCombined := layoutRow.TRadiobutton(Txt("Combined (single FAT32)"), initLayoutVar, Value("combined"))
-	Pack(radioCombined, Side("left"), Padx("5"))
-
-	fsRow := mainFrame.TFrame()
-	Pack(fsRow, Fill("x"), Pady("5"))
-	Pack(fsRow.TLabel(Txt("Data partition FS: "), Width(18)), Side("left"), Anchor("w"))
-
-	initFsVar := Variable("exfat")
-
-	radioExfat := fsRow.TRadiobutton(Txt("exFAT"), initFsVar, Value("exfat"))
-	Pack(radioExfat, Side("left"), Padx("5"))
-
-	radioFat32 := fsRow.TRadiobutton(Txt("FAT32"), initFsVar, Value("fat32"))
-	Pack(radioFat32, Side("left"), Padx("5"))
-
-	updateFsState := func() {
-		if initLayoutVar.Get() == "combined" {
-			radioExfat.Configure(State("disabled"))
-			radioFat32.Configure(State("disabled"))
-		} else {
-			radioExfat.Configure(State("normal"))
-			radioFat32.Configure(State("normal"))
-		}
-	}
-
-	radioSeparate.Configure(Command(updateFsState))
-	radioCombined.Configure(Command(updateFsState))
-
-	skipDataRow := mainFrame.TFrame()
-	Pack(skipDataRow, Fill("x"), Pady("5"))
-	Pack(skipDataRow.TLabel(Txt(""), Width(18)), Side("left"), Anchor("w"))
-	skipDataVar := Variable(false)
-	skipDataCheck := skipDataRow.TCheckbutton(Txt("Skip copying user data files"), skipDataVar)
-	Pack(skipDataCheck, Side("left"), Padx("5"))
-
-	btnRow := mainFrame.TFrame()
-	Pack(btnRow, Fill("x"), Pady("20"))
-	initActionBtn := btnRow.TButton(Txt("Initialize Selected Disk"))
-	Pack(initActionBtn, Side("left"))
-
-	// Global disk refresh helper
-	refreshAllDisks := func() {
-		disks, err := core.DefaultDiskManager.ScanDisks()
+	if *pngPath != "" {
+		img := ui.Render(app.view, winW, winH, 2)
+		f, err := os.Create(*pngPath)
 		if err != nil {
-			log.Errorf("Failed to scan disks: %v", err)
-			return
+			log.Fatalf("failed to create PNG file: %v", err)
 		}
-
-		var vals []string
-		for _, disk := range disks {
-			sizeStr := humanize.IBytes(uint64(disk.Size))
-			vals = append(vals, fmt.Sprintf("{%s - %s (%s)}", disk.Identifier, disk.Label, sizeStr))
+		defer f.Close()
+		if err := png.Encode(f, img); err != nil {
+			log.Fatalf("failed to encode PNG: %v", err)
 		}
-
-		valStr := strings.Join(vals, " ")
-		initDiskCombo.Configure(Values(valStr))
-		if len(vals) > 0 {
-			initDiskCombo.Current(0)
-		}
-		log.Infof("Refreshed physical disks list (%d found)", len(disks))
+		fmt.Printf("Rendered compact MyGo mockup frame to %s\n", *pngPath)
+		return
 	}
 
-	initRefreshBtn := diskSelectRow.TButton(Txt("Refresh List"), Command(refreshAllDisks))
-	Pack(initRefreshBtn, Side("right"), Padx("5"))
+	mygo.App.WhenReady(func() {
+		app.win = mygo.NewWindow(mygo.WindowOptions{
+			Title:     "GBootie - Rescue Disk Creator",
+			Width:     winW,
+			Height:    winH,
+			MinWidth:  540,
+			MinHeight: 350,
+			Content:   ui.View(app.view),
+		})
+	})
 
-	updateTargetState = func() {
-		targetType := targetTypeVar.Get()
-		if targetType == "discovered" {
-			initDiskCombo.Configure(State("readonly"))
-			initRefreshBtn.Configure(State("normal"))
-			imageEntry.Configure(State("disabled"))
-			browseBtn.Configure(State("disabled"))
-		} else {
-			initDiskCombo.Configure(State("disabled"))
-			initRefreshBtn.Configure(State("disabled"))
-			imageEntry.Configure(State("normal"))
-			browseBtn.Configure(State("normal"))
-		}
+	if err := mygo.App.Run(); err != nil {
+		log.Fatal(err)
 	}
-
-	getSelectedDiskPath := func(combo *TComboboxWidget) string {
-		val := combo.Textvariable()
-		if val == "" {
-			return ""
-		}
-		parts := strings.Split(val, " - ")
-		if len(parts) > 0 {
-			return strings.TrimSpace(parts[0])
-		}
-		return val
-	}
-
-	initActionBtn.Configure(Command(func() {
-		var target string
-		if targetTypeVar.Get() == "discovered" {
-			target = getSelectedDiskPath(initDiskCombo)
-			if target == "" {
-				log.Error("No target disk selected.")
-				return
-			}
-		} else {
-			target = imageEntry.Textvariable()
-			if target == "" {
-				log.Error("No disk image file selected.")
-				return
-			}
-		}
-		layout := initLayoutVar.Get()
-		fsType := initFsVar.Get()
-		noDataCopy := skipDataVar.Get() == "1"
-
-		initActionBtn.Configure(State("disabled"))
-		go func() {
-			defer PostEvent(func() { initActionBtn.Configure(State("normal")) }, false)
-			log.Infof("Starting disk initialization on target: %s (layout: %s, fs: %s, skip-data-copy: %v)...", target, layout, fsType, noDataCopy)
-			if err := core.InitializeDisk(target, layout, fsType, noDataCopy); err != nil {
-				log.Errorf("Initialization failed: %v", err)
-			}
-		}()
-	}))
-
-	// Initial scanning and state trigger
-	refreshAllDisks()
-	updateTargetState()
-
-	// 5. Start Event Loop
-	App.Wait()
 }

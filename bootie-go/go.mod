@@ -1,15 +1,16 @@
 module ngobach.com/bootie-go
 
-go 1.25.0
+go 1.27.1
 
 require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v1.0.0
 	github.com/drtimf/wmi v1.0.0
 	github.com/dustin/go-humanize v1.0.1
+	github.com/egoist/mygo v0.4.8
 	github.com/ngobach/go-diskfs v0.0.0-20260930142909-bcfb49cf8339
 	github.com/urfave/cli/v3 v3.4.1
-	golang.org/x/sys v0.43.0
+	golang.org/x/sys v0.48.0
 	howett.net/plist v1.0.1
 	modernc.org/tk9.0 v1.75.3
 )
@@ -24,10 +25,11 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
-	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/elliotwutingfeng/asciiset v0.0.0-20260129054604-cfde2086bc57 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-ole/go-ole v1.2.5 // indirect
+	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
@@ -44,7 +46,7 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
-	golang.org/x/image v0.36.0 // indirect
+	golang.org/x/image v0.46.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	modernc.org/fileutil v1.4.0 // indirect
 	modernc.org/fsm v1.3.2 // indirect

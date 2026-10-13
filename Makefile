@@ -74,5 +74,9 @@ $(GUI_WINDOWS): build
 # Aggregate target — build all platform executables for both CLI and GUI
 all: $(CLI_DARWIN) $(GUI_DARWIN) $(CLI_LINUX) $(GUI_LINUX) $(CLI_WINDOWS) $(GUI_WINDOWS)
 
+# Run the native MyGo GUI
+mockup:
+	cd $(BOOTIE_GO_DIR) && go run ./cmd/gbootie
+
 # Declare phony targets to avoid conflicts with same-named files
-.PHONY: default clean build all mod
+.PHONY: default clean build all mod mockup
