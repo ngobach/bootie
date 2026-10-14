@@ -12,10 +12,34 @@
 
 A portable USB/CD boot/rescue disk image builder (GPT + EFI + data partition) with a suite of bare-metal external programs for GRUB4DOS/GRUB4EFI.
 
+<p align="center">
+  <img src="assets/gbootie.png" alt="Bootie GUI (gbootie)" width="600">
+</p>
+
 Two sub-projects:
 
-- **`bootie-go/`** — Go CLI that partitions, formats, installs boot sectors, and writes data. Cross‑platform (Go 1.24+, macOS/Linux/Windows).
+- **`bootie-go/`** — Go desktop GUI (`gbootie`) and CLI (`bootie`) that partitions, formats, installs boot sectors, and writes data. Cross‑platform (Go 1.24+, macOS/Linux/Windows).
 - **`bootie-ext/`** — Bare-metal C graphics programs (menu, file browser, games, benchmark) compiled as GRUB4DOS/GRUB4EFI external modules. Freestanding `x86_64-elf-gcc`.
+
+---
+
+## gbootie — Desktop GUI
+
+`gbootie` is a fast, lightweight native desktop utility built with [MyGo](https://github.com/egoist/mygo) for creating rescue disks with a few clicks:
+
+- **Target Device Selection**: Choose between plugged-in USB storage drives or virtual disk image files (`.img`). Internal drives are safely hidden to prevent accidental data loss.
+- **Partition Scheme & Filesystem**: Toggle between Dual partition scheme (EFI FAT32 + Data partition) and Single partition scheme (combined FAT32), with choice of `exFAT` or `FAT32` for rescue data.
+- **Live Partition Layout Preview**: Visual representation of the GPT/MBR partition map.
+- **Safe & Destructive Confirmation**: Native modal confirmation before formatting physical USB drives.
+- **Real-Time Progress**: Live progress percentage and status tracking during partition writing, boot sector deployment, filesystem formatting, and module extraction.
+
+```bash
+# Launch the GUI directly
+cd bootie-go && go run ./cmd/gbootie
+
+# Or via top-level Makefile
+make mockup
+```
 
 ---
 
@@ -81,7 +105,7 @@ Output: `bootie-ext/mod/bios/` and `bootie-ext/mod/uefi/`.
 ## Structure
 
 ```
-├── bootie-go/        — Go CLI toolkit (commands, core/, resources/)
+├── bootie-go/        — Go CLI (`bootie`) and native GUI (`gbootie`) toolkit
 ├── bootie-ext/       — Bare-metal C GRUB4DOS/GRUB4EFI externals
 │   ├── src/          — Module source files
 │   ├── include/      — Shared headers (bootie.h, bootie-gfx.h, …)
